@@ -19,14 +19,35 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Zig
-        uses: mlugg/setup-zig@v2
+        uses: mlugg/setup-zig@v1
         with:
-          version: 0.15.2
+          version: master
 
       - name: Build
         run: zig build -Doptimize=ReleaseSafe
 
-      # 简单的功能验证测试
       - name: Test Zig Binary
         run: |
-          ./zig-out/bin/znvm-core resolve 18
+          # Create mock index.json
+          cat <<EOF > index.json
+          [
+            {"version": "v20.11.0", "date": "2024-01-09", "files": ["osx-arm64-tar", "osx-x64-tar", "linux-x64"], "lts": "Iron", "security": false},
+            {"version": "v18.19.0", "date": "2023-11-29", "files": ["osx-arm64-tar", "osx-x64-tar", "linux-x64"], "lts": "Hydrogen", "security": false}
+          ]
+          EOF
+
+          echo "Testing resolve 18..."
+          OUTPUT_18=$(cat index.json | ./zig-out/bin/znvm-core resolve 18)
+          echo "Output: $OUTPUT_18"
+          if [[ "$OUTPUT_18" != "v18.19.0"* ]]; then
+            echo "Expected v18.19.0*, got $OUTPUT_18"
+            exit 1
+          fi
+
+          echo "Testing resolve 20..."
+          OUTPUT_20=$(cat index.json | ./zig-out/bin/znvm-core resolve 20)
+          echo "Output: $OUTPUT_20"
+          if [[ "$OUTPUT_20" != "v20.11.0"* ]]; then
+             echo "Expected v20.11.0*, got $OUTPUT_20"
+             exit 1
+          fi
