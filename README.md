@@ -28,6 +28,7 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 ### 自动安装 (推荐) / Automatic Installation (Recommended)
 
 ```bash
+# 支持通过参数传递版本号: curl ... | bash -s -- v0.1.0
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 ```
 
