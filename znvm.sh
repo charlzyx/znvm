@@ -150,7 +150,42 @@ function znvm() {
     if [[ "$cmd" == "ls" ]]; then
         echo "已安装的版本: / Installed versions:"
         if [[ -d "$ZNVM_VERSIONS_DIR" ]]; then
-             ls -1 "$ZNVM_VERSIONS_DIR" | grep "v" || echo "(无 / None)"
+            local installed_versions=$(ls -1 "$ZNVM_VERSIONS_DIR" | grep "v" | sort -V)
+            if [[ -z "$installed_versions" ]]; then
+                echo "(无 / None)"
+                return 0
+            fi
+            
+            # 获取当前正在使用的版本
+            local current_version=""
+            if command -v node &> /dev/null; then
+                local node_path=$(which node)
+                if [[ "$node_path" == "$ZNVM_VERSIONS_DIR"* ]]; then
+                    current_version=$(basename "$(dirname "$node_path")")
+                fi
+            fi
+            
+            # 获取默认版本
+            local default_version=""
+            if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
+                default_version=$(cat "$ZNVM_ROOT/.default-version" | xargs)
+                # 解析为完整版本号
+                if [[ -n "$default_version" ]]; then
+                    default_version=$(echo "$installed_versions" | grep "^v${default_version}\." | head -1)
+                fi
+            fi
+            
+            # 显示版本列表，标记当前和默认
+            echo "$installed_versions" | while read -r version; do
+                local markers=""
+                if [[ "$version" == "$current_version" ]]; then
+                    markers=" * "
+                fi
+                if [[ "$version" == "$default_version" ]]; then
+                    markers="${markers} [default]"
+                fi
+                echo "  ${version}${markers}"
+            done
         else
             echo "(无 / None)"
         fi
