@@ -33,9 +33,9 @@ jobs:
 
       - name: Rename Artifact
         run: |
-          mv zig-out/bin/znvm-core znvm-core-${{ matrix.target }}
+          mv zig-out/bin/znvm-core znvm-core-${{ github.ref_name }}-${{ matrix.target }}
 
       - name: Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
-          files: znvm-core-${{ matrix.target }}
+          files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
