@@ -121,16 +121,47 @@ znvm uses a **Hybrid Architecture** design:
         *   提供用户交互界面。 / Provides user interaction interface.
 
 ```mermaid
-graph TD
-    User[用户 / User (nv install 18)] --> Shell[znvm.sh]
-    Shell -->|1. curl index.json| NodeDist[Node.js Dist/Mirror]
-    NodeDist -->|2. JSON Stream| Shell
-    Shell -->|3. Pipe JSON| Zig[znvm-core (Zig Binary)]
-    Zig -->|4. SemVer Resolve & Arch Check| Zig
-    Zig -->|5. 返回精确版本 & 架构 / Return exact ver & arch| Shell
-    Shell -->|6. curl download| NodeDist
-    Shell -->|7. tar extract| InstallDir[~/.znvm/versions/v18.x]
-    Shell -->|8. export PATH| Env[当前 Shell 环境 / Current Shell Env]
+flowchart TD
+    subgraph Input["输入 / Input"]
+        UserCmd["用户命令<br/>nv install 18 / nv use"]
+        Nvmrc[".nvmrc 文件<br/>(可选 / Optional)"]
+        MirrorEnv["NVM_NODEJS_ORG_MIRROR<br/>(镜像源 / Mirror)"]
+    end
+
+    Shell["znvm.sh<br/>(Shell Wrapper)"]
+
+    UserCmd --> Shell
+    Nvmrc -.->|"读取版本"| Shell
+    MirrorEnv -.->|"配置源"| Shell
+
+    Shell -->|"1. curl index.json"| NodeDist["Node.js 镜像站<br/>index.json"]
+    NodeDist -->|"2. JSON Stream"| Shell
+    Shell -->|"3. Pipe JSON + 版本请求"| ZigCore["znvm-core (Zig Binary)<br/>SemVer 解析 + 架构匹配"]
+
+    ZigCore -->|"4. 返回: 版本 + 架构<br/>e.g. v18.20.4 + arm64/x64"| Shell
+
+    subgraph VersionCheck["版本检查 / Version Check"]
+        direction TB
+        CheckInstalled{"已安装?"}
+        UseExisting["✓ 使用已有版本"]
+        NeedDownload["✗ 需要下载"]
+    end
+
+    Shell --> CheckInstalled
+    CheckInstalled -->|"Yes"| UseExisting
+    CheckInstalled -->|"No"| NeedDownload
+
+    NeedDownload -->|"5. curl 下载 tar.gz"| NodeDist
+    NodeDist -->|"6. 二进制包"| Shell
+    Shell -->|"7. tar 解压"| InstallDir["~/.znvm/versions/<version>"]
+
+    UseExisting --> UpdatePath
+    InstallDir --> UpdatePath["8. 更新 PATH"]
+    UpdatePath --> Env["当前 Shell 环境<br/>node/npm 可用"]
+
+    style ZigCore fill:#f9f,stroke:#333,stroke-width:2px
+    style Shell fill:#bbf,stroke:#333,stroke-width:2px
+    style Env fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
 ## 🔨 开发与构建 / Development & Build
