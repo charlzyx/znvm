@@ -1,0 +1,21 @@
+# Zig
+zig-cache/
+zig-out/
+build
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Project
+test_root/
+test_root_bilingual/
+.znvm_sim/
+.nvmrc
