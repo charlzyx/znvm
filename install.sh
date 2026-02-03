@@ -40,25 +40,36 @@ elif [ "$OS" = "linux" ]; then
 fi
 
 if [ -n "$TARGET" ]; then
-    # 获取最新 release 版本 (简化版：假设是 v0.1.0，实际应从 GitHub API 获取)
-    # 这里我们尝试从仓库的 release 页面下载
-    # 注意：需要替换为真实的仓库所有者和项目名
-    # 假设 tag 是 v0.1.0
-    VERSION="v0.1.0" 
-    DOWNLOAD_URL="https://github.com/charlzyx/znvm/releases/download/$VERSION/znvm-core-$TARGET"
+    # 从 GitHub API 获取最新 release 版本
+    REPO_OWNER="charlzyx"
+    REPO_NAME="znvm"
     
-    echo "=> 尝试下载预编译二进制文件 ($TARGET)..."
-    echo "=> Attempting to download pre-compiled binary ($TARGET)..."
-    mkdir -p "$ZNVM_DIR/bin"
+    echo "=> 获取最新版本信息..."
+    echo "=> Fetching latest version info..."
     
-    if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail; then
-        chmod +x "$ZNVM_DIR/bin/znvm-core"
-        echo "=> 二进制文件安装成功！"
-        echo "=> Binary installed successfully!"
+    # 使用 GitHub API 获取最新 release tag
+    VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+    
+    if [ -z "$VERSION" ]; then
+        echo "=> 无法获取最新版本，将在首次运行时尝试本地编译。"
+        echo "=> Failed to get latest version, will fallback to local compilation on first run."
     else
-        echo "=> 下载失败 (可能尚未发布 release)，将在首次运行时尝试本地编译。"
-        echo "=> Download failed (release might not exist yet), will fallback to local compilation on first run."
-        rm -f "$ZNVM_DIR/bin/znvm-core"
+        echo "=> 最新版本 / Latest version: $VERSION"
+        DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-core-$VERSION-$TARGET"
+        
+        echo "=> 尝试下载预编译二进制文件 ($TARGET)..."
+        echo "=> Attempting to download pre-compiled binary ($TARGET)..."
+        mkdir -p "$ZNVM_DIR/bin"
+        
+        if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail; then
+            chmod +x "$ZNVM_DIR/bin/znvm-core"
+            echo "=> 二进制文件安装成功！"
+            echo "=> Binary installed successfully!"
+        else
+            echo "=> 下载失败 (可能尚未发布 release)，将在首次运行时尝试本地编译。"
+            echo "=> Download failed (release might not exist yet), will fallback to local compilation on first run."
+            rm -f "$ZNVM_DIR/bin/znvm-core"
+        fi
     fi
 else
     echo "=> 未找到当前平台的预编译版本，将在首次运行时尝试本地编译。"
