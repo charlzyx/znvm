@@ -3,26 +3,22 @@
 set -e
 
 ZNVM_DIR="$HOME/.znvm"
-REPO_URL="https://github.com/charlzyx/znvm.git" # 请替换为实际仓库地址
+REPO_URL="https://github.com/charlzyx/znvm.git"
+REPO_OWNER="charlzyx"
+REPO_NAME="znvm"
+
+# 支持通过参数传递版本号: curl ... | bash -s -- v0.1.0
+VERSION_ARG="$1"
 
 echo "=> 安装 znvm 到 $ZNVM_DIR..."
 echo "=> Installing znvm to $ZNVM_DIR..."
 
-# 1. 克隆或更新仓库
-if [ -d "$ZNVM_DIR/.git" ]; then
-    echo "=> 更新 znvm..."
-    echo "=> Updating znvm..."
-    cd "$ZNVM_DIR" && git pull origin main
-else
-    echo "=> 克隆 znvm..."
-    echo "=> Cloning znvm..."
-    git clone "$REPO_URL" "$ZNVM_DIR"
-fi
+# 确保目录存在
+mkdir -p "$ZNVM_DIR/bin"
 
-# 2. 尝试下载预编译二进制文件
+# 检测平台和架构
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
-BIN_NAME="znvm-core"
 TARGET=""
 
 if [ "$OS" = "darwin" ]; then
@@ -39,41 +35,71 @@ elif [ "$OS" = "linux" ]; then
     fi
 fi
 
+# 标记是否成功下载预编译版本
+BINARY_DOWNLOADED=false
+
+# 1. 尝试下载预编译二进制文件
 if [ -n "$TARGET" ]; then
-    # 从 GitHub API 获取最新 release 版本
-    REPO_OWNER="charlzyx"
-    REPO_NAME="znvm"
-    
-    echo "=> 获取最新版本信息..."
-    echo "=> Fetching latest version info..."
-    
-    # 使用 GitHub API 获取最新 release tag
-    VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-    
-    if [ -z "$VERSION" ]; then
-        echo "=> 无法获取最新版本，将在首次运行时尝试本地编译。"
-        echo "=> Failed to get latest version, will fallback to local compilation on first run."
+    # 确定要下载的版本
+    if [ -n "$VERSION_ARG" ]; then
+        VERSION="$VERSION_ARG"
+        echo "=> 使用指定版本 / Using specified version: $VERSION"
     else
-        echo "=> 最新版本 / Latest version: $VERSION"
+        echo "=> 获取最新版本信息..."
+        echo "=> Fetching latest version info..."
+        
+        # 从 GitHub API 获取最新 release tag
+        VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+        
+        if [ -n "$VERSION" ]; then
+            echo "=> 最新版本 / Latest version: $VERSION"
+        fi
+    fi
+    
+    if [ -n "$VERSION" ]; then
         DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-core-$VERSION-$TARGET"
         
         echo "=> 尝试下载预编译二进制文件 ($TARGET)..."
         echo "=> Attempting to download pre-compiled binary ($TARGET)..."
-        mkdir -p "$ZNVM_DIR/bin"
         
-        if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail; then
+        if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail 2>/dev/null; then
             chmod +x "$ZNVM_DIR/bin/znvm-core"
-            echo "=> 二进制文件安装成功！"
-            echo "=> Binary installed successfully!"
+            BINARY_DOWNLOADED=true
+            echo "=> 二进制文件下载成功！"
+            echo "=> Binary downloaded successfully!"
         else
-            echo "=> 下载失败 (可能尚未发布 release)，将在首次运行时尝试本地编译。"
-            echo "=> Download failed (release might not exist yet), will fallback to local compilation on first run."
+            echo "=> 预编译二进制文件下载失败。"
+            echo "=> Failed to download pre-compiled binary."
             rm -f "$ZNVM_DIR/bin/znvm-core"
         fi
+    else
+        echo "=> 无法获取版本信息。"
+        echo "=> Failed to get version info."
     fi
 else
-    echo "=> 未找到当前平台的预编译版本，将在首次运行时尝试本地编译。"
-    echo "=> No pre-compiled binary found for current platform, will fallback to local compilation on first run."
+    echo "=> 未找到当前平台的预编译版本。"
+    echo "=> No pre-compiled binary found for current platform."
+fi
+
+# 2. 如果下载失败，则克隆仓库（后续 znvm.sh 会在首次运行时编译）
+if [ "$BINARY_DOWNLOADED" = false ]; then
+    echo ""
+    echo "=> 将克隆源码仓库（首次运行时将自动编译）..."
+    echo "=> Will clone source repository (will auto-compile on first run)..."
+    
+    if [ -d "$ZNVM_DIR/.git" ]; then
+        echo "=> 更新 znvm..."
+        echo "=> Updating znvm..."
+        cd "$ZNVM_DIR" && git pull origin main
+    else
+        echo "=> 克隆 znvm..."
+        echo "=> Cloning znvm..."
+        git clone "$REPO_URL" "$ZNVM_DIR"
+    fi
+    
+    echo ""
+    echo "=> 提示: 未找到预编译二进制文件，首次运行 'nv' 时将尝试自动编译 (需安装 Zig)。"
+    echo "=> Note: No pre-compiled binary found, will attempt to compile automatically on first run of 'nv' (requires Zig)."
 fi
 
 # 3. 配置 Shell 环境
@@ -116,5 +142,3 @@ echo "=> 请重新打开终端或运行以下命令生效："
 echo "=> Please restart your terminal or run the following command to take effect:"
 echo "   source $PROFILE"
 echo ""
-echo "=> 首次运行 'nv' 命令时，如果未找到预编译二进制，将尝试自动编译 (需安装 Zig)。"
-echo "=> On first run of 'nv', if no pre-compiled binary is found, it will attempt to compile automatically (requires Zig)."
