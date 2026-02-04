@@ -27,21 +27,19 @@ mkdir -p "$ZNVM_BIN_DIR"
 # 检查并编译 Zig 核心工具
 function _znvm_ensure_core() {
     if [[ ! -f "$ZNVM_CORE_BIN" ]]; then
-        echo "正在初始化 znvm 核心工具... / Initializing znvm core tools..."
+        echo "[znvm] 初始化核心工具..."
         
         # 检查源码目录是否存在 build.zig
         if [[ ! -f "$ZNVM_SOURCE_DIR/build.zig" ]]; then
-             echo "错误: 无法在 $ZNVM_SOURCE_DIR 找到源码，无法编译核心工具。"
-             echo "Error: Source not found in $ZNVM_SOURCE_DIR, cannot compile core tools."
+             echo "[znvm] 错误: 无法在 $ZNVM_SOURCE_DIR 找到源码，无法编译核心工具。"
              return 1
         fi
 
-        echo "正在编译 (zig)... / Compiling (zig)..."
+        echo "[znvm] 编译中..."
         pushd "$ZNVM_SOURCE_DIR" > /dev/null
         zig build -Doptimize=ReleaseSafe
         if [[ $? -ne 0 ]]; then
-            echo "错误: Zig 编译失败。"
-            echo "Error: Zig compilation failed."
+            echo "[znvm] 错误: Zig 编译失败。"
             popd > /dev/null
             return 1
         fi
@@ -50,7 +48,7 @@ function _znvm_ensure_core() {
         cp "$ZNVM_SOURCE_DIR/zig-out/bin/znvm-core" "$ZNVM_CORE_BIN"
         
         popd > /dev/null
-        echo "初始化完成。 / Initialization completed."
+        echo "[znvm] 初始化完成"
     fi
 }
 
@@ -62,7 +60,7 @@ function _znvm_install_version() {
 
     _znvm_ensure_core || return 1
 
-    echo "正在解析版本 '$arg'... / Resolving version '$arg'..."
+    # echo "[znvm] 解析版本: $arg"
     
     # 镜像源处理: 优先使用环境变量，否则默认使用 npmmirror (国内优化)
     local index_mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}"
@@ -71,8 +69,7 @@ function _znvm_install_version() {
     local resolve_result=$(curl -sL -H "User-Agent: znvm/1.0.0" "$index_mirror/index.json" | "$ZNVM_CORE_BIN" resolve "$arg")
     
     if [[ $? -ne 0 || -z "$resolve_result" ]]; then
-        echo "错误: 无法解析版本 '$arg'"
-        echo "Error: Failed to resolve version '$arg'"
+        echo "[znvm] 错误: 无法解析版本 '$arg'"
         echo "$resolve_result"
         return 1
     fi
@@ -81,18 +78,16 @@ function _znvm_install_version() {
     local target_arch=$(echo "$resolve_result" | awk '{print $2}')
 
     if [[ -z "$target_version" || -z "$target_arch" ]]; then
-            echo "错误: 解析输出格式异常: $resolve_result"
-            echo "Error: Abnormal resolution output format: $resolve_result"
+            echo "[znvm] 错误: 解析输出格式异常: $resolve_result"
             return 1
     fi
 
-    echo "目标版本: $target_version ($target_arch) / Target: $target_version ($target_arch)"
+    echo "[znvm] ${arg} -> $target_version ($target_arch)"
 
     local version_path="$ZNVM_VERSIONS_DIR/$target_version"
     
     if [[ ! -d "$version_path" ]]; then
-        echo "版本 $target_version 未安装，正在下载..."
-        echo "Version $target_version not installed, downloading..."
+        echo "[znvm] 下载 $target_version..."
         
         local os_type=$(uname -s | tr '[:upper:]' '[:lower:]')
         local os=""
@@ -101,35 +96,30 @@ function _znvm_install_version() {
         elif [[ "$os_type" == "linux" ]]; then
             os="linux"
         else
-            echo "错误: 不支持的操作系统 '$os_type'"
-            echo "Error: Unsupported OS '$os_type'"
+            echo "[znvm] 错误: 不支持的操作系统 '$os_type'"
             return 1
         fi
         
         # 镜像源处理: 优先使用环境变量，否则默认使用 npmmirror (国内优化)
         local mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}"
-        # 去除末尾斜杠
         mirror="${mirror%/}"
         
         local filename="node-${target_version}-${os}-${target_arch}.tar.gz"
         local url="${mirror}/${target_version}/${filename}"
         
-        echo "下载地址: $url / Downloading from: $url"
-        
-        curl -L -o "$ZNVM_ROOT/$filename" "$url"
+        curl -L -o "$ZNVM_ROOT/$filename" "$url" --progress-bar
         
         if [[ $? -ne 0 ]]; then
-            echo "下载失败。 / Download failed."
+            echo "[znvm] 错误: 下载失败 $url"
             return 1
         fi
 
-        echo "正在解压... / Extracting..."
         mkdir -p "$version_path"
         tar -xzf "$ZNVM_ROOT/$filename" -C "$version_path" --strip-components=1
         rm "$ZNVM_ROOT/$filename"
-        echo "安装完成: $target_version / Installation complete: $target_version"
+        echo "[znvm] 已安装 $target_version"
     else
-        echo "版本 $target_version 已安装。 / Version $target_version already installed."
+        echo "[znvm] $target_version 已安装"
     fi
 
     # 如果是 use 模式，则切换环境
@@ -137,8 +127,7 @@ function _znvm_install_version() {
         export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "$ZNVM_VERSIONS_DIR" | tr '\n' ':')
         export PATH="$version_path/bin:$PATH"
         
-        echo "已切换到 Node.js $target_version / Switched to Node.js $target_version"
-        node -v
+        echo "[znvm] node@$(node -v) npm@$(npm -v)"
     fi
 }
 
@@ -148,53 +137,53 @@ function znvm() {
     local arg=$2
 
     if [[ "$cmd" == "ls" ]]; then
-        echo "已安装的版本: / Installed versions:"
         if [[ -d "$ZNVM_VERSIONS_DIR" ]]; then
             local installed_versions=$(ls -1 "$ZNVM_VERSIONS_DIR" | grep "v" | sort -V)
             if [[ -z "$installed_versions" ]]; then
-                echo "(无 / None)"
+                echo "[znvm] (无)"
                 return 0
             fi
             
             # 获取当前正在使用的版本
             local current_version=""
             if command -v node &> /dev/null; then
-                local node_path=$(which node)
-                if [[ "$node_path" == "$ZNVM_VERSIONS_DIR"* ]]; then
-                    current_version=$(basename "$(dirname "$node_path")")
+                local node_ver=$(node -v 2>/dev/null)
+                if [[ -n "$node_ver" && -d "$ZNVM_VERSIONS_DIR/$node_ver" ]]; then
+                    current_version="$node_ver"
                 fi
             fi
             
             # 获取默认版本
             local default_version=""
+            local default_ver_input=""
             if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
-                default_version=$(cat "$ZNVM_ROOT/.default-version" | xargs)
-                # 解析为完整版本号
-                if [[ -n "$default_version" ]]; then
-                    default_version=$(echo "$installed_versions" | grep "^v${default_version}\." | head -1)
+                default_ver_input=$(cat "$ZNVM_ROOT/.default-version" | xargs)
+                if [[ -n "$default_ver_input" ]]; then
+                    default_version=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "$default_ver_input" 2>/dev/null)
                 fi
             fi
-            
-            # 显示版本列表，标记当前和默认
-            echo "$installed_versions" | while read -r version; do
-                local markers=""
+
+            # 显示版本列表
+            while IFS= read -r version; do
+                local prefix="  "
+                local suffix=""
                 if [[ "$version" == "$current_version" ]]; then
-                    markers=" * "
+                    prefix="->"
                 fi
                 if [[ "$version" == "$default_version" ]]; then
-                    markers="${markers} [default]"
+					suffix="[default]"
                 fi
-                echo "  ${version}${markers}"
-            done
+                echo "${prefix} ${version} ${suffix}"
+            done <<< "$installed_versions"
         else
-            echo "(无 / None)"
+            echo "  (无)"
         fi
         return 0
     fi
 
     if [[ "$cmd" == "install" ]]; then
         if [[ -z "$arg" ]]; then
-            echo "用法: znvm install <version> / Usage: znvm install <version>"
+            echo "用法: znvm install <version>"
             return 1
         fi
         _znvm_install_version "$arg" "install"
@@ -203,17 +192,22 @@ function znvm() {
 
     if [[ "$cmd" == "use" ]]; then
         if [[ -z "$arg" ]]; then
-            # 尝试读取 .nvmrc
             if [[ -f ".nvmrc" ]]; then
-                # 读取第一行，去除注释 (#之后的内容)，并去除首尾空白
                 arg=$(head -n 1 .nvmrc | sed 's/#.*//' | xargs)
                 if [[ -z "$arg" ]]; then
-                    echo "错误: .nvmrc 文件为空或格式无效 / Error: .nvmrc file is empty or invalid"
+                    echo "错误: .nvmrc 格式无效"
                     return 1
                 fi
-                echo "发现 .nvmrc: 使用版本 $arg / Found .nvmrc: using version $arg"
+                echo "[znvm] 使用.nvmrc: $arg"
+            elif [[ -f "$ZNVM_ROOT/.default-version" ]]; then
+                arg=$(cat "$ZNVM_ROOT/.default-version" | xargs)
+                if [[ -z "$arg" ]]; then
+                    echo "错误: default version 格式无效"
+                    return 1
+                fi
+                echo "[znvm] 使用默认值: $arg"
             else
-                echo "用法: znvm use <version> / Usage: znvm use <version>"
+                echo "用法: znvm use <version>"
                 return 1
             fi
         fi
@@ -223,15 +217,21 @@ function znvm() {
 
     if [[ "$cmd" == "default" ]]; then
         if [[ -z "$arg" ]]; then
-            echo "用法: znvm default <version> / Usage: znvm default <version>"
+            echo "用法: znvm default <version>"
             return 1
         fi
         echo "$arg" > "$ZNVM_ROOT/.default-version"
-        echo "默认版本已设置为 $arg / Default version set to $arg"
+        echo "[znvm] 设置默认版本: $arg (在新会话中生效)"
         return
     fi
     
-    echo "用法: znvm [ls | use <ver> | default <ver>] / Usage: znvm [ls | use <ver> | default <ver>]"
+    echo "znvm <command>"
+    echo ""
+    echo "Commands:"
+    echo "  ls              列出已安装版本"
+    echo "  install <ver>   安装版本"
+    echo "  use [ver]       切换版本 (读取 .nvmrc -> $ZNVM_ROOT/.default-version)"
+    echo "  default <ver>   设置默认版本"
 }
 
 # 自动加载默认版本
