@@ -8,39 +8,6 @@ permissions:
   contents: write
 
 jobs:
-  update:
-    name: Update install.sh
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update install.sh version
-        run: |
-          # 替换 ZNVM_VERSION 为当前 tag
-          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
-
-          # 验证修改
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
-          echo "✅ install.sh updated to ${{ github.ref_name }}"
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh
-          git commit -m "Update install.sh for ${{ github.ref_name }}"
-          git push origin main
-
-      - name: Update tag
-        run: |
-          git tag -f ${{ github.ref_name }}
-          git push -f origin ${{ github.ref_name }}
-          echo "✅ Tag ${{ github.ref_name }} updated"
-
   build:
     name: Build (${{ matrix.target }})
     runs-on: ubuntu-latest
@@ -63,6 +30,13 @@ jobs:
         with:
           version: 0.15.2
 
+      - name: Update install.sh version
+        run: |
+          # 在 build 阶段修改 install.sh，不提交
+          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
+          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
+          echo "✅ install.sh updated to ${{ github.ref_name }}"
+
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
 
@@ -75,3 +49,36 @@ jobs:
         with:
           files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
           fail_on_unmatched_files: true
+
+  update_repo:
+    name: Update repository
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update install.sh version
+        run: |
+          # 修改 install.sh 版本号
+          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
+          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
+          echo "✅ install.sh updated to ${{ github.ref_name }}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add install.sh
+          git commit -m "Update install.sh for ${{ github.ref_name }}"
+          git push origin main
+
+      - name: Update tag
+        run: |
+          git tag -f ${{ github.ref_name }}
+          git push -f origin ${{ github.ref_name }}
+          echo "✅ Tag ${{ github.ref_name }} updated"
