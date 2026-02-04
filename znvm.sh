@@ -139,7 +139,7 @@ function _znvm_install_version() {
     echo "[znvm] 解析版本: $arg"
     
     # 镜像源处理: 优先使用环境变量，否则默认使用 npmmirror (国内优化)
-    local index_mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}"
+    local index_mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node/}"
     index_mirror="${index_mirror%/}"
     
     local resolve_result=$(curl -sL -H "User-Agent: znvm/1.0.0" "$index_mirror/index.json" | "$ZNVM_CORE_BIN" resolve "$arg")
@@ -177,7 +177,7 @@ function _znvm_install_version() {
         fi
         
         # 镜像源处理: 优先使用环境变量，否则默认使用 npmmirror (国内优化)
-        local mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}"
+        local mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node/}"
         mirror="${mirror%/}"
         
         local filename="node-${target_version}-${os}-${target_arch}.tar.gz"
@@ -238,7 +238,7 @@ function znvm() {
             if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
                 local default_ver_input=$(cat "$ZNVM_ROOT/.default-version" | xargs)
                 if [[ -n "$default_ver_input" ]]; then
-                    default_version=$(echo "$installed_versions" | grep "^v${default_ver_input}\." | head -1)
+                    default_version=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "$default_ver_input")
                 fi
             fi
             
