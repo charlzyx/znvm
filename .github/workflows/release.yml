@@ -8,22 +8,21 @@ permissions:
   contents: write
 
 jobs:
-  update_and_build:
-    name: Update & Build
+  update:
+    name: Update install.sh
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - x86_64-linux-musl
-          - aarch64-linux-musl
-          - x86_64-macos
-          - aarch64-macos
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get tag
+        id: tag
+        run: echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
       - name: Update install.sh version
         run: |
@@ -48,6 +47,23 @@ jobs:
           git push -f origin ${{ github.ref_name }}
           echo "✅ Tag ${{ github.ref_name }} updated"
 
+  build:
+    name: Build (${{ matrix.target }})
+    needs: update
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-macos
+          - aarch64-macos
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update.outputs.tag }}
+
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
@@ -58,10 +74,10 @@ jobs:
 
       - name: Rename Artifact
         run: |
-          mv zig-out/bin/znvm-core znvm-core-${{ github.ref_name }}-${{ matrix.target }}
+          mv zig-out/bin/znvm-core znvm-core-${{ needs.update.outputs.tag }}-${{ matrix.target }}
 
       - name: Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
-          files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
+          files: znvm-core-${{ needs.update.outputs.tag }}-${{ matrix.target }}
           fail_on_unmatched_files: true
