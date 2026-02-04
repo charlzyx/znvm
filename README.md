@@ -12,8 +12,8 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 
 - 🚀 **极速 / Blazing Fast**: 核心逻辑由 Zig 编写，启动和解析速度极快。
   - Core logic written in Zig for extremely fast startup and resolution.
-- 🧠 **智能 / Smart**: 支持 SemVer 语义化版本（如 `nv install 18` 自动匹配最新 `v18.x.x`）。
-  - Supports SemVer semantic versioning (e.g., `nv install 18` automatically matches the latest `v18.x.x`).
+- 🧠 **智能 / Smart**: 支持 SemVer 语义化版本（如 `znvm install 18` 自动匹配最新 `v18.x.x`）。
+  - Supports SemVer semantic versioning (e.g., `znvm install 18` automatically matches the latest `v18.x.x`).
 - 🍎 **Apple Silicon 友好 / Apple Silicon Friendly**: 自动检测架构，并在 Node.js 旧版本（如 v14）缺失 arm64 构建时自动回退到 Rosetta (x64) 模式。
   - Automatically detects architecture and falls back to Rosetta (x64) mode for older Node.js versions (e.g., v14) missing arm64 builds.
 - 🐧 **多平台 / Multi-Platform**: 支持 macOS (Apple Silicon/Intel) 和 Linux。
@@ -28,7 +28,6 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 ### 自动安装 (推荐) / Automatic Installation (Recommended)
 
 ```bash
-# 支持通过参数传递版本号: curl ... | bash -s -- v0.1.0
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 ```
 
@@ -61,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 
 ### 基础命令 / Basic Commands
 ```bash
-# 安装最新的 Node.js 20 / Install the latest Node.js 20
+# 安装最新的 Node.js 20 / Install latest Node.js 20
 znvm install 20
 
 # 切换到 Node.js 18 / Switch to Node.js 18
@@ -72,6 +71,13 @@ znvm ls
 
 # 设置默认版本为 20 (新开终端自动生效) / Set default version to 20 (effective in new terminals)
 znvm default 20
+
+# 推荐配置别名后可使用更简短的命令 / Recommended: Use shorter commands after alias config
+# alias nv=znvm  # 在 ~/.zshrc 中配置后
+# nv install 20
+# nv use 18
+# nv ls
+# nv default 20
 ```
 
 ### 高级配置 / Advanced Configuration
@@ -105,26 +111,26 @@ export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
 znvm 采用 **混合架构** (Hybrid Architecture) 设计：
 znvm uses a **Hybrid Architecture** design:
 
-1.  **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
-    *   **职责 / Responsibility**: 负责"纯计算任务" / Handles "pure computation tasks".
-    *   **功能 / Functions**: 
-        *   从标准输入 (Stdin) 读取 `index.json` 数据。 / Reads `index.json` data from Standard Input (Stdin).
-        *   解析复杂的 SemVer 版本号 (使用 Zig 标准库 `std.SemanticVersion`)。 / Parses complex SemVer version numbers (using Zig standard library `std.SemanticVersion`).
-        *   智能匹配最佳版本（考虑 OS、Arch、Rosetta 回退策略）。 / Intelligently matches the best version (considering OS, Arch, Rosetta fallback strategies).
-        *   输出机器可读的结果供 Shell 调用。 / Outputs machine-readable results for Shell invocation.
-    *   **优势 / Advantages**: 解析 JSON 和版本比 Shell 快且安全；利用 Zig 强大的交叉编译能力。 / Faster and safer JSON/version parsing than Shell; leverages Zig's powerful cross-compilation capabilities.
+1. **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
+   * **职责 / Responsibility**: 负责"纯计算任务" / Handles "pure computation tasks".
+   * **功能 / Functions**:
+        * 从标准输入 读取 `index.json` 数据。 / Reads `index.json` data from Standard Input (Stdin).
+        * 解析复杂的 SemVer 版本号（使用 Zig 标准库 `std.SemanticVersion`）。 / Parses complex SemVer version numbers (using Zig standard library `std.SemanticVersion`).
+        * 智能匹配最佳版本（考虑 OS、Arch、Rosetta 回退策略）。 / Intelligently matches the best version (considering OS, Arch, Rosetta fallback strategies).
+        * 输出机器可读的结果供 Shell 调用。 / Outputs machine-readable results for Shell invocation.
+   * **优势 / Advantages**: 解析 JSON 和版本比 Shell 快且安全；利用 Zig 强大的交叉编译能力。 / Faster and safer JSON/version parsing than Shell; leverages Zig's powerful cross-compilation capabilities.
 
-2.  **Shell Wrapper**: `znvm.sh`
-    *   **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
-    *   **功能 / Functions**:
-        *   管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
-        *   使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
-        *   提供用户交互界面。 / Provides user interaction interface.
+2. **Shell Wrapper**: `znvm.sh`
+   * **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
+   * **功能 / Functions**:
+        * 管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
+        * 使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
+        * 提供用户交互界面。 / Provides user interaction interface.
 
 ```mermaid
 flowchart TD
     subgraph Input["输入 / Input"]
-        UserCmd["用户命令<br/>nv install 18 / nv use"]
+        UserCmd["用户命令<br/>znvm install 18 / znvm use"]
         Nvmrc[".nvmrc 文件<br/>(可选 / Optional)"]
         MirrorEnv["NVM_NODEJS_ORG_MIRROR<br/>(镜像源 / Mirror)"]
     end
