@@ -27,6 +27,7 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 
 ### 自动安装 (推荐) / Automatic Installation (Recommended)
 
+
 ```bash
 # 安装最新版本 / Install latest version
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
@@ -63,73 +64,26 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v0.1.0/install.sh | b
 ## 🛠 使用指南 / Usage Guide
 
 ### 基础命令 / Basic Commands
+
 ```bash
-# 安装最新的 Node.js 20 / Install latest Node.js 20
+# 安装版本 (支持 SemVer，如 20 自动匹配最新 v20.x.x)
 znvm install 20
+znvm install v18.20.0
 
-# 切换到 Node.js 18 / Switch to Node.js 18
-znvm use 18
+# 切换版本
+znvm use 20          # 使用指定版本
+znvm use             # 读取 .nvmrc -> default version
 
-# 列出已安装的本地版本
-# -> 前缀 = 当前使用版本，[default] 后缀 = 默认版本
+# 列出已安装版本
+# * 前缀 = 当前使用版本，[default] 后缀 = 默认版本
 znvm ls
 
-# 设置默认版本为 20 (新开终端自动生效)
+# 设置默认版本 (新开终端自动生效)
 znvm default 20
 
-# 卸载指定版本 / Uninstall specific version
-znvm uninstall 18
-```
-
-**`znvm use` 优先级**：参数 > `.nvmrc` > `default version`
-```bash
-znvm use 20        # 使用指定版本
-znvm use           # 先尝试 .nvmrc，否则使用 default version
-```
-
-### 示例/example
-```bash
-$ nv ls
-[znvm] (无)
---------------------------------------------------------------------------------------------------
-
-$ nv install 12
-[znvm] 12 -> v12.22.12 (x64)
-[znvm] 下载 v12.22.12...
-########################################################################################### 100.0%
-[znvm] 已安装 v12.22.12
---------------------------------------------------------------------------------------------------
-
-$ nv install 22
-[znvm] 22 -> v22.22.0 (arm64)
-[znvm] 下载 v22.22.0...
-########################################################################################### 100.0%
-[znvm] 已安装 v22.22.0
---------------------------------------------------------------------------------------------------
-
-$ nv default 22
-[znvm] 设置默认版本: 22 (在新会话中生效)
---------------------------------------------------------------------------------------------------
-
-$ nv use 12
-[znvm] 12 -> v12.22.12 (x64)
-[znvm] v12.22.12 已安装
-[znvm] node@v12.22.12 npm@6.14.16
---------------------------------------------------------------------------------------------------
-
-$ nv ls
--> v12.22.12
-   v22.22.0 [default]
-
-$ nv uninstall 12
-[znvm] 解析版本: 12
-[znvm] 目标版本: v12.22.12 (x64)
-[znvm] 正在卸载: /Users/xxx/.znvm/versions/v12.22.12
-[znvm] 已卸载: v12.22.12
---------------------------------------------------------------------------------------------------
-
-$ nv ls
-   v22.22.0 [default]
+# 卸载版本
+znvm uninstall 20    # 卸载 v20.x.x 最新版本
+znvm rm v18.20.0     # 卸载指定版本
 ```
 
 ### 高级配置 / Advanced Configuration
@@ -199,7 +153,7 @@ znvm uses a **Hybrid Architecture** design:
 ```mermaid
 flowchart TD
     subgraph Input["输入"]
-        UserCmd["znvm install 18 / znvm use"]
+        UserCmd["znvm install/uninstall/use"]
         Nvmrc[".nvmrc"]
         DefaultVer["default version"]
         MirrorEnv["NVM_NODEJS_ORG_MIRROR"]
@@ -212,19 +166,23 @@ flowchart TD
     DefaultVer -.-> Shell
     MirrorEnv -.-> Shell
 
-    Shell -->|"1. curl index.json"| NodeDist["Node.js 镜像站"]
-    NodeDist -->|"2. JSON"| Shell
-    Shell -->|"3. resolve"| ZigCore["znvm-core"]
-    ZigCore -->|"4. 版本+架构"| Shell
+    Shell -->|"curl index.json"| NodeDist["Node.js 镜像站"]
+    NodeDist -->|"JSON"| Shell
+    Shell -->|"resolve/match"| ZigCore["znvm-core"]
+    ZigCore -->|"版本+架构"| Shell
 
-    CheckInstalled{"已安装?"}
-    Shell --> CheckInstalled
+    CheckCmd{"命令类型"}
+    Shell --> CheckCmd
+    CheckCmd -->|"install/use"| CheckInstalled{"已安装?"}
+    CheckCmd -->|"uninstall"| Remove["删除版本目录"]
     CheckInstalled -->|"Yes"| UseExisting["使用已有"]
     CheckInstalled -->|"No"| Download["下载+解压"]
     Download --> InstallDir["~/.znvm/versions/"]
     UseExisting --> UpdatePath["更新 PATH"]
     InstallDir --> UpdatePath
+    Remove --> CleanDefault["清理 default 设置"]
     UpdatePath --> Env["node 可用"]
+    CleanDefault --> Env
 ```
 
 ## 🔨 开发与构建 / Development & Build
