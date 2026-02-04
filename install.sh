@@ -12,30 +12,13 @@ REPO_NAME="znvm"
 
 VERSION_ARG="$1"
 
-# 优先级：参数 > 当前版本 > 最新
+# 确定要使用的版本
+# 优先级：参数 > 内置版本 > 获取最新
 if [ -n "$VERSION_ARG" ]; then
     VERSION="$VERSION_ARG"
 elif [ "$ZNVM_VERSION" != "main" ]; then
     VERSION="$ZNVM_VERSION"
     echo "=> 使用内置版本 / Using built-in version: $VERSION"
-else
-    VERSION=""
-fi
-
-# 尝试从 URL 中提取版本号
-if [ -n "$SCRIPT_URL" ]; then
-    VERSION_FROM_URL=$(echo "$SCRIPT_URL" | sed -n 's|.*/\(v[0-9.]*\)/install.sh|\1|p')
-    if [ -n "$VERSION_FROM_URL" ]; then
-        echo "=> 从 URL 检测到版本: $VERSION_FROM_URL"
-        echo "=> Detected version from URL: $VERSION_FROM_URL"
-    fi
-fi
-
-# 优先级：URL > 参数 > 最新
-if [ -n "$VERSION_FROM_URL" ]; then
-    VERSION="$VERSION_FROM_URL"
-elif [ -n "$VERSION_ARG" ]; then
-    VERSION="$VERSION_ARG"
 else
     VERSION=""
 fi
@@ -70,7 +53,7 @@ BINARY_DOWNLOADED=false
 
 # 1. 尝试下载预编译二进制文件
 if [ -n "$TARGET" ]; then
-    # 确定要下载的版本（VERSION 已在脚本开头设置：URL > 参数 > 空）
+    # 确定要下载的版本
     if [ -n "$VERSION" ]; then
         echo "=> 使用指定版本 / Using specified version: $VERSION"
     else
@@ -84,13 +67,13 @@ if [ -n "$TARGET" ]; then
             echo "=> 最新版本 / Latest version: $VERSION"
         fi
     fi
-    
+
     if [ -n "$VERSION" ]; then
         DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-core-$VERSION-$TARGET"
-        
+
         echo "=> 尝试下载预编译二进制文件 ($TARGET)..."
         echo "=> Attempting to download pre-compiled binary ($TARGET)..."
-        
+
         if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail 2>/dev/null; then
             chmod +x "$ZNVM_DIR/bin/znvm-core"
             BINARY_DOWNLOADED=true
@@ -114,8 +97,6 @@ if [ -n "$TARGET" ]; then
             echo "=> Failed to download pre-compiled binary."
             rm -f "$ZNVM_DIR/bin/znvm-core"
         fi
-            
-    
     else
         echo "=> 无法获取版本信息。"
         echo "=> Failed to get version info."
@@ -130,7 +111,7 @@ if [ "$BINARY_DOWNLOADED" = false ]; then
     echo ""
     echo "=> 将克隆源码仓库（首次运行时将自动编译）..."
     echo "=> Will clone source repository (will auto-compile on first run)..."
-    
+
     if [ -d "$ZNVM_DIR/.git" ]; then
         echo "=> 更新 znvm..."
         echo "=> Updating znvm..."
@@ -140,7 +121,7 @@ if [ "$BINARY_DOWNLOADED" = false ]; then
         echo "=> Cloning znvm..."
         git clone "$REPO_URL" "$ZNVM_DIR"
     fi
-    
+
     echo ""
     echo "=> 提示: 未找到预编译二进制文件，首次运行 'nv' 时将尝试自动编译 (需安装 Zig)。"
     echo "=> Note: No pre-compiled binary found, will attempt to compile automatically on first run of 'nv' (requires Zig)."
