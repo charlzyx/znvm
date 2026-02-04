@@ -62,7 +62,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.update.outputs.tag }}
+          ref: refs/tags/${{ github.ref_name }}
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
@@ -74,10 +74,10 @@ jobs:
 
       - name: Rename Artifact
         run: |
-          mv zig-out/bin/znvm-core znvm-core-${{ needs.update.outputs.tag }}-${{ matrix.target }}
+          mv zig-out/bin/znvm-core znvm-core-${{ github.ref_name }}-${{ matrix.target }}
 
       - name: Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
-          files: znvm-core-${{ needs.update.outputs.tag }}-${{ matrix.target }}
+          files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
           fail_on_unmatched_files: true
