@@ -67,11 +67,26 @@ if [ -n "$TARGET" ]; then
             BINARY_DOWNLOADED=true
             echo "=> 二进制文件下载成功！"
             echo "=> Binary downloaded successfully!"
+
+            # 同时下载对应版本的 znvm.sh
+            ZNVM_SH_URL="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$VERSION/znvm.sh"
+            echo "=> 下载 znvm.sh..."
+            echo "=> Downloading znvm.sh..."
+            if curl -L -o "$ZNVM_DIR/znvm.sh" "$ZNVM_SH_URL" --fail 2>/dev/null; then
+                chmod +x "$ZNVM_DIR/znvm.sh"
+                echo "=> znvm.sh 下载成功！"
+                echo "=> znvm.sh downloaded successfully!"
+            else
+                echo "=> 警告: znvm.sh 下载失败，将在首次运行时尝试从仓库获取。"
+                echo "=> Warning: Failed to download znvm.sh, will attempt to fetch from repository on first run."
+            fi
         else
             echo "=> 预编译二进制文件下载失败。"
             echo "=> Failed to download pre-compiled binary."
             rm -f "$ZNVM_DIR/bin/znvm-core"
         fi
+            
+    
     else
         echo "=> 无法获取版本信息。"
         echo "=> Failed to get version info."
