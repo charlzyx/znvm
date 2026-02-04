@@ -95,8 +95,10 @@ function _znvm_uninstall_version() {
     # 检查是否是当前正在使用的版本
     local is_current=false
     if command -v node &> /dev/null; then
-        local node_path=$(which node)
-        if [[ -n "$node_path" && "$node_path" == "$version_path/bin/node" ]]; then
+        local node_version=$(node -v)
+        # 检查 node -v 返回的版本是否匹配目标版本
+        local matched_version=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "${node_version#v}")
+        if [[ -n "$matched_version" && "$matched_version" == "$target_version" ]]; then
             is_current=true
         fi
     fi
@@ -116,11 +118,9 @@ function _znvm_uninstall_version() {
     # 如果是默认版本，清除默认配置
     if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
         local default_ver_input=$(cat "$ZNVM_ROOT/.default-version" | xargs)
-        # 简单匹配：如果输入是部分版本号（如18），检查默认版本是否以18开头
-        if [[ -n "$default_ver_input" && "$target_version" == "$default_ver_input"* ]]; then
-            rm "$ZNVM_ROOT/.default-version"
-            echo "[znvm] 已清除默认版本配置"
-        elif [[ "$target_version" == "$default_ver_input" ]]; then
+        # 使用 semver 匹配检查是否是默认版本
+        local matched_default=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "$default_ver_input")
+        if [[ -n "$matched_default" && "$matched_default" == "$target_version" ]]; then
             rm "$ZNVM_ROOT/.default-version"
             echo "[znvm] 已清除默认版本配置"
         fi
@@ -227,10 +227,9 @@ function znvm() {
             # 获取当前正在使用的版本
             local current_version=""
             if command -v node &> /dev/null; then
-                local node_path=$(which node)
-                if [[ -n "$node_path" && "$node_path" == "$ZNVM_VERSIONS_DIR"* ]]; then
-                    current_version=$(basename "$(dirname "$node_path")")
-                fi
+                local node_version=$(node -v)
+                # node -v 返回 v18.20.0 格式，从已安装版本中匹配
+                current_version=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "${node_version#v}")
             fi
             
             # 获取默认版本
