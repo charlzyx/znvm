@@ -2,13 +2,43 @@
 
 set -e
 
+# 版本号（发布时更新此行）
+ZNVM_VERSION="main"
+
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 
-# 支持通过参数传递版本号: curl ... | bash -s -- v0.1.0
 VERSION_ARG="$1"
+
+# 优先级：参数 > 当前版本 > 最新
+if [ -n "$VERSION_ARG" ]; then
+    VERSION="$VERSION_ARG"
+elif [ "$ZNVM_VERSION" != "main" ]; then
+    VERSION="$ZNVM_VERSION"
+    echo "=> 使用内置版本 / Using built-in version: $VERSION"
+else
+    VERSION=""
+fi
+
+# 尝试从 URL 中提取版本号
+if [ -n "$SCRIPT_URL" ]; then
+    VERSION_FROM_URL=$(echo "$SCRIPT_URL" | sed -n 's|.*/\(v[0-9.]*\)/install.sh|\1|p')
+    if [ -n "$VERSION_FROM_URL" ]; then
+        echo "=> 从 URL 检测到版本: $VERSION_FROM_URL"
+        echo "=> Detected version from URL: $VERSION_FROM_URL"
+    fi
+fi
+
+# 优先级：URL > 参数 > 最新
+if [ -n "$VERSION_FROM_URL" ]; then
+    VERSION="$VERSION_FROM_URL"
+elif [ -n "$VERSION_ARG" ]; then
+    VERSION="$VERSION_ARG"
+else
+    VERSION=""
+fi
 
 echo "=> 安装 znvm 到 $ZNVM_DIR..."
 echo "=> Installing znvm to $ZNVM_DIR..."
@@ -40,17 +70,16 @@ BINARY_DOWNLOADED=false
 
 # 1. 尝试下载预编译二进制文件
 if [ -n "$TARGET" ]; then
-    # 确定要下载的版本
-    if [ -n "$VERSION_ARG" ]; then
-        VERSION="$VERSION_ARG"
+    # 确定要下载的版本（VERSION 已在脚本开头设置：URL > 参数 > 空）
+    if [ -n "$VERSION" ]; then
         echo "=> 使用指定版本 / Using specified version: $VERSION"
     else
         echo "=> 获取最新版本信息..."
         echo "=> Fetching latest version info..."
-        
+
         # 从 GitHub API 获取最新 release tag
         VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-        
+
         if [ -n "$VERSION" ]; then
             echo "=> 最新版本 / Latest version: $VERSION"
         fi
