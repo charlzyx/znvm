@@ -28,7 +28,11 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 ### 自动安装 (推荐) / Automatic Installation (Recommended)
 
 ```bash
+# 安装最新版本 / Install latest version
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
+
+# 安装指定版本 / Install specific version
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash -s -- v0.1.0
 ```
 
 ### 手动安装 / Manual Installation
@@ -60,24 +64,24 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 
 ### 基础命令 / Basic Commands
 ```bash
-# 安装最新的 Node.js 20 / Install latest Node.js 20
+# 安装最新的 Node.js 20
 znvm install 20
 
-# 切换到 Node.js 18 / Switch to Node.js 18
+# 切换到 Node.js 18
 znvm use 18
 
-# 列出已安装的本地版本 / List installed local versions
+# 列出已安装的本地版本
+# -> 前缀 = 当前使用版本，[default] 后缀 = 默认版本
 znvm ls
 
-# 设置默认版本为 20 (新开终端自动生效) / Set default version to 20 (effective in new terminals)
+# 设置默认版本为 20 (新开终端自动生效)
 znvm default 20
+```
 
-# 推荐配置别名后可使用更简短的命令 / Recommended: Use shorter commands after alias config
-# alias nv=znvm  # 在 ~/.zshrc 中配置后
-# nv install 20
-# nv use 18
-# nv ls
-# nv default 20
+**`znvm use` 优先级**：参数 > `.nvmrc` > `default version`
+```bash
+znvm use 20        # 使用指定版本
+znvm use           # 先尝试 .nvmrc，否则使用 default version
 ```
 
 ### 高级配置 / Advanced Configuration
@@ -106,69 +110,73 @@ Supports setting the `NVM_NODEJS_ORG_MIRROR` environment variable to accelerate 
 export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
+### 核心工具命令 / Core Tool Commands
+znvm 的 Zig 核心 (`znvm-core`) 提供独立的 SemVer 处理命令：
+The Zig core provides standalone SemVer processing commands:
+
+```bash
+znvm-core
+├── resolve <version>       - 从远程 index.json 解析（含架构检测）
+└── semver
+    ├── compare <v1> <v2>   - 比较两个版本
+    └── match <query>       - 从 stdin 列表匹配最佳版本
+
+# 比较两个版本 / Compare two versions
+# 输出: -1 (v1<v2), 0 (相等), 1 (v1>v2)
+znvm-core semver compare v18.0.0 v20.0.0
+
+# 从版本列表中匹配最佳版本 / Match best version from list
+echo -e "v18.20.0\nv20.10.0" | znvm-core semver match 20
+# 输出: v20.10.0
+```
+
 ## 🏗 架构设计 / Architecture Design
 
 znvm 采用 **混合架构** (Hybrid Architecture) 设计：
 znvm uses a **Hybrid Architecture** design:
 
-1. **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
-   * **职责 / Responsibility**: 负责"纯计算任务" / Handles "pure computation tasks".
-   * **功能 / Functions**:
-        * 从标准输入 读取 `index.json` 数据。 / Reads `index.json` data from Standard Input (Stdin).
-        * 解析复杂的 SemVer 版本号（使用 Zig 标准库 `std.SemanticVersion`）。 / Parses complex SemVer version numbers (using Zig standard library `std.SemanticVersion`).
-        * 智能匹配最佳版本（考虑 OS、Arch、Rosetta 回退策略）。 / Intelligently matches the best version (considering OS, Arch, Rosetta fallback strategies).
-        * 输出机器可读的结果供 Shell 调用。 / Outputs machine-readable results for Shell invocation.
-   * **优势 / Advantages**: 解析 JSON 和版本比 Shell 快且安全；利用 Zig 强大的交叉编译能力。 / Faster and safer JSON/version parsing than Shell; leverages Zig's powerful cross-compilation capabilities.
+1.  **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
+    *   **`resolve <version>`**: 从远程 `index.json` 解析最佳版本（含架构检测、Rosetta 回退）。
+    *   **`semver compare <v1> <v2>`**: 比较两个 SemVer 版本，输出 `-1/0/1`。
+    *   **`semver match <query>`**: 从本地版本列表中匹配最佳版本。
+    *   **优势**: Zig 解析 JSON 和版本比 Shell 快且安全；支持交叉编译。
 
-2. **Shell Wrapper**: `znvm.sh`
-   * **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
-   * **功能 / Functions**:
-        * 管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
-        * 使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
-        * 提供用户交互界面。 / Provides user interaction interface.
+2.  **Shell Wrapper**: `znvm.sh`
+    *   **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
+    *   **功能 / Functions**:
+        *   管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
+        *   使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
+        *   提供用户交互界面。 / Provides user interaction interface.
 
 ```mermaid
 flowchart TD
-    subgraph Input["输入 / Input"]
-        UserCmd["用户命令<br/>znvm install 18 / znvm use"]
-        Nvmrc[".nvmrc 文件<br/>(可选 / Optional)"]
-        MirrorEnv["NVM_NODEJS_ORG_MIRROR<br/>(镜像源 / Mirror)"]
+    subgraph Input["输入"]
+        UserCmd["znvm install 18 / znvm use"]
+        Nvmrc[".nvmrc"]
+        DefaultVer["default version"]
+        MirrorEnv["NVM_NODEJS_ORG_MIRROR"]
     end
 
-    Shell["znvm.sh<br/>(Shell Wrapper)"]
+    Shell["znvm.sh"]
 
     UserCmd --> Shell
-    Nvmrc -.->|"读取版本"| Shell
-    MirrorEnv -.->|"配置源"| Shell
+    Nvmrc -.-> Shell
+    DefaultVer -.-> Shell
+    MirrorEnv -.-> Shell
 
-    Shell -->|"1. curl index.json"| NodeDist["Node.js 镜像站<br/>index.json"]
-    NodeDist -->|"2. JSON Stream"| Shell
-    Shell -->|"3. Pipe JSON + 版本请求"| ZigCore["znvm-core (Zig Binary)<br/>SemVer 解析 + 架构匹配"]
+    Shell -->|"1. curl index.json"| NodeDist["Node.js 镜像站"]
+    NodeDist -->|"2. JSON"| Shell
+    Shell -->|"3. resolve"| ZigCore["znvm-core"]
+    ZigCore -->|"4. 版本+架构"| Shell
 
-    ZigCore -->|"4. 返回: 版本 + 架构<br/>e.g. v18.20.4 + arm64/x64"| Shell
-
-    subgraph VersionCheck["版本检查 / Version Check"]
-        direction TB
-        CheckInstalled{"已安装?"}
-        UseExisting["✓ 使用已有版本"]
-        NeedDownload["✗ 需要下载"]
-    end
-
+    CheckInstalled{"已安装?"}
     Shell --> CheckInstalled
-    CheckInstalled -->|"Yes"| UseExisting
-    CheckInstalled -->|"No"| NeedDownload
-
-    NeedDownload -->|"5. curl 下载 tar.gz"| NodeDist
-    NodeDist -->|"6. 二进制包"| Shell
-    Shell -->|"7. tar 解压"| InstallDir["~/.znvm/versions/<version>"]
-
-    UseExisting --> UpdatePath
-    InstallDir --> UpdatePath["8. 更新 PATH"]
-    UpdatePath --> Env["当前 Shell 环境<br/>node/npm 可用"]
-
-    style ZigCore fill:#f9f,stroke:#333,stroke-width:2px
-    style Shell fill:#bbf,stroke:#333,stroke-width:2px
-    style Env fill:#9f9,stroke:#333,stroke-width:2px
+    CheckInstalled -->|"Yes"| UseExisting["使用已有"]
+    CheckInstalled -->|"No"| Download["下载+解压"]
+    Download --> InstallDir["~/.znvm/versions/"]
+    UseExisting --> UpdatePath["更新 PATH"]
+    InstallDir --> UpdatePath
+    UpdatePath --> Env["node 可用"]
 ```
 
 ## 🔨 开发与构建 / Development & Build
