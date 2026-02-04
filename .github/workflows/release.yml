@@ -1,16 +1,15 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [created]
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build
+  update_and_build:
+    name: Update & Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,6 +21,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update install.sh version
+        run: |
+          # 替换 ZNVM_VERSION 为当前 tag
+          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
+
+          # 验证修改
+          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
+          echo "✅ install.sh updated to ${{ github.ref_name }}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add install.sh
+          git commit -m "Update install.sh for ${{ github.ref_name }}"
+          git push origin main
+
+      - name: Update tag
+        run: |
+          git tag -f ${{ github.ref_name }}
+          git push -f origin ${{ github.ref_name }}
+          echo "✅ Tag ${{ github.ref_name }} updated"
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
@@ -39,3 +64,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
+          fail_on_unmatched_files: true

@@ -312,11 +312,11 @@ function znvm() {
     echo "znvm <command>"
     echo ""
     echo "Commands:"
-    echo "  ls              列出已安装版本"
+    echo "  ls              列出已安装版本 (list)"
     echo "  install <ver>   安装版本"
-    echo "  use [ver]       切换版本 (读取 .nvmrc -> \$ZNVM_ROOT/.default-version)"
+    echo "  use [ver]       切换版本 (读取 .nvmrc)"
     echo "  default <ver>   设置默认版本"
-    echo "  uninstall <ver> 卸载版本"
+    echo "  uninstall <ver> 卸载版本 (uninstall)"
 }
 
 # 自动加载默认版本

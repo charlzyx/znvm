@@ -32,7 +32,7 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 
 # 安装指定版本 / Install specific version
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash -s -- v0.1.0
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v0.1.0/install.sh | bash
 ```
 
 ### 手动安装 / Manual Installation
