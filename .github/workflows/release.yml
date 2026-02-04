@@ -33,7 +33,7 @@ jobs:
       - name: Update install.sh version
         run: |
           # 在 build 阶段修改 install.sh，不提交
-          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
+          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
           echo "✅ install.sh updated to ${{ github.ref_name }}"
 
@@ -64,8 +64,8 @@ jobs:
 
       - name: Update install.sh version
         run: |
-          # 修改 install.sh 版本号
-          sed -i "s/^ZNVM_VERSION=\"main\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
+          # 修改 install.sh 版本号（匹配任意当前版本）
+          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
           echo "✅ install.sh updated to ${{ github.ref_name }}"
 
