@@ -55,38 +55,36 @@ function _znvm_ensure_core() {
 # 内部函数：卸载版本
 function _znvm_uninstall_version() {
     local arg=$1
-    
+
     if [[ -z "$arg" ]]; then
         echo "用法: znvm uninstall <version>"
         return 1
     fi
-    
-    # 解析版本号（完整版本号或部分版本号）
+
     _znvm_ensure_core || return 1
-    
+
     echo "[znvm] 解析版本: $arg"
-    
-    local index_mirror="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}"
-    index_mirror="${index_mirror%/}"
-    
-    local resolve_result=$(curl -sL -H "User-Agent: znvm/1.0.0" "$index_mirror/index.json" | "$ZNVM_CORE_BIN" resolve "$arg")
-    
-    if [[ $? -ne 0 || -z "$resolve_result" ]]; then
-        echo "[znvm] 错误: 无法解析版本 '$arg'"
-        echo "$resolve_result"
+
+    # 从本地已安装的版本列表中匹配
+    local installed_versions=$(ls -1 "$ZNVM_VERSIONS_DIR" 2>/dev/null | grep "^v" | sort -V)
+
+    if [[ -z "$installed_versions" ]]; then
+        echo "[znvm] 错误: 没有已安装的版本"
         return 1
     fi
 
-    local target_version=$(echo "$resolve_result" | awk '{print $1}')
-    local target_arch=$(echo "$resolve_result" | awk '{print $2}')
+    # 将版本列表传给 znvm-core 进行匹配
+    local target_version=$(echo "$installed_versions" | "$ZNVM_CORE_BIN" semver match "$arg")
 
-    if [[ -z "$target_version" || -z "$target_arch" ]]; then
-            echo "[znvm] 错误: 解析输出格式异常: $resolve_result"
-            return 1
+    if [[ -z "$target_version" ]]; then
+        echo "[znvm] 错误: 无法在已安装版本中找到匹配 '$arg'"
+        echo "[znvm] 已安装的版本:"
+        echo "$installed_versions" | sed 's/^/  /'
+        return 1
     fi
 
-    echo "[znvm] 目标版本: $target_version ($target_arch)"
-    
+    echo "[znvm] 目标版本: $target_version"
+
     local version_path="$ZNVM_VERSIONS_DIR/$target_version"
     
     if [[ ! -d "$version_path" ]]; then

@@ -11,18 +11,12 @@ jobs:
   update:
     name: Update install.sh
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get tag
-        id: tag
-        run: echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
       - name: Update install.sh version
         run: |
@@ -49,7 +43,6 @@ jobs:
 
   build:
     name: Build (${{ matrix.target }})
-    needs: update
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -59,10 +52,11 @@ jobs:
           - x86_64-macos
           - aarch64-macos
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ github.ref_name }}
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
