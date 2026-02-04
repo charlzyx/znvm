@@ -136,7 +136,7 @@ function znvm() {
     local cmd=$1
     local arg=$2
 
-    if [[ "$cmd" == "ls" ]]; then
+    if [[ "$cmd" == "list" || "$cmd" == "ls" ]]; then
         if [[ -d "$ZNVM_VERSIONS_DIR" ]]; then
             local installed_versions=$(ls -1 "$ZNVM_VERSIONS_DIR" | grep "v" | sort -V)
             if [[ -z "$installed_versions" ]]; then
@@ -284,9 +284,9 @@ function znvm() {
     echo "znvm <command>"
     echo ""
     echo "Commands:"
-    echo "  ls              列出已安装版本"
+    echo "  ls | list              列出已安装版本"
     echo "  install <ver>   安装版本"
-    echo "  uninstall <ver> 卸载版本"
+    echo "  rm | uninstall <ver> 卸载版本"
     echo "  use [ver]       切换版本 (读取 .nvmrc -> default)"
     echo "  default <ver>   设置默认版本"
 }

@@ -77,6 +77,7 @@ znvm use             # 读取 .nvmrc -> default version
 # 列出已安装版本
 # * 前缀 = 当前使用版本，[default] 后缀 = 默认版本
 znvm ls
+znvm list
 
 # 设置默认版本 (新开终端自动生效)
 znvm default 20
