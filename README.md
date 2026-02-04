@@ -64,10 +64,10 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 
 ### 基础命令 / Basic Commands
 ```bash
-# 安装最新的 Node.js 20
+# 安装最新的 Node.js 20 / Install latest Node.js 20
 znvm install 20
 
-# 切换到 Node.js 18
+# 切换到 Node.js 18 / Switch to Node.js 18
 znvm use 18
 
 # 列出已安装的本地版本
@@ -76,6 +76,9 @@ znvm ls
 
 # 设置默认版本为 20 (新开终端自动生效)
 znvm default 20
+
+# 卸载指定版本 / Uninstall specific version
+znvm uninstall 18
 ```
 
 **`znvm use` 优先级**：参数 > `.nvmrc` > `default version`
@@ -116,6 +119,16 @@ $ nv use 12
 
 $ nv ls
 -> v12.22.12
+   v22.22.0 [default]
+
+$ nv uninstall 12
+[znvm] 解析版本: 12
+[znvm] 目标版本: v12.22.12 (x64)
+[znvm] 正在卸载: /Users/xxx/.znvm/versions/v12.22.12
+[znvm] 已卸载: v12.22.12
+--------------------------------------------------------------------------------------------------
+
+$ nv ls
    v22.22.0 [default]
 ```
 
