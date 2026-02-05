@@ -340,7 +340,7 @@ function znvm() {
     echo "  rm | uninstall <ver>   卸载版本"
     echo "  use [ver]              切换版本 (读取 .nvmrc -> default)"
     echo "  default <ver>          设置默认版本"
-    echo "  list-global | lg       列出当前版本全局包"
+    echo "  lg | list-global       列出当前版本全局包"
 }
 
 # 自动加载默认版本
