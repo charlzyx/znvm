@@ -127,6 +127,13 @@ function _znvm_install_version() {
         export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "$ZNVM_VERSIONS_DIR" | tr '\n' ':')
         export PATH="$version_path/bin:$PATH"
         
+        # npm 配置：全局安装路径和缓存目录（每个版本独立）
+        export NPM_CONFIG_PREFIX="$version_path"
+        export NPM_CONFIG_CACHE="$version_path/.npm"
+        
+        # Corepack 配置：保持每个版本的包管理器独立
+        export COREPACK_HOME="$version_path/.corepack"
+        
         echo "[znvm] node@$(node -v) npm@$(npm -v)"
     fi
 }
@@ -225,6 +232,32 @@ function znvm() {
         return
     fi
 
+    if [[ "$cmd" == "list-global" || "$cmd" == "lg" ]]; then
+        local current_version=""
+        if command -v node &> /dev/null; then
+            current_version=$(node -v 2>/dev/null)
+        fi
+        
+        if [[ -z "$current_version" ]]; then
+            echo "[znvm] 没有正在使用的 Node 版本"
+            return 1
+        fi
+        
+        local global_modules_dir="$ZNVM_VERSIONS_DIR/$current_version/lib/node_modules"
+        if [[ ! -d "$global_modules_dir" ]]; then
+            echo "[znvm] 没有全局安装的包"
+            return 0
+        fi
+        
+        echo "[znvm] $current_version 全局包:"
+        ls "$global_modules_dir" 2>/dev/null | grep -vE '^(npm|corepack|npx)$' | while read -r pkg; do
+            if [[ -d "$global_modules_dir/$pkg" ]]; then
+                echo "  $pkg"
+            fi
+        done
+        return 0
+    fi
+
     if [[ "$cmd" == "uninstall" || "$cmd" == "rm" ]]; then
         if [[ -z "$arg" ]]; then
             echo "用法: znvm uninstall <version>"
@@ -264,6 +297,24 @@ function znvm() {
             echo "[znvm] 警告: $target_version 是当前正在使用的版本"
         fi
 
+        # 检查是否有全局安装的包
+        local global_modules_dir="$version_path/lib/node_modules"
+        if [[ -d "$global_modules_dir" ]]; then
+            # 排除 npm/corepack 等系统包
+            local global_packages=$(ls "$global_modules_dir" 2>/dev/null | grep -vE '^(npm|corepack|npx)$' | head -10)
+            if [[ -n "$global_packages" ]]; then
+                echo "[znvm] 该版本有以下全局包:"
+                echo "$global_packages" | while read -r pkg; do
+                    echo "  - $pkg"
+                done
+                local pkg_count=$(ls "$global_modules_dir" 2>/dev/null | grep -vE '^(npm|corepack|npx)$' | wc -l)
+                if [[ $pkg_count -gt 10 ]]; then
+                    echo "  ... 还有 $((pkg_count - 10)) 个"
+                fi
+                echo "[znvm] 使用 'nv list-global' 查看完整列表"
+            fi
+        fi
+
         # 执行删除
         rm -rf "$version_path"
         echo "[znvm] 已卸载: $target_version"
@@ -285,10 +336,11 @@ function znvm() {
     echo ""
     echo "Commands:"
     echo "  ls | list              列出已安装版本"
-    echo "  install <ver>   安装版本"
-    echo "  rm | uninstall <ver> 卸载版本"
-    echo "  use [ver]       切换版本 (读取 .nvmrc -> default)"
-    echo "  default <ver>   设置默认版本"
+    echo "  install <ver>          安装版本"
+    echo "  rm | uninstall <ver>   卸载版本"
+    echo "  use [ver]              切换版本 (读取 .nvmrc -> default)"
+    echo "  default <ver>          设置默认版本"
+    echo "  list-global | lg       列出当前版本全局包"
 }
 
 # 自动加载默认版本

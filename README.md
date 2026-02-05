@@ -32,8 +32,8 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
 # 安装最新版本 / Install latest version
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 
-# 安装指定版本 / Install specific version (>=v1.0.3 可用）
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v1.0.3/install.sh | bash
+# 安装指定版本 / Install specific version
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v0.1.0/install.sh | bash
 ```
 
 ### 手动安装 / Manual Installation
@@ -77,7 +77,6 @@ znvm use             # 读取 .nvmrc -> default version
 # 列出已安装版本
 # * 前缀 = 当前使用版本，[default] 后缀 = 默认版本
 znvm ls
-znvm list
 
 # 设置默认版本 (新开终端自动生效)
 znvm default 20
@@ -85,6 +84,9 @@ znvm default 20
 # 卸载版本
 znvm uninstall 20    # 卸载 v20.x.x 最新版本
 znvm rm v18.20.0     # 卸载指定版本
+
+# 查看当前版本全局包
+znvm list-global     # 或 znvm lg
 ```
 
 ### 高级配置 / Advanced Configuration
@@ -112,6 +114,24 @@ Supports setting the `NVM_NODEJS_ORG_MIRROR` environment variable to accelerate 
 ```bash
 export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
 ```
+
+#### 4. npm 全局包隔离
+每个 Node 版本拥有独立的全局包环境：
+
+```bash
+# 在 Node 20 中安装 pnpm
+znvm use 20
+npm install -g pnpm    # 安装到 ~/.znvm/versions/v20.x.x/lib/node_modules/
+
+# 切换到 Node 18，pnpm 不可用（未安装）
+znvm use 18
+npm install -g yarn    # 安装到 ~/.znvm/versions/v18.x.x/lib/node_modules/
+
+# 查看当前版本全局包
+znvm list-global
+```
+
+**隔离范围**：全局包、npm 缓存、Corepack (pnpm/yarn)
 
 ### 核心工具命令 / Core Tool Commands
 znvm 的 Zig 核心 (`znvm-core`) 提供独立的 SemVer 处理命令：
@@ -175,14 +195,16 @@ flowchart TD
     CheckCmd{"命令类型"}
     Shell --> CheckCmd
     CheckCmd -->|"install/use"| CheckInstalled{"已安装?"}
-    CheckCmd -->|"uninstall"| Remove["删除版本目录"]
+    CheckCmd -->|"uninstall"| CheckGlobal["检查全局包"]
     CheckInstalled -->|"Yes"| UseExisting["使用已有"]
     CheckInstalled -->|"No"| Download["下载+解压"]
     Download --> InstallDir["~/.znvm/versions/"]
     UseExisting --> UpdatePath["更新 PATH"]
     InstallDir --> UpdatePath
+    UpdatePath --> SetupNPM["设置 NPM_CONFIG_PREFIX<br/>NPM_CONFIG_CACHE<br/>COREPACK_HOME"]
+    CheckGlobal --> Remove["删除版本目录"]
     Remove --> CleanDefault["清理 default 设置"]
-    UpdatePath --> Env["node 可用"]
+    SetupNPM --> Env["node/npm 可用"]
     CleanDefault --> Env
 ```
 
