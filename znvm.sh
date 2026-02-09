@@ -343,7 +343,9 @@ function znvm() {
     echo "  lg | list-global       列出当前版本全局包"
 }
 
-# 自动加载默认版本
-if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
+# 自动加载版本（优先级: .nvmrc > default-version）
+if [[ -f ".nvmrc" ]]; then
+    znvm use > /dev/null 2>&1
+elif [[ -f "$ZNVM_ROOT/.default-version" ]]; then
     znvm use "$(cat "$ZNVM_ROOT/.default-version")" > /dev/null 2>&1
 fi
