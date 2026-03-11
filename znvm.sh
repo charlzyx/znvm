@@ -480,3 +480,70 @@ if [[ -f ".nvmrc" ]]; then
 elif [[ -f "$ZNVM_ROOT/.default-version" ]]; then
     znvm use "$(cat "$ZNVM_ROOT/.default-version")" > /dev/null 2>&1
 fi
+
+
+# ========== cd 自动切换版本 ==========
+
+# 开关变量：ZNVM_AUTO_SWITCH=false 可禁用
+# 缓存上次处理的目录和版本，避免重复检测
+_znvm_last_checked_dir=""
+_znvm_last_nvmrc_content=""
+
+# 核心检测函数
+function _znvm_auto_switch() {
+    # 被禁用时直接返回
+    [[ "${ZNVM_AUTO_SWITCH:-true}" == "false" ]] && return
+
+    local current_dir="$PWD"
+
+    # 查找最近的 .nvmrc（向上递归）
+    local nvmrc_path=""
+    local search_dir="$current_dir"
+    while [[ -n "$search_dir" && "$search_dir" != "/" ]]; do
+        if [[ -f "$search_dir/.nvmrc" ]]; then
+            nvmrc_path="$search_dir/.nvmrc"
+            break
+        fi
+        search_dir="${search_dir%/*}"
+    done
+    # 检查根目录
+    [[ -z "$nvmrc_path" && -f "/.nvmrc" ]] && nvmrc_path="/.nvmrc"
+
+    # 读取 .nvmrc 内容
+    local nvmrc_content=""
+    if [[ -n "$nvmrc_path" ]]; then
+        nvmrc_content=$(head -n 1 "$nvmrc_path" 2>/dev/null | sed 's/#.*//' | xargs)
+    fi
+
+    # 缓存命中：目录和 .nvmrc 内容都没变
+    if [[ "$current_dir" == "$_znvm_last_checked_dir" && "$nvmrc_content" == "$_znvm_last_nvmrc_content" ]]; then
+        return
+    fi
+
+    _znvm_last_checked_dir="$current_dir"
+    _znvm_last_nvmrc_content="$nvmrc_content"
+
+    # 有 .nvmrc 就切换，没有就静默跳过
+    if [[ -n "$nvmrc_content" ]]; then
+        # 静默执行，失败也不打扰
+        znvm use "$nvmrc_content" > /dev/null 2>&1
+    fi
+}
+
+# 注册 hook
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+    # Zsh: 使用 precmd hook
+    autoload -Uz add-zsh-hook 2>/dev/null || true
+    if command -v add-zsh-hook &> /dev/null; then
+        add-zsh-hook precmd _znvm_auto_switch
+    else
+        # 兼容老版本 zsh
+        precmd_functions+=(_znvm_auto_switch)
+    fi
+elif [[ -n "${BASH_VERSION:-}" ]]; then
+    # Bash: 使用 PROMPT_COMMAND
+    # 避免重复添加
+    if [[ "${PROMPT_COMMAND:-}" != *"_znvm_auto_switch"* ]]; then
+        PROMPT_COMMAND="_znvm_auto_switch${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+    fi
+fi
