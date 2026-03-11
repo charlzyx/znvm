@@ -1,8 +1,11 @@
 
-#!/bin/zsh
+#!/bin/bash
 # znvm - 一个基于 Zig 的极简 Node 版本管理器
 # 用法: source znvm.sh
 # 别名: nv
+
+# 版本号（与 Git tag 保持一致）
+ZNVM_VERSION="v1.0.7"
 
 # 设定源码目录 (用于编译)
 if [[ -n "${ZSH_VERSION}" ]]; then
@@ -43,8 +46,8 @@ function _znvm_get_current_version() {
 # 获取已安装版本列表（只返回 bin/node 存在的有效版本）
 function _znvm_get_installed_versions() {
     local versions=()
-    # 使用 (N) glob 修饰符避免无匹配时报错
-    for dir in "$ZNVM_VERSIONS_DIR"/v*(N); do
+    # 使用 2>/dev/null 避免无匹配时报错
+    for dir in "$ZNVM_VERSIONS_DIR"/v* 2>/dev/null; do
         if [[ -d "$dir" && -f "$dir/bin/node" ]]; then
             versions+=("$(basename "$dir")")
         fi
@@ -129,10 +132,10 @@ function _znvm_switch_version() {
         return 1
     fi
 
-    # 过滤掉已存在的 znvm 版本路径（zsh 用 ${(s/:/)PATH} 分割）
+    # 过滤掉已存在的 znvm 版本路径
     local new_path=""
-    local path_entries=(${(s/:/)PATH})
-    for p in "${path_entries[@]}"; do
+    local IFS=':'
+    for p in $PATH; do
         if [[ -n "$p" && "$p" != *"$ZNVM_VERSIONS_DIR"* ]]; then
             if [[ -z "$new_path" ]]; then
                 new_path="$p"
@@ -182,7 +185,7 @@ function _znvm_install_version() {
     local index_mirror=$(_znvm_get_mirror)
     local resolve_result
 
-    resolve_result=$(curl -sL -H "User-Agent: znvm/1.0.0" "$index_mirror/index.json" 2>/dev/null | "$ZNVM_CORE_BIN" resolve "$arg")
+    resolve_result=$(curl -sL -H "User-Agent: znvm/${ZNVM_VERSION}" "$index_mirror/index.json" 2>/dev/null | "$ZNVM_CORE_BIN" resolve "$arg")
 
     if [[ $? -ne 0 || -z "$resolve_result" ]]; then
         _znvm_error "无法解析版本 '$arg'"
@@ -221,8 +224,8 @@ function _znvm_install_version() {
         local filename="node-${target_version}-${os}-${target_arch}.tar.gz"
         local url="${mirror}/${target_version}/${filename}"
 
-        if ! curl -L -f --connect-timeout 30 --max-time 300 --retry 2 \
-                  -o "$ZNVM_ROOT/$filename" "$url" --progress-bar 2>/dev/null; then
+        if ! curl -L -f --connect-timeout 30 --max-time 300 --retry 2 --retry-delay 3 \
+                  -o "$ZNVM_ROOT/$filename" "$url" --progress-bar; then
             _znvm_error "下载失败 $url"
             _znvm_cleanup_download "$filename"
             return 1
@@ -428,6 +431,18 @@ function znvm() {
             _znvm_info "警告: $target_version 是当前正在使用的版本"
         fi
 
+        # 检查是否是默认版本（删除前检查）
+        local is_default=false
+        if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
+            local default_ver_input=$(cat "$ZNVM_ROOT/.default-version" | xargs)
+            if [[ -n "$default_ver_input" ]]; then
+                local default_version=$(_znvm_semver_match "$installed_versions" "$default_ver_input")
+                if [[ "$default_version" == "$target_version" ]]; then
+                    is_default=true
+                fi
+            fi
+        fi
+
         # 检查是否有全局安装的包
         local global_modules_dir="$version_path/lib/node_modules"
         if [[ -d "$global_modules_dir" ]]; then
@@ -451,13 +466,9 @@ function znvm() {
         _znvm_info "已卸载: $target_version"
 
         # 如果删除的是默认版本，清理 default-version
-        if [[ -f "$ZNVM_ROOT/.default-version" ]]; then
-            local default_ver_input=$(cat "$ZNVM_ROOT/.default-version" | xargs)
-            local default_version=$(_znvm_semver_match "$installed_versions" "$default_ver_input")
-            if [[ "$default_version" == "$target_version" ]]; then
-                rm -f "$ZNVM_ROOT/.default-version"
-                _znvm_info "已清理默认版本设置"
-            fi
+        if [[ "$is_default" == "true" ]]; then
+            rm -f "$ZNVM_ROOT/.default-version"
+            _znvm_info "已清理默认版本设置"
         fi
 
         return 0
@@ -496,23 +507,10 @@ function _znvm_auto_switch() {
 
     local current_dir="$PWD"
 
-    # 查找最近的 .nvmrc（向上递归）
-    local nvmrc_path=""
-    local search_dir="$current_dir"
-    while [[ -n "$search_dir" && "$search_dir" != "/" ]]; do
-        if [[ -f "$search_dir/.nvmrc" ]]; then
-            nvmrc_path="$search_dir/.nvmrc"
-            break
-        fi
-        search_dir="${search_dir%/*}"
-    done
-    # 检查根目录
-    [[ -z "$nvmrc_path" && -f "/.nvmrc" ]] && nvmrc_path="/.nvmrc"
-
-    # 读取 .nvmrc 内容
+    # 只在当前目录查找 .nvmrc
     local nvmrc_content=""
-    if [[ -n "$nvmrc_path" ]]; then
-        nvmrc_content=$(head -n 1 "$nvmrc_path" 2>/dev/null | sed 's/#.*//' | xargs)
+    if [[ -f ".nvmrc" ]]; then
+        nvmrc_content=$(head -n 1 ".nvmrc" 2>/dev/null | sed 's/#.*//' | xargs)
     fi
 
     # 缓存命中：目录和 .nvmrc 内容都没变

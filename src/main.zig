@@ -73,7 +73,7 @@ fn resolveVersion(allocator: std.mem.Allocator, query: []const u8) !void {
     // 1. Read index.json from Stdin
     const stdin_file = std.fs.File{ .handle = std.posix.STDIN_FILENO };
 
-    var body_list = try std.ArrayList(u8).initCapacity(allocator, 0);
+    var body_list = try std.ArrayList(u8).initCapacity(allocator, 4096);
     defer body_list.deinit(allocator);
 
     var temp_buf: [4096]u8 = undefined;
@@ -146,11 +146,9 @@ fn resolveVersion(allocator: std.mem.Allocator, query: []const u8) !void {
                     if (std.mem.indexOf(u8, f, "arm64-tar") != null) has_arm64 = true;
                     if (std.mem.indexOf(u8, f, "x64-tar") != null) has_x64 = true;
                 } else {
-                    // Linux
-                    // Ensure we don't match substrings incorrectly, but "linux-x64" is distinct enough.
-                    // We check if it contains the arch.
-                    if (std.mem.indexOf(u8, f, "arm64") != null) has_arm64 = true;
-                    if (std.mem.indexOf(u8, f, "x64") != null) has_x64 = true;
+                    // Linux - 简单前缀匹配
+                    if (std.mem.startsWith(u8, f, "linux-arm64")) has_arm64 = true;
+                    if (std.mem.startsWith(u8, f, "linux-x64")) has_x64 = true;
                 }
             }
         }
@@ -267,7 +265,7 @@ fn semverMatch(allocator: std.mem.Allocator, query: []const u8) !void {
     const stdin_file = std.fs.File{ .handle = std.posix.STDIN_FILENO };
 
     // Read all versions from stdin
-    var body_list = try std.ArrayList(u8).initCapacity(allocator, 0);
+    var body_list = try std.ArrayList(u8).initCapacity(allocator, 4096);
     defer body_list.deinit(allocator);
 
     var temp_buf: [4096]u8 = undefined;
