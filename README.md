@@ -22,30 +22,33 @@ It combines the high performance of **Zig** (handling complex SemVer parsing and
   - Requires only a single command alias `nv` for all operations.
 - 🇨🇳 **本地化 / Localized**: 全中文/英文双语输出提示。
   - Full Chinese/English bilingual output prompts.
+- 🔄 **自动切换 / Auto Switch**: 进入包含 `.nvmrc` 的目录时自动切换 Node 版本。
+  - Automatically switches Node version when entering a directory containing `.nvmrc`.
 
 ## 📦 安装 / Installation
 
 ### 自动安装 (推荐) / Automatic Installation (Recommended)
-
 
 ```bash
 # 安装最新版本 / Install latest version
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 
 # 安装指定版本 / Install specific version
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v0.1.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v1.0.0/install.sh | bash
 ```
 
 ### 手动安装 / Manual Installation
 
 1. 克隆仓库：
    Clone the repository:
+
    ```bash
    git clone https://github.com/charlzyx/znvm.git ~/.znvm
    ```
 
 2. 将以下内容添加到你的 Shell 配置文件 (`~/.zshrc`, `~/.bashrc` 等)：
    Add the following to your Shell configuration file (`~/.zshrc`, `~/.bashrc`, etc.):
+
    ```bash
    export ZNVM_ROOT="$HOME/.znvm"
    source "$ZNVM_ROOT/znvm.sh"
@@ -92,15 +95,19 @@ znvm list-global     # 或 znvm lg
 ### 高级配置 / Advanced Configuration
 
 #### 1. 简写别名 / Shorthand Alias
+
 建议配置 `nv` 别名以获得更佳体验：
 It is recommended to configure the `nv` alias for a better experience:
+
 ```bash
 alias nv=znvm
 ```
 
-#### 2. .nvmrc 支持 / .nvmrc Support
-当目录下存在 `.nvmrc` 文件时，执行无参数的 `use` 命令即可自动切换：
-When an `.nvmrc` file exists in the directory, running `use` without arguments will automatically switch versions:
+#### 2. .nvmrc 与自动切换 / .nvmrc & Auto Switch
+
+当目录下存在 `.nvmrc` 文件时，`znvm use` 无参数即可自动切换：
+When an `.nvmrc` file exists in the directory, running `use` without arguments automatically switches versions:
+
 ```bash
 # 假设 .nvmrc 内容为 "18" / Assuming .nvmrc content is "18"
 cd my-project
@@ -108,14 +115,31 @@ znvm use
 # -> 自动切换到 v18.x.x / Automatically switches to v18.x.x
 ```
 
+**自动切换功能**（v1.0.8+）：进入目录时自动检测 `.nvmrc` 并切换版本。
+**Auto Switch** (v1.0.8+): Automatically detects `.nvmrc` and switches versions when entering a directory.
+
+```bash
+# 开启自动切换（默认）/ Enable auto switch (default)
+export ZNVM_AUTO_SWITCH=true
+
+# 关闭自动切换 / Disable auto switch
+export ZNVM_AUTO_SWITCH=false
+```
+
+注意：只在**当前目录**查找 `.nvmrc`，不会递归向上查找父目录。
+Note: Only searches `.nvmrc` in the **current directory**, does not recursively search parent directories.
+
 #### 3. 镜像源加速 / Mirror Acceleration
+
 支持设置 `NVM_NODEJS_ORG_MIRROR` 环境变量来加速版本解析和下载：
 Supports setting the `NVM_NODEJS_ORG_MIRROR` environment variable to accelerate version resolution and downloading:
+
 ```bash
 export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
 #### 4. npm 全局包隔离
+
 每个 Node 版本拥有独立的全局包环境：
 
 ```bash
@@ -134,6 +158,7 @@ znvm list-global
 **隔离范围**：全局包、npm 缓存、Corepack (pnpm/yarn)
 
 ### 核心工具命令 / Core Tool Commands
+
 znvm 的 Zig 核心 (`znvm-core`) 提供独立的 SemVer 处理命令：
 The Zig core provides standalone SemVer processing commands:
 
@@ -158,18 +183,18 @@ echo -e "v18.20.0\nv20.10.0" | znvm-core semver match 20
 znvm 采用 **混合架构** (Hybrid Architecture) 设计：
 znvm uses a **Hybrid Architecture** design:
 
-1.  **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
-    *   **`resolve <version>`**: 从远程 `index.json` 解析最佳版本（含架构检测、Rosetta 回退）。
-    *   **`semver compare <v1> <v2>`**: 比较两个 SemVer 版本，输出 `-1/0/1`。
-    *   **`semver match <query>`**: 从本地版本列表中匹配最佳版本。
-    *   **优势**: Zig 解析 JSON 和版本比 Shell 快且安全；支持交叉编译。
+1. **Core (Zig)**: `src/main.zig` -> `bin/znvm-core`
+    - **`resolve <version>`**: 从远程 `index.json` 解析最佳版本（含架构检测、Rosetta 回退）。
+    - **`semver compare <v1> <v2>`**: 比较两个 SemVer 版本，输出 `-1/0/1`。
+    - **`semver match <query>`**: 从本地版本列表中匹配最佳版本。
+    - **优势**: Zig 解析 JSON 和版本比 Shell 快且安全；支持交叉编译。
 
-2.  **Shell Wrapper**: `znvm.sh`
-    *   **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
-    *   **功能 / Functions**:
-        *   管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
-        *   使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
-        *   提供用户交互界面。 / Provides user interaction interface.
+2. **Shell Wrapper**: `znvm.sh`
+    - **职责 / Responsibility**: 负责"IO 与环境操作" / Handles "IO and environment operations".
+    - **功能 / Functions**:
+        - 管理 `PATH` 环境变量。 / Manages `PATH` environment variables.
+        - 使用 `curl` 获取远程版本列表和下载二进制包（自动复用系统代理配置）。 / Uses `curl` to fetch remote version lists and download binaries (automatically reuses system proxy settings).
+        - 提供用户交互界面。 / Provides user interaction interface.
 
 ```mermaid
 flowchart TD
@@ -215,6 +240,7 @@ If you want to contribute:
 
 1. 确保安装了 Zig (0.13.0+)。 / Ensure Zig (0.13.0+) is installed.
 2. 运行构建： / Run build:
+
    ```bash
    zig build -Doptimize=ReleaseSafe
    ```
