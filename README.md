@@ -25,6 +25,12 @@ Traditional Node.js version managers are either slow (written in Shell) or featu
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
 ```
 
+### Install Specific Version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.0.0/install.sh | bash
+```
+
 ## ✨ Core Features
 
 - ⚡ **Instant Performance**: Core logic written in Zig for lightning-fast resolution.
@@ -32,6 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 - 🐧 **Unix-First**: Native support for macOS and Linux.
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
 - 📦 **Isolated Environments**: Per-version isolation for global packages, npm cache, and Corepack.
+- ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.
 
 ## 🛠 Usage
 
@@ -44,7 +51,11 @@ znvm use 20              # Use Node 20
 znvm use                 # Automatically use version from .nvmrc
 
 # List installed versions
-znvm ls
+znvm ls                  # Shows [*] for current, [->] for default
+
+# Set default version
+znvm default 20          # Set v20 as default
+znvm default             # Show current default
 
 # Uninstall
 znvm uninstall 20
@@ -71,7 +82,7 @@ eval "$(znvm env)"
 
 ## 📖 Documentation
 
-Full documentation is available at [znvm.dev](https://znvm.dev) (Coming soon!). 
+Full documentation is available at [znvm.dev](https://znvm.dev).
 
 ## 🏗 Development
 

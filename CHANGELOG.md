@@ -5,25 +5,53 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased] - 2026-03-12
+## [v2.0.0-rc.1] - 2026-03-12
+
+### Breaking Changes
+
+**架构重构**: 从纯 Shell 脚本迁移到 Zig + Shell 混合架构
+
+```
+v1.x: znvm.sh (纯 Shell)
+v2.0.0: znvm-core (Zig 二进制) + znvm.sh (Shell 包装器)
+```
+
+**项目结构**:
+```
+src/
+├── main.zig      # 入口点
+├── commands.zig  # 命令实现 (install, use, ls, uninstall, default)
+├── config.zig    # 配置管理
+├── util.zig      # 工具函数
+└── version.zig   # 版本解析
+```
+
+**命令变更**:
+| 命令 | v1.x | v2.0.0 |
+|------|------|--------|
+| `znvm ls` | 纯文本列表 | 带标记 `[*]` 当前, `[->]` 默认 |
+| `znvm default` | ✓ | ✓ (恢复) |
+
+**兼容性**: ✅ 所有 v1.x 命令继续支持，`.nvmrc` 格式不变，已安装版本无需重新安装
 
 ### Changed
 
-- 重构项目结构：将核心逻辑拆分为多个模块（commands.zig, config.zig, util.zig, version.zig）
-- 整合文档：移除独立的 docs 目录，将文档迁移到 website 目录统一管理
-- 删除冗余文件：移除 QUICK_START.md 和旧版 docs 目录
-- 优化性能测试脚本：添加 znvm vs fnm vs nvm 性能对比测试
+- **代码模块化**: 核心逻辑拆分为多个 Zig 模块
+- **ls 命令改进**: 显示 `[*]` 标记当前版本，`[->]` 标记默认版本
+- **文档整合**: 移除独立 docs 目录，迁移到 website 统一管理
+- **清理冗余**: 删除 QUICK_START.md 和旧版 docs 目录
 
 ### Added
 
-- 新增性能基准测试脚本（benchmarks/5_accurate_performance_test.sh）
-- 添加 BREAKING_CHANGES.md 记录破坏性变更
-- 新增 website 文档站点配置（vocs.config.ts）
+- **Zig 核心**: 全新的 Zig 实现，启动速度 < 5ms
+- **default 命令**: 恢复设置/查看默认版本功能
+- **文档站点**: 新增 website 配置和完整文档 (znvm.dev)
 
 ### Fixed
 
 - 修复 release workflow 配置
 - 优化 install.sh 安装脚本
+- 修复版本解析和 SemVer 匹配
 
 ## [v1.1.2] - 2026-03-12
 

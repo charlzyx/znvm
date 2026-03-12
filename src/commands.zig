@@ -221,14 +221,58 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
     defer env_map.deinit();
     const current_ver = env_map.get("ZNVM_CURRENT");
 
+    // Get default version
+    const default_file = try fs.path.join(allocator, &.{ config.root_dir, "default" });
+    defer allocator.free(default_file);
+
+    var default_ver: ?[]const u8 = null;
+    const default_file_handle = fs.openFileAbsolute(default_file, .{}) catch null;
+    if (default_file_handle) |file| {
+        defer file.close();
+        const content = file.readToEndAlloc(allocator, 1024) catch null;
+        if (content) |c| {
+            defer allocator.free(c);
+            default_ver = mem.trim(u8, c, " \t\n\r");
+        }
+    }
+
     for (installed) |ver| {
-        var marker: []const u8 = " ";
+        var is_current = false;
+        var is_default = false;
+
+        // Check current version
         if (current_ver) |c| {
             if (mem.eql(u8, c, ver)) {
-                marker = "*";
+                is_current = true;
             }
         }
-        try stdout("{s} {s}\n", .{ marker, ver });
+
+        // Check default version
+        if (default_ver) |d| {
+            if (mem.eql(u8, d, ver)) {
+                is_default = true;
+            }
+        }
+
+        // Build markers string (fixed width: 6 chars "[*,->]" or "      ")
+        var markers_buf: [6]u8 = undefined;
+        @memset(&markers_buf, ' ');
+        if (is_current or is_default) {
+            var pos: usize = 0;
+            markers_buf[pos] = '[';
+            pos += 1;
+            if (is_current) {
+                markers_buf[pos] = '*';
+                pos += 1;
+            }
+            if (is_default) {
+                @memcpy(markers_buf[pos..pos+2], "->");
+                pos += 2;
+            }
+            markers_buf[pos] = ']';
+        }
+
+        try stdout("{s} {s}\n", .{ markers_buf, ver });
     }
 }
 
@@ -257,4 +301,54 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
 
     try fs.deleteTreeAbsolute(path);
     try stderr("Uninstalled {s}\n", .{ver});
+}
+
+pub fn cmdDefault(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    if (args.len < 3) {
+        // Show current default
+        const default_file = try fs.path.join(allocator, &.{ config.root_dir, "default" });
+        defer allocator.free(default_file);
+
+        const file = fs.openFileAbsolute(default_file, .{}) catch |err| {
+            if (err == error.FileNotFound) {
+                try stderr("No default version set.\n", .{});
+                process.exit(1);
+            }
+            return err;
+        };
+        defer file.close();
+
+        const content = try file.readToEndAlloc(allocator, 1024);
+        defer allocator.free(content);
+        const ver = mem.trim(u8, content, " \t\n\r");
+        try stdout("{s}\n", .{ver});
+        return;
+    }
+
+    const query = args[2];
+
+    // Verify version is installed
+    const installed = try version.getInstalledVersions(allocator, config);
+    defer {
+        for (installed) |v| allocator.free(v);
+        allocator.free(installed);
+    }
+    const resolved = try version.resolveLocalVersion(allocator, installed, query);
+
+    if (resolved == null) {
+        try stderr("Version '{s}' not installed. Run 'znvm install {s}' first.\n", .{ query, query });
+        process.exit(1);
+    }
+
+    const ver = resolved.?;
+
+    // Write to default file
+    const default_file = try fs.path.join(allocator, &.{ config.root_dir, "default" });
+    defer allocator.free(default_file);
+
+    const file = try fs.createFileAbsolute(default_file, .{});
+    defer file.close();
+
+    try file.writeAll(ver);
+    try stderr("Set default version to {s}\n", .{ver});
 }

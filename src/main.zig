@@ -10,7 +10,7 @@ const commands = @import("commands.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v1.2.0";
+const ZNVM_VERSION = "v2.0.0-rc.1";
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
@@ -39,6 +39,8 @@ pub fn main() !void {
         try commands.cmdList(allocator, args, config);
     } else if (mem.eql(u8, cmd, "uninstall") or mem.eql(u8, cmd, "rm")) {
         try commands.cmdUninstall(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "default")) {
+        try commands.cmdDefault(allocator, args, config);
     } else if (mem.eql(u8, cmd, "version") or mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
         try stdout("{s}\n", .{ZNVM_VERSION});
     } else {
@@ -57,5 +59,6 @@ fn printUsage(exe_name: []const u8) void {
     stdout("  use <ver>       Switch to a version (outputs shell commands)\n", .{}) catch {};
     stdout("  list, ls        List installed versions\n", .{}) catch {};
     stdout("  uninstall, rm   Uninstall a version\n", .{}) catch {};
+    stdout("  default <ver>   Set default version\n", .{}) catch {};
     stdout("  version         Show znvm version\n", .{}) catch {};
 }
