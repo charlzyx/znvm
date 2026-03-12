@@ -17,7 +17,7 @@ echo -e "${BLUE}The blazingly fast, zero-config Node.js version manager.${NC}"
 echo ""
 
 # 版本号（发布时更新此行）
-ZNVM_VERSION="v1.1.2"
+ZNVM_VERSION="v1.1.3"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
