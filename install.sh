@@ -120,27 +120,6 @@ if [ -n "$TARGET" ]; then
             BINARY_DOWNLOADED=true
             echo -e "${GREEN}✔ 二进制文件下载成功！${NC}"
             echo -e "${GREEN}✔ Binary downloaded successfully!${NC}"
-
-            # 更新 znvm.sh
-            echo -e "${CYAN}=> 更新 znvm.sh...${NC}"
-            echo -e "${CYAN}=> Updating znvm.sh...${NC}"
-            
-            if [ "$ADD_TO_PATH" = true ]; then
-                cat > "$ZNVM_DIR/znvm.sh" << 'EOF'
-#!/bin/sh
-export PATH="$HOME/.znvm/bin:$PATH"
-eval "$(znvm env)"
-EOF
-            else
-                cat > "$ZNVM_DIR/znvm.sh" << 'EOF'
-#!/bin/sh
-eval "$(znvm env)"
-EOF
-            fi
-            
-            chmod +x "$ZNVM_DIR/znvm.sh"
-            echo -e "${GREEN}✔ znvm.sh 更新成功！${NC}"
-            echo -e "${GREEN}✔ znvm.sh updated successfully!${NC}"
         else
             echo -e "${RED}✘ 预编译二进制文件下载失败。${NC}"
             echo -e "${RED}✘ Failed to download pre-compiled binary.${NC}"
