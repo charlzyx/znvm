@@ -84,7 +84,6 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\if [ -f ".nvmrc" ]; then
         \\  znvm use "$(cat .nvmrc | head -n 1 | tr -d '[:space:]')" >/dev/null 2>&1 || true
         \\fi
-        \\
     ;
     try stdout(shell_script, .{config.root_dir});
 }
