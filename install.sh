@@ -24,6 +24,31 @@ REPO_URL="https://github.com/charlzyx/znvm.git"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 
+INSTALL_BIN_DIR="$ZNVM_DIR/bin"
+ADD_TO_PATH=true
+
+# Parse PATH into array (handles spaces in paths correctly)
+# Split PATH by ':'
+IFS=':' read -ra PATH_DIRS <<< "$PATH"
+
+# Iterate through PATH directories to find a suitable install location
+# We prioritize user-specific directories
+for dir in "${PATH_DIRS[@]}"; do
+    # Skip if directory doesn't exist or isn't writable
+    if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
+        continue
+    fi
+    
+    # Check if it's a allowed user bin directory
+    case "$dir" in
+        "$HOME/bin"|"$HOME/.local/bin"|"$HOME/.bin"|"/usr/local/bin")
+            INSTALL_BIN_DIR="$dir"
+            ADD_TO_PATH=false
+            break
+            ;;
+    esac
+done
+
 VERSION_ARG="$1"
 
 # 确定要使用的版本
@@ -39,9 +64,11 @@ fi
 
 echo -e "${CYAN}=> 安装 znvm 到 $ZNVM_DIR...${NC}"
 echo -e "${CYAN}=> Installing znvm to $ZNVM_DIR...${NC}"
+echo -e "${CYAN}=> Binary will be installed to $INSTALL_BIN_DIR${NC}"
 
 # 确保目录存在
-mkdir -p "$ZNVM_DIR/bin"
+mkdir -p "$ZNVM_DIR"
+mkdir -p "$INSTALL_BIN_DIR"
 
 # 检测平台和架构
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -83,33 +110,41 @@ if [ -n "$TARGET" ]; then
     fi
 
     if [ -n "$VERSION" ]; then
-        DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-core-$VERSION-$TARGET"
+        DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-$VERSION-$TARGET"
 
         echo -e "${CYAN}=> 尝试下载预编译二进制文件 ($TARGET)...${NC}"
         echo -e "${CYAN}=> Attempting to download pre-compiled binary ($TARGET)...${NC}"
 
-        if curl -L -o "$ZNVM_DIR/bin/znvm-core" "$DOWNLOAD_URL" --fail 2>/dev/null; then
-            chmod +x "$ZNVM_DIR/bin/znvm-core"
+        if curl -L -o "$INSTALL_BIN_DIR/znvm" "$DOWNLOAD_URL" --fail 2>/dev/null; then
+            chmod +x "$INSTALL_BIN_DIR/znvm"
             BINARY_DOWNLOADED=true
             echo -e "${GREEN}✔ 二进制文件下载成功！${NC}"
             echo -e "${GREEN}✔ Binary downloaded successfully!${NC}"
 
-            # 同时下载对应版本的 znvm.sh
-            ZNVM_SH_URL="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$VERSION/znvm.sh"
-            echo -e "${CYAN}=> 下载 znvm.sh...${NC}"
-            echo -e "${CYAN}=> Downloading znvm.sh...${NC}"
-            if curl -L -o "$ZNVM_DIR/znvm.sh" "$ZNVM_SH_URL" --fail 2>/dev/null; then
-                chmod +x "$ZNVM_DIR/znvm.sh"
-                echo -e "${GREEN}✔ znvm.sh 下载成功！${NC}"
-                echo -e "${GREEN}✔ znvm.sh downloaded successfully!${NC}"
+            # 更新 znvm.sh
+            echo -e "${CYAN}=> 更新 znvm.sh...${NC}"
+            echo -e "${CYAN}=> Updating znvm.sh...${NC}"
+            
+            if [ "$ADD_TO_PATH" = true ]; then
+                cat > "$ZNVM_DIR/znvm.sh" << 'EOF'
+#!/bin/sh
+export PATH="$HOME/.znvm/bin:$PATH"
+eval "$(znvm env)"
+EOF
             else
-                echo -e "${YELLOW}⚠ 警告: znvm.sh 下载失败，将在首次运行时尝试从仓库获取。${NC}"
-                echo -e "${YELLOW}⚠ Warning: Failed to download znvm.sh, will attempt to fetch from repository on first run.${NC}"
+                cat > "$ZNVM_DIR/znvm.sh" << 'EOF'
+#!/bin/sh
+eval "$(znvm env)"
+EOF
             fi
+            
+            chmod +x "$ZNVM_DIR/znvm.sh"
+            echo -e "${GREEN}✔ znvm.sh 更新成功！${NC}"
+            echo -e "${GREEN}✔ znvm.sh updated successfully!${NC}"
         else
             echo -e "${RED}✘ 预编译二进制文件下载失败。${NC}"
             echo -e "${RED}✘ Failed to download pre-compiled binary.${NC}"
-            rm -f "$ZNVM_DIR/bin/znvm-core"
+            rm -f "$INSTALL_BIN_DIR/znvm"
         fi
     else
         echo -e "${RED}✘ 无法获取版本信息。${NC}"
@@ -137,8 +172,10 @@ if [ "$BINARY_DOWNLOADED" = false ]; then
     fi
 
     echo ""
-    echo -e "${YELLOW}⚡ 提示: 未找到预编译二进制文件，首次运行 'nv' 时将尝试自动编译 (需安装 Zig)。${NC}"
-    echo -e "${YELLOW}⚡ Note: No pre-compiled binary found, will attempt to compile automatically on first run of 'nv' (requires Zig).${NC}"
+    echo -e "${YELLOW}⚡ 提示: 未找到预编译二进制文件，请手动编译。${NC}"
+    echo -e "${YELLOW}⚡ Note: No pre-compiled binary found, please compile manually.${NC}"
+    echo -e "${YELLOW}   cd $ZNVM_DIR && zig build -Doptimize=ReleaseFast${NC}"
+    echo -e "${YELLOW}   cp zig-out/bin/znvm $INSTALL_BIN_DIR/znvm${NC}"
 fi
 
 # 3. 配置 Shell 环境
@@ -161,16 +198,21 @@ case "$SHELL_NAME" in
         ;;
 esac
 
-SOURCE_STR="export ZNVM_ROOT=\"$ZNVM_DIR\" && source \"\$ZNVM_ROOT/znvm.sh\""
+if [ "$ADD_TO_PATH" = true ]; then
+    CLEAN_INSTALL_DIR="${INSTALL_BIN_DIR/#$HOME/\$HOME}"
+    SOURCE_STR="export PATH=\"$CLEAN_INSTALL_DIR:\$PATH\" && eval \"\$(znvm env)\""
+else
+    SOURCE_STR="eval \"\$(znvm env)\""
+fi
 
-if [ -f "$PROFILE" ] && grep -q "znvm.sh" "$PROFILE"; then
+if [ -f "$PROFILE" ] && grep -q "znvm env" "$PROFILE"; then
     echo -e "${GREEN}✔ znvm 已在 $PROFILE 中配置。${NC}"
     echo -e "${GREEN}✔ znvm is already configured in $PROFILE.${NC}"
 else
     echo -e "${CYAN}=> 添加配置到 $PROFILE...${NC}"
     echo -e "${CYAN}=> Adding configuration to $PROFILE...${NC}"
     echo "" >> "$PROFILE"
-    echo "# znvm configuration" >> "$PROFILE"
+    echo "# znvm" >> "$PROFILE"
     echo "$SOURCE_STR" >> "$PROFILE"
 fi
 

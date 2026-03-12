@@ -1,5 +1,7 @@
 # znvm (Zig Node Version Manager)
 
+[简体中文](./README_zh.md)
+
 **The blazingly fast, zero-config Node.js version manager. Built with Zig for performance. Optimized for Unix.**
 
 [![GitHub stars](https://img.shields.io/github/stars/charlzyx/znvm.svg?style=social)](https://github.com/charlzyx/znvm)
@@ -35,22 +37,29 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 
 ```bash
 # Install a version
-nv install 22          # Match latest v22.x.x
+znvm install 22          # Match latest v22.x.x
 
 # Switch version
-nv use 20              # Use Node 20
-nv use                 # Automatically use version from .nvmrc
+znvm use 20              # Use Node 20
+znvm use                 # Automatically use version from .nvmrc
 
 # List installed versions
-nv ls
-
-# Set default version
-nv default 22
+znvm ls
 
 # Uninstall
-nv rm 20
+znvm uninstall 20
 ```
-*Note: We recommend aliasing `znvm` to `nv`.*
+
+## ⚙️ Shell Setup
+
+To start using `znvm`, add the following to your shell configuration file (e.g., `~/.zshrc`, `~/.bashrc`):
+
+```bash
+# Initialize znvm
+eval "$(znvm env)"
+```
+
+> **Note**: The installation script attempts to configure this automatically. If `znvm` command is not found, ensure the binary is in your `PATH`.
 
 ## 📊 Benchmarks
 
@@ -62,7 +71,7 @@ nv rm 20
 
 ## 📖 Documentation
 
-Full documentation is available at [znvm.sh](https://znvm.sh) (Coming soon!). 
+Full documentation is available at [znvm.dev](https://znvm.dev) (Coming soon!). 
 
 ## 🏗 Development
 

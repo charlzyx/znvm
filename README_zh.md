@@ -35,22 +35,29 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 
 ```bash
 # 安装版本
-nv install 22          # 自动匹配并安装最新的 v22.x.x
+znvm install 22          # 自动匹配并安装最新的 v22.x.x
 
 # 切换版本
-nv use 20              # 使用 Node 20
-nv use                 # 自动从 .nvmrc 读取版本并切换
+znvm use 20              # 使用 Node 20
+znvm use                 # 自动从 .nvmrc 读取版本并切换
 
 # 列出已安装版本
-nv ls
-
-# 设置默认版本
-nv default 22
+znvm ls
 
 # 卸载版本
-nv rm 20
+znvm uninstall 20
 ```
-*注：建议将 `znvm` 设为别名 `nv` 以获得最佳体验。*
+
+## ⚙️ Shell 配置
+
+要开始使用 `znvm`，请将以下内容添加到您的 Shell 配置文件（如 `~/.zshrc`, `~/.bashrc`）中：
+
+```bash
+# 初始化 znvm
+eval "$(znvm env)"
+```
+
+> **注意**：安装脚本通常会自动为您配置。如果 `znvm` 命令未找到，请确保二进制文件位于您的 `PATH` 中。
 
 ## 📊 性能对比
 
@@ -62,7 +69,7 @@ nv rm 20
 
 ## 📖 官方文档
 
-完整文档请访问 [znvm.sh](https://znvm.sh) (即将上线！)。
+完整文档请访问 [znvm.dev](https://znvm.dev) (即将上线！)。
 
 ## 🏗 本地开发
 

@@ -20,8 +20,8 @@ test_root_bilingual/
 .znvm_sim/
 .nvmrc
 
-# Docs
-docs/node_modules/
-docs/dist/
-docs/.vocs/
-docs/cache/
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
