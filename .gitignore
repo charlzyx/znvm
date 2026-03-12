@@ -19,3 +19,9 @@ test_root/
 test_root_bilingual/
 .znvm_sim/
 .nvmrc
+
+# Docs
+docs/node_modules/
+docs/dist/
+docs/.vocs/
+docs/cache/
