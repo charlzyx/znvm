@@ -1,8 +1,8 @@
 const std = @import("std");
-const http = std.http;
 const json = std.json;
 const mem = std.mem;
 const fs = std.fs;
+const process = std.process;
 const util = @import("util.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
 
@@ -23,26 +23,22 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
     const index_url = try std.fmt.allocPrint(allocator, "{s}/index.json", .{config.mirror});
     defer allocator.free(index_url);
     
-    var client = http.Client{ .allocator = allocator };
-    defer client.deinit();
-    
-    const uri = try std.Uri.parse(index_url);
-    var req = try client.request(.GET, uri, .{});
-    defer req.deinit();
-    
-    try req.sendBodiless();
-    var response = try req.receiveHead(&.{});
-    
-    if (response.head.status != .ok) {
-        try stderr("Failed to fetch index.json: status {}\n", .{response.head.status});
+    // Use curl as a fallback/alternative approach for fetching
+    const argv = &[_][]const u8{ "curl", "-sSL", index_url };
+    const result = try process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+        .max_output_bytes = 10 * 1024 * 1024,
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    if (result.term.Exited != 0) {
+        try stderr("Failed to fetch index.json from {s}\n", .{index_url});
         return null;
     }
-    
-    var buf: [4096]u8 = undefined;
-    const reader = response.reader(&buf);
-    
-    const body_content = try reader.allocRemaining(allocator, .limited(10 * 1024 * 1024));
-    defer allocator.free(body_content);
+
+    const body_content = result.stdout;
     
     const parsed = try json.parseFromSlice([]NodeEntry, allocator, body_content, .{ .ignore_unknown_fields = true });
     defer parsed.deinit();
@@ -119,32 +115,17 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
 }
 
 pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []const u8) !void {
-    var client = http.Client{ .allocator = allocator };
-    defer client.deinit();
+    const argv = &[_][]const u8{ "curl", "-sSL", "-o", dest_path, url };
+    const result = try process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
     
-    const uri = try std.Uri.parse(url);
-    
-    var req = try client.request(.GET, uri, .{});
-    defer req.deinit();
-    
-    try req.sendBodiless();
-    var response = try req.receiveHead(&.{});
-    
-    if (response.head.status != .ok) {
+    if (result.term.Exited != 0) {
         return error.DownloadFailed;
     }
-    
-    var buf: [4096]u8 = undefined;
-    const reader = response.reader(&buf);
-    
-    const file = try fs.createFileAbsolute(dest_path, .{});
-    defer file.close();
-    
-    var file_buf: [4096]u8 = undefined;
-    var file_writer_impl = file.writer(&file_buf);
-    const w = &file_writer_impl.interface;
-    
-    _ = try reader.streamRemaining(w);
 }
 
 pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]const []const u8 {
