@@ -134,9 +134,10 @@ function _znvm_switch_version() {
 
     # 过滤掉已存在的 znvm 版本路径
     local new_path=""
-    local IFS=':'
+    local old_ifs="$IFS"
+    IFS=':'
     for p in $PATH; do
-        if [[ -n "$p" && "$p" != *"$ZNVM_VERSIONS_DIR"* ]]; then
+        if [[ -n "$p" && -n "$ZNVM_VERSIONS_DIR" && "$p" != *"$ZNVM_VERSIONS_DIR"* ]]; then
             if [[ -z "$new_path" ]]; then
                 new_path="$p"
             else
@@ -144,6 +145,7 @@ function _znvm_switch_version() {
             fi
         fi
     done
+    IFS="$old_ifs"
     export PATH="$version_path/bin:$new_path"
 
     # hash -r 清除命令缓存，确保使用新版本的 node
