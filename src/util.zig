@@ -2,16 +2,12 @@ const std = @import("std");
 
 pub fn stdout(comptime fmt: []const u8, args: anytype) !void {
     var buf: [8192]u8 = undefined;
-    var w = std.fs.File.stdout().writer(&buf);
-    const writer = &w.interface;
-    try writer.print(fmt, args);
-    try writer.flush();
+    const str = try std.fmt.bufPrint(&buf, fmt, args);
+    _ = try std.fs.File.stdout().write(str);
 }
 
 pub fn stderr(comptime fmt: []const u8, args: anytype) !void {
     var buf: [8192]u8 = undefined;
-    var w = std.fs.File.stderr().writer(&buf);
-    const writer = &w.interface;
-    try writer.print(fmt, args);
-    try writer.flush();
+    const str = try std.fmt.bufPrint(&buf, fmt, args);
+    _ = try std.fs.File.stderr().write(str);
 }
