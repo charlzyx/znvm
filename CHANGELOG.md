@@ -7,6 +7,30 @@
 
 ## [v2.0.0-rc.1] - 2026-03-12
 
+### Added
+
+- **性能基准测试** (`benchmarks/benchmark_key_operations.sh`)
+  - 完整的性能对比测试脚本
+  - 测试关键操作：`list`, `use`, `.nvmrc` 解析
+  - 对标 nvm 和 fnm 的真实性能数据
+
+### Changed
+
+- **文档站点更新**
+  - 更新主页 (`docs/pages/index.mdx`, `docs/pages/zh/index.mdx`) 添加性能对比表格
+  - 新增博客文章 "Why Zig?" (`docs/pages/blog/why-zig.mdx`, `docs/pages/zh/blog/why-zig.mdx`)
+  - 完整的真实基准测试数据 (Apple M4, 16GB RAM, macOS 25.3)
+
+**性能数据对比**:
+
+| 管理器 | list | use | .nvmrc |
+|--------|------|-----|--------|
+| nvm | 708ms | 192ms | 189ms |
+| fnm | 6ms | 4ms | 10ms |
+| **znvm** | **4ms** | **3ms** | **2ms** |
+
+**性能优势**: znvm 快 **95-177 倍** (相比 nvm)
+
 ### Breaking Changes
 
 **架构重构**: 从纯 Shell 脚本迁移到 Zig + Shell 混合架构
