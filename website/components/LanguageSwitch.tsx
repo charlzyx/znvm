@@ -1,8 +1,9 @@
-import { useLocation } from 'react-router';
+'use client';
+
+import { usePathname } from 'next/navigation';
 
 export function LanguageSwitch() {
-  const location = useLocation();
-  const pathname = location.pathname;
+  const pathname = usePathname() || '/';
   
   // Check if we're on a Chinese page
   const isZh = pathname.startsWith('/zh');

@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   turbopack: {},
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;

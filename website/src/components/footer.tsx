@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Github, Twitter, Heart } from "lucide-react";
+import { Zap, Heart } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface FooterProps {

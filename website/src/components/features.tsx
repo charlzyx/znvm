@@ -5,11 +5,7 @@ import {
   Zap,
   Target,
   Box,
-  Plug,
-  Gauge,
-  Clock,
-  HardDrive,
-  Terminal
+  Plug
 } from "lucide-react";
 
 interface FeaturesProps {

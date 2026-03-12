@@ -1,11 +1,12 @@
-import { useConfig } from 'vocs/hooks';
-import { useLocation } from 'react-router-dom';
+'use client';
+
+import { usePathname } from 'next/navigation';
 
 export function DocsLink() {
-  const location = useLocation();
-  const isZh = location.pathname.startsWith('/zh');
+  const pathname = usePathname() || '/';
+  const isZh = pathname.startsWith('/zh');
   const href = isZh ? '/zh/getting-started' : '/getting-started';
-  
+
   return (
     <a href={href} className="nav-link">
       {isZh ? '文档' : 'Docs'}
@@ -14,10 +15,10 @@ export function DocsLink() {
 }
 
 export function BlogLink() {
-  const location = useLocation();
-  const isZh = location.pathname.startsWith('/zh');
+  const pathname = usePathname() || '/';
+  const isZh = pathname.startsWith('/zh');
   const href = isZh ? '/zh/blog' : '/blog';
-  
+
   return (
     <a href={href} className="nav-link">
       {isZh ? '博客' : 'Blog'}
