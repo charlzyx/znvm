@@ -179,7 +179,8 @@ esac
 
 if [ "$ADD_TO_PATH" = true ]; then
     CLEAN_INSTALL_DIR="${INSTALL_BIN_DIR/#$HOME/\$HOME}"
-    SOURCE_STR="export PATH=\"$CLEAN_INSTALL_DIR:\$PATH\" && eval \"\$(znvm env)\""
+    SOURCE_STR="export PATH=\"$CLEAN_INSTALL_DIR:\$PATH\"
+eval \"\$(znvm env)\""
 else
     SOURCE_STR="eval \"\$(znvm env)\""
 fi
