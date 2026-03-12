@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vocs dev",
-    "prebuild": "cp ../../install.sh ./docs/public/install.sh",
     "build": "vocs build",
     "preview": "vocs preview"
   },
