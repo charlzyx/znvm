@@ -17,7 +17,7 @@ echo -e "${BLUE}The blazingly fast, zero-config Node.js version manager.${NC}"
 echo ""
 
 # 版本号（发布时更新此行）
-ZNVM_VERSION="v2.0.0-rc.1"
+ZNVM_VERSION="v2.0.1"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
@@ -155,27 +155,27 @@ else
     echo -e "${YELLOW}⚠ No pre-compiled binary found for current platform.${NC}"
 fi
 
-# 2. 如果下载失败，则克隆仓库（后续 znvm.sh 会在首次运行时编译）
+# 2. 如果下载失败，直接报错退出
 if [ "$BINARY_DOWNLOADED" = false ]; then
     echo ""
-    echo -e "${CYAN}=> 将克隆源码仓库（首次运行时将自动编译）...${NC}"
-    echo -e "${CYAN}=> Will clone source repository (will auto-compile on first run)...${NC}"
-
-    if [ -d "$ZNVM_DIR/.git" ]; then
-        echo -e "${CYAN}=> 更新 znvm...${NC}"
-        echo -e "${CYAN}=> Updating znvm...${NC}"
-        cd "$ZNVM_DIR" && git pull origin main
-    else
-        echo -e "${CYAN}=> 克隆 znvm...${NC}"
-        echo -e "${CYAN}=> Cloning znvm...${NC}"
-        git clone "$REPO_URL" "$ZNVM_DIR"
-    fi
-
+    echo -e "${RED}${BOLD}✘ 安装失败 / Installation failed${NC}"
     echo ""
-    echo -e "${YELLOW}⚡ 提示: 未找到预编译二进制文件，请手动编译。${NC}"
-    echo -e "${YELLOW}⚡ Note: No pre-compiled binary found, please compile manually.${NC}"
-    echo -e "${YELLOW}   cd $ZNVM_DIR && zig build -Doptimize=ReleaseFast${NC}"
-    echo -e "${YELLOW}   cp zig-out/bin/znvm $INSTALL_BIN_DIR/znvm${NC}"
+    echo -e "${YELLOW}原因: 当前平台 (${OS}/${ARCH}) 暂无可用的预编译二进制文件。${NC}"
+    echo -e "${YELLOW}Reason: No pre-compiled binary available for current platform (${OS}/${ARCH}).${NC}"
+    echo ""
+    echo -e "${CYAN}您可以尝试以下解决方案 / You can try the following solutions:${NC}"
+    echo ""
+    echo -e "${CYAN}1. 手动编译安装 / Compile manually:${NC}"
+    echo -e "   git clone $REPO_URL $ZNVM_DIR"
+    echo -e "   cd $ZNVM_DIR"
+    echo -e "   zig build -Doptimize=ReleaseFast"
+    echo -e "   cp zig-out/bin/znvm $INSTALL_BIN_DIR/znvm"
+    echo ""
+    echo -e "${CYAN}2. 或者等待官方支持 / Or wait for official support:${NC}"
+    echo -e "   在 GitHub 提交 issue 请求支持 ${OS}/${ARCH} 平台${NC}"
+    echo -e "   Submit an issue on GitHub to request ${OS}/${ARCH} support${NC}"
+    echo ""
+    exit 1
 fi
 
 # 3. 配置 Shell 环境
