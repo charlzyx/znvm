@@ -9,6 +9,52 @@ const ZnvmConfig = @import("config.zig").ZnvmConfig;
 const stdout = util.stdout;
 const stderr = util.stderr;
 
+/// 通过检测 PATH 中实际使用的 node 路径来获取当前生效的 znvm 版本
+fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
+    // 尝试通过 `which node` 或查找 PATH 中的 node
+    const argv = &[_][]const u8{"which", "node"};
+    const result = try process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+        .max_output_bytes = 4096,
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    if (result.term.Exited != 0) {
+        return null;
+    }
+
+    const node_path = mem.trim(u8, result.stdout, " \t\n\r");
+    if (node_path.len == 0) {
+        return null;
+    }
+
+    // 获取真实路径（处理符号链接）
+    const real_path = try std.fs.realpathAlloc(allocator, node_path);
+    defer allocator.free(real_path);
+
+    // 检查路径是否在 versions_dir 下
+    if (mem.indexOf(u8, real_path, config.versions_dir) == null) {
+        return null;
+    }
+
+    // 提取版本号，路径格式为: ~/.znvm/versions/v20.0.0/bin/node
+    const versions_dir_with_sep = try std.fs.path.join(allocator, &.{ config.versions_dir, "" });
+    defer allocator.free(versions_dir_with_sep);
+
+    const start = mem.indexOf(u8, real_path, versions_dir_with_sep);
+    if (start) |s| {
+        const after_versions = real_path[s + versions_dir_with_sep.len..];
+        // 找到下一个 / 的位置
+        if (mem.indexOfScalar(u8, after_versions, '/')) |end| {
+            return try allocator.dupe(u8, after_versions[0..end]);
+        }
+    }
+
+    return null;
+}
+
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     _ = args;
     _ = allocator;
@@ -217,9 +263,9 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
         return;
     }
 
-    var env_map = try process.getEnvMap(allocator);
-    defer env_map.deinit();
-    const current_ver = env_map.get("ZNVM_CURRENT");
+    // 通过检测 PATH 中实际使用的 node 路径来获取当前版本
+    const current_ver = try getCurrentVersionFromPath(allocator, config);
+    defer if (current_ver) |v| allocator.free(v);
 
     // Get default version
     const default_file = try fs.path.join(allocator, &.{ config.root_dir, "default" });
