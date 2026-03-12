@@ -1,0 +1,31 @@
+# znvm
+
+**znvm** — 基于 Zig 构建的超快 Node.js 版本管理器。终极 **nvm 替代品**，解决 **nvm 卡顿** 问题。
+
+[快速开始](/zh/guide) [GitHub ↗](https://github.com/charlzyx/znvm)
+
+## 为什么选择 znvm?
+
+厌倦了缓慢的 **node version manager** 工具？**znvm** 专为追求速度的开发者设计：
+
+- **⚡️ 瞬时响应**: 启动 < 5ms (对比 nvm 的 150ms+ 或 fnm 的 20ms)
+- **🎯 Unix 优先**: 精简专注，无跨平台臃肿代码
+- **🛠 零配置**: 直接使用现有的 `.nvmrc`
+
+## 现有工具的问题
+
+| 管理器 | 开发语言 | 启动延迟 | 问题 |
+| :--- | :--- | :--- | :--- |
+| `nvm` | Bash | ~150ms+ | **nvm-slow**, shell 卡顿 |
+| `fnm` | Rust | ~20ms | 功能臃肿 |
+| **`znvm`** | **Zig** | **< 5ms** | 快速且精简 |
+
+## 关键词
+
+znvm, nvm, fnm, nvm-slow, node version manager, node-version-manage, 快速, 轻量, Unix, Node.js 版本管理器
+
+---
+
+<div style="text-align: center; margin-top: 2rem;">
+  <strong>🌐 语言:</strong> <a href="/">English</a> | <a href="/zh/">简体中文</a>
+</div>
