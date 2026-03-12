@@ -1,7 +1,7 @@
 import { defineConfig } from 'vocs'
 
 export default defineConfig({
-  title: 'znvm - Fast Node.js Version Manager',
+  title: 'znvm',
   description: 'znvm: A blazingly fast Node.js version manager built with Zig. The best nvm alternative that solves nvm-slow. Lightweight node version manager for Unix.',
   baseUrl: 'https://znvm.dev',
   ogImageUrl: 'https://vocs.dev/api/og?logo=%logo&title=%title&description=%description',
