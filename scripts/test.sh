@@ -2,49 +2,82 @@
 
 set -e
 
-ZNVM_BIN="./zig-out/bin/znvm"
-
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "=== Testing znvm v2.0.0-rc.1 ==="
+echo -e "${YELLOW}=== Testing znvm v2.0.0-rc.1 ===${NC}"
+echo ""
+
+# Run unit tests
+echo -e "${YELLOW}Running unit tests...${NC}"
+if zig build test; then
+    echo -e "${GREEN}✓ Unit tests passed${NC}"
+else
+    echo -e "${RED}✗ Unit tests failed${NC}"
+    exit 1
+fi
+
+echo ""
+
+# Build the project
+echo -e "${YELLOW}Building znvm binary...${NC}"
+if zig build; then
+    echo -e "${GREEN}✓ Build successful${NC}"
+else
+    echo -e "${RED}✗ Build failed${NC}"
+    exit 1
+fi
+
+echo ""
+
+# Run integration tests
+echo -e "${YELLOW}Running integration tests...${NC}"
+
+ZNVM_BIN="./zig-out/bin/znvm"
 
 # Test version command
-echo "Testing version command..."
+echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-echo "Output: $VERSION_OUTPUT"
-if [[ "$VERSION_OUTPUT" != "v2.0.0-rc.1" ]]; then
-  echo -e "${RED}Expected v2.0.0-rc.1, got $VERSION_OUTPUT${NC}"
-  exit 1
+if [[ "$VERSION_OUTPUT" == "v2.0.0-rc.1" ]]; then
+    echo -e "    ${GREEN}✓${NC} version command OK"
+else
+    echo -e "    ${RED}✗${NC} Expected v2.0.0-rc.1, got $VERSION_OUTPUT"
+    exit 1
 fi
 
 # Test env command
-echo "Testing env command..."
+echo "  Testing env command..."
 ENV_OUTPUT=$("$ZNVM_BIN" env)
-if [[ -z "$ENV_OUTPUT" ]]; then
-  echo -e "${RED}env command returned empty output${NC}"
-  exit 1
+if [[ -n "$ENV_OUTPUT" ]]; then
+    echo -e "    ${GREEN}✓${NC} env command OK"
+else
+    echo -e "    ${RED}✗${NC} env command returned empty output"
+    exit 1
 fi
-echo "env command OK"
 
 # Test ls command (should show no versions installed)
-echo "Testing ls command..."
+echo "  Testing ls command..."
 LS_OUTPUT=$("$ZNVM_BIN" ls 2>&1 || true)
-echo "Output: $LS_OUTPUT"
-if [[ "$LS_OUTPUT" != *"No versions installed"* ]]; then
-  echo -e "${RED}Expected 'No versions installed', got $LS_OUTPUT${NC}"
-  exit 1
+if [[ "$LS_OUTPUT" == *"No versions installed"* ]]; then
+    echo -e "    ${GREEN}✓${NC} ls command OK"
+else
+    echo -e "    ${RED}✗${NC} Expected 'No versions installed', got: $LS_OUTPUT"
+    exit 1
 fi
 
 # Test default command (should show no default set)
-echo "Testing default command (no default set)..."
+echo "  Testing default command..."
 DEFAULT_OUTPUT=$("$ZNVM_BIN" default 2>&1 || true)
-echo "Output: $DEFAULT_OUTPUT"
-if [[ "$DEFAULT_OUTPUT" != *"No default version set"* ]]; then
-  echo -e "${RED}Expected 'No default version set', got $DEFAULT_OUTPUT${NC}"
-  exit 1
+if [[ "$DEFAULT_OUTPUT" == *"No default version set"* ]]; then
+    echo -e "    ${GREEN}✓${NC} default command OK"
+else
+    echo -e "    ${RED}✗${NC} Expected 'No default version set', got: $DEFAULT_OUTPUT"
+    exit 1
 fi
 
+echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"
+
