@@ -1,0 +1,13 @@
+{
+  "name": "znvm-docs",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vocs dev",
+    "build": "vocs build",
+    "preview": "vocs preview"
+  },
+  "dependencies": {
+    "vocs": "latest"
+  }
+}

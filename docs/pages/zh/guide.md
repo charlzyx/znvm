@@ -1,0 +1,94 @@
+# 快速开始
+
+**znvm** 是基于 Zig 构建的快速、零配置 **Node.js 版本管理器**。轻量级的 **nvm 替代品**，解决 **nvm-slow** 卡顿问题。
+
+## 安装
+
+### 自动安装 (推荐)
+
+在您的终端运行以下命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
+```
+
+该脚本将执行：
+1. 创建 `~/.znvm` 目录。
+2. 下载适用于您平台的最新 `znvm` 二进制文件。
+3. 将所需环境变量添加到您的 shell 配置文件 (`~/.zshrc`, `~/.bashrc` 等)。
+
+### 手动安装
+
+1. 克隆仓库：
+   ```bash
+   git clone https://github.com/charlzyx/znvm.git ~/.znvm
+   ```
+
+2. 将以下内容添加到您的 Shell 配置文件 (`~/.zshrc`, `~/.bashrc` 等)：
+   ```bash
+   export ZNVM_ROOT="$HOME/.znvm"
+   source "$ZNVM_ROOT/znvm.sh"
+   
+   # 推荐别名
+   alias nv=znvm
+   ```
+
+3. 重启 Shell 或执行 `source ~/.zshrc`。
+
+## 基础使用
+
+### 安装 Node.js 版本
+`znvm` 支持 SemVer。例如，输入 `20` 将自动匹配最新的 `v20.x.x`。
+
+```bash
+znvm install 20
+znvm install v18.20.0
+```
+
+### 切换版本
+```bash
+znvm use 20          # 使用指定版本
+znvm use             # 自动读取 .nvmrc
+```
+
+### 列出已安装版本
+```bash
+znvm ls
+```
+
+### 设置默认版本
+```bash
+znvm default 20
+```
+
+### 卸载版本
+```bash
+znvm uninstall 20
+```
+
+## 高级特性
+
+### .nvmrc 与自动切换
+`znvm` 能自动识别 `.nvmrc` 文件。您可以在进入目录时启用或禁用自动切换：
+
+```bash
+# 开启自动切换 (默认)
+export ZNVM_AUTO_SWITCH=true
+
+# 关闭自动切换
+export ZNVM_AUTO_SWITCH=false
+```
+
+### 镜像源加速
+为了在某些地区加速下载，您可以设置镜像源：
+
+```bash
+export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
+```
+
+### 全局包隔离
+每个 Node.js 版本拥有独立的全局包环境。全局包、npm 缓存及 Corepack (pnpm/yarn) 环境在每个版本间都是隔离的。
+
+---
+
+**相关关键词:** nvm, fnm, nvm-slow, node version manager, node-version-manage, znvm, Node.js 版本管理器
