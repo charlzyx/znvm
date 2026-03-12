@@ -3,7 +3,7 @@
 set -e
 
 # 版本号（发布时更新此行）
-ZNVM_VERSION="v1.1.1"
+ZNVM_VERSION="v1.1.2"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"

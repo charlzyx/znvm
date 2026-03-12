@@ -5,7 +5,7 @@
 # 别名: nv
 
 # 版本号（发布时更新此行）
-ZNVM_VERSION="1.1.1"
+ZNVM_VERSION="v1.1.2"
 
 # 设定源码目录 (用于编译)
 if [[ -n "${ZSH_VERSION}" ]]; then
