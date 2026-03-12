@@ -4,8 +4,8 @@
 # 用法: source znvm.sh
 # 别名: nv
 
-# 版本号（与 Git tag 保持一致）
-ZNVM_VERSION="v1.1.1"
+# 版本号（发布时更新此行）
+ZNVM_VERSION="1.1.1"
 
 # 设定源码目录 (用于编译)
 if [[ -n "${ZSH_VERSION}" ]]; then
@@ -47,11 +47,11 @@ function _znvm_get_current_version() {
 function _znvm_get_installed_versions() {
     local versions=()
     # 使用 2>/dev/null 避免无匹配时报错
-    for dir in "$ZNVM_VERSIONS_DIR"/v* 2>/dev/null; do
+    for dir in "$ZNVM_VERSIONS_DIR"/v*; do
         if [[ -d "$dir" && -f "$dir/bin/node" ]]; then
             versions+=("$(basename "$dir")")
         fi
-    done
+    done 2>/dev/null
     if [[ ${#versions[@]} -gt 0 ]]; then
         printf '%s\n' "${versions[@]}" | sort -V
     fi

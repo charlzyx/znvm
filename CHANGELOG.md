@@ -5,7 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## - v1.1.0
+## [v1.1.2] - 2026-03-12
+
+### Fixed
+
+- 修复 zsh 中 `for` 循环的 `2>/dev/null` 重定向语法错误（移到 `done` 后）
+
+## [v1.1.1] - 2026-03-12
+
+### Fixed
+
+- 修复 zsh 兼容性问题：`_znvm_get_installed_versions` 函数中的重定向语法
+
+## [v1.1.0] - 2026-03-11
 
 ### Fixed
 
