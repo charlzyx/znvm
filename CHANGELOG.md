@@ -5,6 +5,26 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased] - 2026-03-12
+
+### Changed
+
+- 重构项目结构：将核心逻辑拆分为多个模块（commands.zig, config.zig, util.zig, version.zig）
+- 整合文档：移除独立的 docs 目录，将文档迁移到 website 目录统一管理
+- 删除冗余文件：移除 QUICK_START.md 和旧版 docs 目录
+- 优化性能测试脚本：添加 znvm vs fnm vs nvm 性能对比测试
+
+### Added
+
+- 新增性能基准测试脚本（benchmarks/5_accurate_performance_test.sh）
+- 添加 BREAKING_CHANGES.md 记录破坏性变更
+- 新增 website 文档站点配置（vocs.config.ts）
+
+### Fixed
+
+- 修复 release workflow 配置
+- 优化 install.sh 安装脚本
+
 ## [v1.1.2] - 2026-03-12
 
 ### Fixed

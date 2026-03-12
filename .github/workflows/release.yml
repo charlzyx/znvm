@@ -32,24 +32,22 @@ jobs:
 
       - name: Update install.sh version
         run: |
-          # 在 build 阶段修改 install.sh 和 znvm.sh，不提交
+          # 在 build 阶段修改 install.sh，不提交
           sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" znvm.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" znvm.sh
-          echo "✅ install.sh and znvm.sh updated to ${{ github.ref_name }}"
+          echo "✅ install.sh updated to ${{ github.ref_name }}"
 
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
 
       - name: Rename Artifact
         run: |
-          mv zig-out/bin/znvm-core znvm-core-${{ github.ref_name }}-${{ matrix.target }}
+          mv zig-out/bin/znvm znvm-${{ github.ref_name }}-${{ matrix.target }}
 
       - name: Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
-          files: znvm-core-${{ github.ref_name }}-${{ matrix.target }}
+          files: znvm-${{ github.ref_name }}-${{ matrix.target }}
           fail_on_unmatched_files: true
 
   update_repo:
@@ -64,20 +62,18 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update install.sh and znvm.sh version
+      - name: Update install.sh version
         run: |
           # 修改版本号（匹配任意当前版本）
           sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" znvm.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" znvm.sh
-          echo "✅ install.sh and znvm.sh updated to ${{ github.ref_name }}"
+          echo "✅ install.sh updated to ${{ github.ref_name }}"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh znvm.sh
+          git add install.sh
           git commit -m "Update install.sh for ${{ github.ref_name }}"
           git push origin main
 
