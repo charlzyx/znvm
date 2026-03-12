@@ -131,13 +131,11 @@ function _znvm_switch_version() {
         _znvm_error "版本 $target_version 的 node 可执行文件不存在或不可执行"
         return 1
     fi
-
-    # 过滤掉已存在的 znvm 版本路径
+    # 过滤掉已存在的 znvm 版本路径（zsh 用 ${(s/:/)PATH} 分割）
     local new_path=""
-    local old_ifs="$IFS"
-    IFS=':'
-    for p in $PATH; do
-        if [[ -n "$p" && -n "$ZNVM_VERSIONS_DIR" && "$p" != *"$ZNVM_VERSIONS_DIR"* ]]; then
+    local path_entries=(${(s/:/)PATH})
+    for p in "${path_entries[@]}"; do
+        if [[ -n "$p" && "$p" != *"$ZNVM_VERSIONS_DIR"* ]]; then
             if [[ -z "$new_path" ]]; then
                 new_path="$p"
             else
@@ -145,7 +143,6 @@ function _znvm_switch_version() {
             fi
         fi
     done
-    IFS="$old_ifs"
     export PATH="$version_path/bin:$new_path"
 
     # hash -r 清除命令缓存，确保使用新版本的 node
