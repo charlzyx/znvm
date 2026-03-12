@@ -11,45 +11,44 @@ const stderr = util.stderr;
 
 /// 通过检测 PATH 中实际使用的 node 路径来获取当前生效的 znvm 版本
 fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
-    // 尝试通过 `which node` 或查找 PATH 中的 node
-    const argv = &[_][]const u8{"which", "node"};
-    const result = try process.Child.run(.{
-        .allocator = allocator,
-        .argv = argv,
-        .max_output_bytes = 4096,
-    });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    // 从 PATH 环境变量中查找 node
+    var env_map = try process.getEnvMap(allocator);
+    defer env_map.deinit();
 
-    if (result.term.Exited != 0) {
-        return null;
-    }
+    const path_env = env_map.get("PATH") orelse return null;
 
-    const node_path = mem.trim(u8, result.stdout, " \t\n\r");
-    if (node_path.len == 0) {
-        return null;
-    }
+    var it = mem.splitScalar(u8, path_env, ':');
+    while (it.next()) |dir| {
+        if (dir.len == 0) continue;
 
-    // 获取真实路径（处理符号链接）
-    const real_path = try std.fs.realpathAlloc(allocator, node_path);
-    defer allocator.free(real_path);
+        // 检查该目录下的 node 可执行文件
+        const node_path = try fs.path.join(allocator, &.{ dir, "node" });
+        defer allocator.free(node_path);
 
-    // 检查路径是否在 versions_dir 下
-    if (mem.indexOf(u8, real_path, config.versions_dir) == null) {
-        return null;
-    }
+        // 检查文件是否存在且可执行
+        fs.accessAbsolute(node_path, .{}) catch continue;
 
-    // 提取版本号，路径格式为: ~/.znvm/versions/v20.0.0/bin/node
-    const versions_dir_with_sep = try std.fs.path.join(allocator, &.{ config.versions_dir, "" });
-    defer allocator.free(versions_dir_with_sep);
+        // 获取真实路径（处理符号链接）
+        const real_path = std.fs.realpathAlloc(allocator, node_path) catch continue;
+        defer allocator.free(real_path);
 
-    const start = mem.indexOf(u8, real_path, versions_dir_with_sep);
-    if (start) |s| {
-        const after_versions = real_path[s + versions_dir_with_sep.len..];
-        // 找到下一个 / 的位置
-        if (mem.indexOfScalar(u8, after_versions, '/')) |end| {
-            return try allocator.dupe(u8, after_versions[0..end]);
+        // 检查路径是否在 versions_dir 下
+        if (mem.indexOf(u8, real_path, config.versions_dir) == null) continue;
+
+        // 提取版本号，路径格式为: ~/.znvm/versions/v20.0.0/bin/node
+        const versions_dir_with_sep = try std.fmt.allocPrint(allocator, "{s}/", .{config.versions_dir});
+        defer allocator.free(versions_dir_with_sep);
+
+        const start = mem.indexOf(u8, real_path, versions_dir_with_sep);
+        if (start) |s| {
+            const after_versions = real_path[s + versions_dir_with_sep.len..];
+            // 找到下一个 / 的位置
+            if (mem.indexOfScalar(u8, after_versions, '/')) |end| {
+                return try allocator.dupe(u8, after_versions[0..end]);
+            }
         }
+
+        return null;
     }
 
     return null;
