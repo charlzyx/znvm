@@ -5,7 +5,7 @@
 # 别名: nv
 
 # 版本号（与 Git tag 保持一致）
-ZNVM_VERSION="1.1.0"
+ZNVM_VERSION="v1.1.1"
 
 # 设定源码目录 (用于编译)
 if [[ -n "${ZSH_VERSION}" ]]; then
