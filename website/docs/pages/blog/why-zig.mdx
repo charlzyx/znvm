@@ -1,0 +1,67 @@
+---
+title: Why Zig? The Quest for the Zero-Overhead Workflow
+description: Why I chose Zig to build znvm - a journey to reclaim milliseconds and achieve the zero-overhead workflow.
+date: 2024-03-12
+---
+
+import { LanguageSwitch } from '../../../components/LanguageSwitch';
+
+<LanguageSwitch />
+
+# Why Zig? The Quest for the Zero-Overhead Workflow
+
+In the modern dev ecosystem, we've grown accustomed to "fast enough." But as developers who live in the terminal, "fast enough" is a lie.
+
+Every time you open a new shell tab, nvm or other heavy version managers inject a tiny sliver of latency. 100ms here, 50ms there. It's the "death by a thousand cuts" for your productivity.
+
+I built **znvm** because I wanted to reclaim those milliseconds, and **Zig** was the only language that made sense for this mission.
+
+## 1. Performance is a Feature, Not an Afterthought
+
+Rust is great, but Zig offers a level of raw, predictable control that is unparalleled.
+
+In znvm, we don't have a garbage collector waking up at the wrong time. We don't have complex async runtimes bloating our binary.
+
+By leveraging Zig's **Manual Memory Management** and **Comptime**, znvm executes version switching and environment setup almost at the speed of hardware.
+
+When you type `znvm use`, it's not a "process"; it's an **instant state change**.
+
+## 2. The "No Hidden Control Flow" Philosophy
+
+Zig's mantra—**no hidden control flow, no hidden memory allocations**—perfectly aligns with what a version manager should be.
+
+A tool that manages your PATH and environment should be **invisible and transparent**. Zig allows znvm to be a surgical tool: it does exactly what it needs to do with the environment variables and filesystem, then disappears.
+
+No background daemons, no heavy metadata syncing.
+
+## 3. Performance & Binary Size
+
+Benchmark results on Apple M4 (16GB RAM, macOS 25.3):
+
+| Manager | `list` | `use` | `.nvmrc` | Binary |
+| :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 708ms | 192ms | 189ms | N/A |
+| `fnm` | 6ms | 4ms | 10ms | ~8MB |
+| **`znvm`** | **4ms** | **3ms** | **2ms** | **< 1MB** |
+
+## 4. The Unix-First Strategic Choice
+
+Zig thrives when you talk directly to the OS. By focusing exclusively on Unix-like systems (macOS and Linux), we avoided the "abstraction tax" that comes with supporting Windows.
+
+This allowed us to use Zig to write highly optimized, platform-specific code that respects the Unix philosophy:
+
+> **Do one thing, and do it faster than anyone else.**
+
+## The Bottom Line
+
+znvm isn't just a tool—it's a statement about how developer tools should be built:
+
+- **Fast** shouldn't mean "fast enough"
+- **Simple** shouldn't mean "lacking features"
+- **Small** shouldn't mean "incomplete"
+
+Zig gave us the power to prove that you can have all three.
+
+---
+
+**Tags:** znvm, nvm, fnm, nvm-slow, node version manager, zig, performance, zero-overhead, unix-philosophy, minimalism

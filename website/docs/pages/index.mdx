@@ -1,35 +1,63 @@
 ---
 layout: landing
+showLogo: true
 ---
 
-# znvm
+import { HomePage } from 'vocs/components'
 
-**znvm** — A blazingly fast Node.js version manager built with Zig. The ultimate **nvm alternative** that solves the **nvm-slow** problem.
+<HomePage.Root>
+  <HomePage.Logo />
+  <HomePage.Tagline>**znvm** — The Zig-powered NVM.</HomePage.Tagline>
+  <HomePage.Description>
+    Zero-overhead Node Version Manager. The ultimate **nvm alternative** that solves the **nvm-slow** problem.
+    Starts in &lt; 5ms. Unix-first, zero configuration, works with your existing `.nvmrc`.
+  </HomePage.Description>
+  <HomePage.Buttons>
+    <HomePage.Button href="/getting-started" variant="accent">Get Started</HomePage.Button>
+    <HomePage.Button href="https://github.com/charlzyx/znvm">GitHub</HomePage.Button>
+  </HomePage.Buttons>
+</HomePage.Root>
 
-[Get Started](/getting-started) [GitHub ↗](https://github.com/charlzyx/znvm)
+## Install
+
+```bash
+curl -fsSL https://znvm.dev/install.sh | bash
+```
 
 ## Why znvm?
 
-Tired of slow **node version manager** tools? **znvm** is designed for developers who demand speed:
+**znvm** = **Zig** + **nvm**. The name says it all.
+
+Tired of slow **node version manager** tools? **znvm** is designed for developers who demand speed and simplicity:
 
 - **⚡️ Instant Performance**: Starts in < 5ms (vs nvm's 150ms+ or fnm's 20ms)
 - **🎯 Unix-First**: Lean and focused, no cross-platform bloat
 - **🛠 Zero Configuration**: Works with your existing `.nvmrc`
 
-## The Problem with Existing Tools
+## Performance Comparison
 
-| Manager | Language | Startup | Issues |
+**Actual benchmark on Apple M4 (16GB RAM, macOS 25.3)**:
+
+| Manager | `list` | `use` | `.nvmrc` |
 | :--- | :--- | :--- | :--- |
-| `nvm` | Bash | ~150ms+ | **nvm-slow**, shell lag |
-| `fnm` | Rust | ~20ms | Feature bloat |
-| **`znvm`** | **Zig** | **< 5ms** | Fast & minimal |
+| `nvm` | 708ms | 192ms | 189ms |
+| `fnm` | 6ms | 4ms | 10ms |
+| **`znvm`** | **4ms** | **3ms** | **2ms** |
+
+## What Makes znvm Different?
+
+### 🚀 **Zig-Powered Speed**
+Built with Zig's zero-cost abstractions and explicit memory control. No runtime overhead, no garbage collection pauses.
+
+### 🧘 **Unix Philosophy**
+Do one thing and do it well. znvm focuses exclusively on macOS and Linux, leveraging native system calls instead of cross-platform compromises.
+
+### 📦 **Zero Dependencies**
+Single static binary. No runtime, no package manager dependencies, no surprises.
+
+### 🔌 **Drop-in Replacement**
+Works seamlessly with your existing `.nvmrc` files and shell workflows. Migration is effortless.
 
 ## Keywords
 
-znvm, nvm, fnm, nvm-slow, node version manager, node-version-manage, zig, fast, lightweight, unix
-
----
-
-<div style={{ textAlign: 'center', marginTop: '2rem' }}>
-  <strong>🌐 Languages:</strong> <a href="/">English</a> | <a href="/zh/">简体中文</a>
-</div>
+znvm, nvm, fnm, nvm-slow, node version manager, node-version-manage, zig, fast, lightweight, unix, zero-overhead

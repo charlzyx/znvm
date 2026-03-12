@@ -1,35 +1,63 @@
 ---
 layout: landing
+showLogo: true
 ---
 
-# znvm
+import { HomePage } from 'vocs/components'
 
-**znvm** — 基于 Zig 构建的超快 Node.js 版本管理器。终极 **nvm 替代品**，解决 **nvm 卡顿** 问题。
+<HomePage.Root>
+  <HomePage.Logo />
+  <HomePage.Tagline>**znvm** — Zig 驱动的 NVM。</HomePage.Tagline>
+  <HomePage.Description>
+    零负担 Node 版本管理器。终极 **nvm 替代品**，解决 **nvm 卡顿** 问题。
+    启动仅需 &lt; 5ms。Unix 优先，零配置，兼容现有的 `.nvmrc`。
+  </HomePage.Description>
+  <HomePage.Buttons>
+    <HomePage.Button href="/zh/getting-started" variant="accent">快速开始</HomePage.Button>
+    <HomePage.Button href="https://github.com/charlzyx/znvm">GitHub</HomePage.Button>
+  </HomePage.Buttons>
+</HomePage.Root>
 
-[快速开始](/zh/getting-started) [GitHub ↗](https://github.com/charlzyx/znvm)
+## 安装
+
+```bash
+curl -fsSL https://znvm.dev/install.sh | bash
+```
 
 ## 为什么选择 znvm?
 
-厌倦了缓慢的 **node version manager** 工具？**znvm** 专为追求速度的开发者设计：
+**znvm** = **Zig** + **nvm**。名字说明一切。
+
+厌倦了缓慢的 **node version manager** 工具？**znvm** 专为追求速度与简洁的开发者设计：
 
 - **⚡️ 瞬时响应**: 启动 < 5ms (对比 nvm 的 150ms+ 或 fnm 的 20ms)
 - **🎯 Unix 优先**: 精简专注，无跨平台臃肿代码
 - **🛠 零配置**: 直接使用现有的 `.nvmrc`
 
-## 现有工具的问题
+## 性能对比
 
-| 管理器 | 开发语言 | 启动延迟 | 问题 |
+**在 Apple M4 (16GB 内存, macOS 25.3) 上的真实基准**：
+
+| 管理器 | `list` | `use` | `.nvmrc` |
 | :--- | :--- | :--- | :--- |
-| `nvm` | Bash | ~150ms+ | **nvm-slow**, shell 卡顿 |
-| `fnm` | Rust | ~20ms | 功能臃肿 |
-| **`znvm`** | **Zig** | **< 5ms** | 快速且精简 |
+| `nvm` | 708ms | 192ms | 189ms |
+| `fnm` | 6ms | 4ms | 10ms |
+| **`znvm`** | **4ms** | **3ms** | **2ms** |
+
+## 是什么让 znvm 与众不同？
+
+### 🚀 **Zig 驱动的极速**
+基于 Zig 的零成本抽象和显式内存控制构建。无运行时开销，无垃圾回收停顿。
+
+### 🧘 **Unix 哲学**
+做一件事，并做好它。znvm 专注于 macOS 和 Linux，利用原生系统调用，而非跨平台妥协。
+
+### 📦 **零依赖**
+单个静态二进制文件。无运行时，无包管理器依赖，无意外。
+
+### 🔌 **即插即用**
+与您现有的 `.nvmrc` 文件和 shell 工作流无缝协作。迁移轻松无负担。
 
 ## 关键词
 
-znvm, nvm, fnm, nvm-slow, node version manager, node-version-manage, 快速, 轻量, Unix, Node.js 版本管理器
-
----
-
-<div style={{ textAlign: 'center', marginTop: '2rem' }}>
-  <strong>🌐 语言:</strong> <a href="/">English</a> | <a href="/zh/">简体中文</a>
-</div>
+znvm, nvm, fnm, nvm-slow, node version manager, node-version-manage, zig, fast, lightweight, unix, zero-overhead, 快速, 轻量, Unix, Node.js 版本管理器, 零负担
