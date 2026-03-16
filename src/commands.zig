@@ -77,9 +77,11 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  fi
         \\}}
         \\
-        \\# Auto-use if .nvmrc exists (optional, maybe flag?)
+        \\# Auto-use on shell startup: .nvmrc takes priority, fallback to default
         \\if [ -f ".nvmrc" ]; then
         \\  znvm use "$(cat .nvmrc | head -n 1 | tr -d '[:space:]')" >/dev/null 2>&1 || true
+        \\elif [ -f "$ZNVM_DIR/default" ]; then
+        \\  znvm use "$(cat "$ZNVM_DIR/default" | tr -d '[:space:]')" >/dev/null 2>&1 || true
         \\fi
     ;
     try stdout(shell_script, .{config.root_dir});
