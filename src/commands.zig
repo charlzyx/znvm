@@ -32,20 +32,18 @@ fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u
         const real_path = std.fs.realpathAlloc(allocator, node_path) catch continue;
         defer allocator.free(real_path);
 
-        // 检查路径是否在 versions_dir 下
-        if (mem.indexOf(u8, real_path, config.versions_dir) == null) continue;
-
-        // 提取版本号，路径格式为: ~/.znvm/versions/v20.0.0/bin/node
+        // 检查路径是否在 versions_dir 下（确保是前缀匹配）
         const versions_dir_with_sep = try std.fmt.allocPrint(allocator, "{s}/", .{config.versions_dir});
         defer allocator.free(versions_dir_with_sep);
 
-        const start = mem.indexOf(u8, real_path, versions_dir_with_sep);
-        if (start) |s| {
-            const after_versions = real_path[s + versions_dir_with_sep.len..];
-            // 找到下一个 / 的位置
-            if (mem.indexOfScalar(u8, after_versions, '/')) |end| {
-                return try allocator.dupe(u8, after_versions[0..end]);
-            }
+        // 检查 real_path 是否以 versions_dir/ 开头
+        if (!mem.startsWith(u8, real_path, versions_dir_with_sep)) continue;
+
+        // 提取版本号，路径格式为: ~/.znvm/versions/v20.0.0/bin/node
+        const after_versions = real_path[versions_dir_with_sep.len..];
+        // 找到下一个 / 的位置
+        if (mem.indexOfScalar(u8, after_versions, '/')) |end| {
+            return try allocator.dupe(u8, after_versions[0..end]);
         }
 
         return null;
@@ -270,13 +268,16 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
     defer allocator.free(default_file);
 
     var default_ver: ?[]const u8 = null;
+    defer if (default_ver) |v| allocator.free(v);
+
     const default_file_handle = fs.openFileAbsolute(default_file, .{}) catch null;
     if (default_file_handle) |file| {
         defer file.close();
         const content = file.readToEndAlloc(allocator, 1024) catch null;
         if (content) |c| {
             defer allocator.free(c);
-            default_ver = mem.trim(u8, c, " \t\n\r");
+            const trimmed = mem.trim(u8, c, " \t\n\r");
+            default_ver = try allocator.dupe(u8, trimmed);
         }
     }
 
@@ -298,18 +299,19 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
             }
         }
 
-        // Build markers string (fixed width: 6 chars "[*,->]" or "      ")
+        // Build markers string (fixed width: 6 chars "[*->]" or "      ")
+        // [*] = default, [->] = current
         var markers_buf: [6]u8 = undefined;
         @memset(&markers_buf, ' ');
         if (is_current or is_default) {
             var pos: usize = 0;
             markers_buf[pos] = '[';
             pos += 1;
-            if (is_current) {
+            if (is_default) {
                 markers_buf[pos] = '*';
                 pos += 1;
             }
-            if (is_default) {
+            if (is_current) {
                 @memcpy(markers_buf[pos..pos+2], "->");
                 pos += 2;
             }
