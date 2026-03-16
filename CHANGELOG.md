@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [v2.1.1] - 2026-03-16
+## [v2.1.2] - 2026-03-16
 
 ### Fixed
 
@@ -14,7 +14,7 @@
   - 优先级：`.nvmrc` > `default`
   - 确保在非 git 项目目录下也能自动启用 Node.js
 
-## [v2.0.0-rc.1] - 2026-03-12
+## [v2.1.1] - 2026-03-16
 
 ### Added
 
@@ -219,6 +219,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.1.2]: https://github.com/charlzyx/znvm/compare/v2.1.1...v2.1.2
 [v2.1.1]: https://github.com/charlzyx/znvm/compare/v2.0.0-rc.1...v2.1.1
 [v2.0.0-rc.1]: https://github.com/charlzyx/znvm/compare/v1.1.2...v2.0.0-rc.1
 [v1.0.8]: https://github.com/charlzyx/znvm/compare/v1.0.7...v1.0.8
