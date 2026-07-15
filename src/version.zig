@@ -175,13 +175,20 @@ pub fn resolveLocalVersion(allocator: mem.Allocator, installed: []const []const 
     }
 
     var best: ?[]const u8 = null;
+    var best_semver: ?std.SemanticVersion = null;
 
     var clean_query = query;
     if (mem.startsWith(u8, query, "v")) clean_query = query[1..];
 
     for (installed) |ver| {
+        if (ver.len < 2 or ver[0] != 'v') continue;
         const ver_num = ver[1..];
-        if (matchesVersionPrefix(ver_num, clean_query)) best = ver;
+        if (!matchesVersionPrefix(ver_num, clean_query)) continue;
+        const semver = std.SemanticVersion.parse(ver_num) catch continue;
+        if (best_semver == null or semver.order(best_semver.?) == .gt) {
+            best = ver;
+            best_semver = semver;
+        }
     }
 
     return best;

@@ -52,7 +52,7 @@ test "resolveLocalVersion: major query respects segment boundary" {
 
 test "resolveLocalVersion: selects latest matching installed version" {
     const allocator = std.testing.allocator;
-    const installed = &[_][]const u8{ "v20.0.0", "v20.5.0", "v22.0.0" };
+    const installed = &[_][]const u8{ "v20.5.0", "v22.0.0", "v20.0.0" };
 
     const result = try version.resolveLocalVersion(allocator, installed, "20");
     try testing.expectEqualSlices(u8, "v20.5.0", result.?);
@@ -191,6 +191,28 @@ test "version list: sorting by semantic version" {
     try testing.expectEqualSlices(u8, "v18.0.0", versions.items[0]);
     try testing.expectEqualSlices(u8, "v20.0.0", versions.items[1]);
     try testing.expectEqualSlices(u8, "v22.0.0", versions.items[2]);
+}
+
+test "npm prefix: empty value uses shared default" {
+    const allocator = std.testing.allocator;
+    const prefix = try config.resolveNpmPrefix(allocator, "", "/tmp/znvm");
+    defer allocator.free(prefix);
+
+    try testing.expectEqualSlices(u8, "/tmp/znvm/npm", prefix);
+}
+
+test "npm prefix: accepts absolute path" {
+    const allocator = std.testing.allocator;
+    const prefix = try config.resolveNpmPrefix(allocator, "/tmp/shared npm", "/tmp/znvm");
+    defer allocator.free(prefix);
+
+    try testing.expectEqualSlices(u8, "/tmp/shared npm", prefix);
+}
+
+test "npm prefix: rejects relative and PATH-separated values" {
+    const allocator = std.testing.allocator;
+    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "relative", "/tmp/znvm"));
+    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "/tmp/one:/tmp/two", "/tmp/znvm"));
 }
 
 test "resolveRemoteEntry: short version selects latest release line" {

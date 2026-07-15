@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 ### Install Specific Version
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.1/install.sh | bash
 ```
 
 ## ✨ Core Features

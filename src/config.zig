@@ -22,6 +22,18 @@ pub const ZnvmConfig = struct {
     }
 };
 
+pub fn resolveNpmPrefix(allocator: mem.Allocator, configured: ?[]const u8, root_dir: []const u8) ![]u8 {
+    if (configured) |prefix| {
+        if (prefix.len != 0) {
+            if (!fs.path.isAbsolute(prefix) or mem.indexOfScalar(u8, prefix, ':') != null) {
+                return error.InvalidNpmPrefix;
+            }
+            return allocator.dupe(u8, prefix);
+        }
+    }
+    return fs.path.join(allocator, &.{ root_dir, "npm" });
+}
+
 pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     var env_map = try process.getEnvMap(allocator);
     defer env_map.deinit();
@@ -35,8 +47,7 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
 
     const versions_dir = try fs.path.join(allocator, &.{ root_dir, "versions" });
     errdefer allocator.free(versions_dir);
-    const npm_prefix_env = env_map.get("ZNVM_NPM_PREFIX");
-    const npm_prefix = if (npm_prefix_env) |p| try allocator.dupe(u8, p) else try fs.path.join(allocator, &.{ root_dir, "npm" });
+    const npm_prefix = try resolveNpmPrefix(allocator, env_map.get("ZNVM_NPM_PREFIX"), root_dir);
     errdefer allocator.free(npm_prefix);
 
     const mirror_env = env_map.get("ZNVM_NODE_MIRROR") orelse "https://npmmirror.com/mirrors/node";

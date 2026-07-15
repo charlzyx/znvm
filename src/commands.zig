@@ -77,15 +77,28 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     defer allocator.free(npm_prefix);
     const npm_bin_path = try fs.path.join(allocator, &.{ config.npm_prefix, "bin" });
     defer allocator.free(npm_bin_path);
-    const npm_bin = try shellQuote(allocator, npm_bin_path);
-    defer allocator.free(npm_bin);
+    var env_map = try process.getEnvMap(allocator);
+    defer env_map.deinit();
+    const current_path = env_map.get("PATH") orelse "";
+
+    var path_list = std.ArrayList(u8){};
+    defer path_list.deinit(allocator);
+    try path_list.appendSlice(allocator, npm_bin_path);
+    var path_it = mem.splitScalar(u8, current_path, ':');
+    while (path_it.next()) |entry| {
+        if (entry.len == 0 or mem.eql(u8, entry, npm_bin_path)) continue;
+        try path_list.append(allocator, ':');
+        try path_list.appendSlice(allocator, entry);
+    }
+    const path_value = try shellQuote(allocator, path_list.items);
+    defer allocator.free(path_value);
 
     // The wrapper function
     const shell_script =
         \\# znvm shell setup
         \\export ZNVM_DIR={s}
         \\export NPM_CONFIG_PREFIX={s}
-        \\export PATH={s}:"$PATH"
+        \\export PATH={s}
         \\
         \\znvm() {{
         \\  if [ "$1" = "use" ]; then
@@ -110,7 +123,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  znvm use "$(cat "$ZNVM_DIR/default" | tr -d '[:space:]')" >/dev/null 2>&1 || true
         \\fi
     ;
-    try stdout(shell_script, .{ root_dir, npm_prefix, npm_bin });
+    try stdout(shell_script, .{ root_dir, npm_prefix, path_value });
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -186,10 +199,10 @@ fn useVersion(allocator: mem.Allocator, query: []const u8, config: ZnvmConfig) !
     var new_path_list = std.ArrayList(u8){};
     defer new_path_list.deinit(allocator);
 
-    // Add new version path first
-    try new_path_list.appendSlice(allocator, bin_path);
-    try new_path_list.append(allocator, ':');
+    // Shared global commands take priority over version-local legacy shims.
     try new_path_list.appendSlice(allocator, npm_bin_path);
+    try new_path_list.append(allocator, ':');
+    try new_path_list.appendSlice(allocator, bin_path);
 
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |p| {
