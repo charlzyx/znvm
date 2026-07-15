@@ -46,6 +46,7 @@ znvm 支持 SemVer 模式。使用 `22` 即可获取最新的 v22.x.x：
 
 ```bash
 znvm install 22           # 最新的 v22.x.x
+# 之后再次运行会安装 v22 版本线的最新版本
 znvm install 20.11.0      # 特定版本
 znvm install v18.20.0     # 带 v 前缀
 ```
@@ -103,25 +104,21 @@ cd /my-project            # 自动切换到 Node 20
 
 | 变量 | 描述 | 默认值 |
 |------|------|--------|
-| `ZNVM_DIR` | znvm 安装目录 | `~/.znvm` |
-| `NVM_NODEJS_ORG_MIRROR` | Node.js 下载镜像 | - |
+| `ZNVM_DIR` | znvm 数据目录 | `~/.znvm` |
+| `ZNVM_NODE_MIRROR` | Node.js 下载镜像 | `https://npmmirror.com/mirrors/node` |
+| `ZNVM_NPM_PREFIX` | npm 全局包共享目录 | `$ZNVM_DIR/npm` |
 
 ## 镜像配置
 
 中国用户可使用镜像加速下载：
 
 ```bash
-export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
+export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
-## 全局包隔离
+## 共享全局包
 
-每个 Node.js 版本都有独立的：
-- 全局 npm 包（`npm install -g`）
-- npm 缓存
-- Corepack（pnpm/yarn）
-
-这可以防止不同 Node 版本之间的冲突。
+znvm 会把 npm 全局目录设为 `$ZNVM_DIR/npm`。通过 `npm install -g` 安装的包及其命令，在切换 Node.js 版本后仍然可用。如需修改目录，请在 `eval "$(znvm env)"` 之前设置 `ZNVM_NPM_PREFIX`。
 
 ## 命令参考
 

@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.2.0] - 2026-07-15
+
+### Added
+
+- `znvm install <major>` selects the newest release on that Node.js version line.
+- Global npm packages are shared across Node.js versions through `ZNVM_NPM_PREFIX`.
+
+### Fixed
+
+- Version prefix matching now respects semantic-version segment boundaries.
+- Shell environment output safely quotes paths and handles output larger than 8 KiB.
+
 ## [v2.1.2] - 2026-03-16
 
 ### Fixed
@@ -219,6 +231,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.2.0]: https://github.com/charlzyx/znvm/compare/v2.1.2...v2.2.0
 [v2.1.2]: https://github.com/charlzyx/znvm/compare/v2.1.1...v2.1.2
 [v2.1.1]: https://github.com/charlzyx/znvm/compare/v2.0.0-rc.1...v2.1.1
 [v2.0.0-rc.1]: https://github.com/charlzyx/znvm/compare/v1.1.2...v2.0.0-rc.1

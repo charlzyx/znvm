@@ -29,13 +29,14 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 - 🍎 **Apple Silicon 友好**: 自动检测架构，支持 Node.js 旧版本的 Rosetta 自动回退。
 - 🐧 **Unix 原生**: 深度适配 macOS 和 Linux。
 - 🔄 **自动切换**: 进入包含 `.nvmrc` 的目录时自动切换 Node 版本。
-- 📦 **隔离环境**: 每个 Node 版本拥有独立的全局包、npm 缓存及 Corepack 环境。
+- 📦 **共享全局包**: 切换 Node.js 版本后，已安装的全局 npm 包仍然可用。
 
 ## 🛠 使用方法
 
 ```bash
 # 安装版本
 znvm install 22          # 自动匹配并安装最新的 v22.x.x
+# 之后再次运行会更新到 v22 版本线的最新版本
 
 # 切换版本
 znvm use 20              # 使用 Node 20

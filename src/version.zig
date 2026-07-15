@@ -11,7 +11,7 @@ const stderr = util.stderr;
 pub const NodeEntry = struct {
     version: []const u8,
     files: []const []const u8,
-    lts: ?json.Value = null, 
+    lts: ?json.Value = null,
 };
 
 pub const ResolvedRemote = struct {
@@ -19,10 +19,58 @@ pub const ResolvedRemote = struct {
     filename: []const u8,
 };
 
+fn matchesVersionPrefix(version_text: []const u8, query: []const u8) bool {
+    if (query.len == 0 or !mem.startsWith(u8, version_text, query)) return false;
+    return version_text.len == query.len or version_text[query.len] == '.';
+}
+
+pub fn resolveRemoteEntry(entries: []const NodeEntry, query: []const u8, required_file: []const u8) ?NodeEntry {
+    var clean_query = query;
+    if (mem.startsWith(u8, query, "v")) clean_query = query[1..];
+
+    const is_lts = mem.eql(u8, clean_query, "lts") or mem.eql(u8, clean_query, "--lts");
+    const is_latest = mem.eql(u8, clean_query, "latest") or mem.eql(u8, clean_query, "node") or mem.eql(u8, clean_query, "current");
+    if (clean_query.len == 0) return null;
+
+    var best_entry: ?NodeEntry = null;
+    var best_semver: ?std.SemanticVersion = null;
+
+    for (entries) |entry| {
+        var has_file = false;
+        for (entry.files) |file| {
+            if (mem.eql(u8, file, required_file)) {
+                has_file = true;
+                break;
+            }
+        }
+        if (!has_file or entry.version.len < 2 or entry.version[0] != 'v') continue;
+
+        const semver = std.SemanticVersion.parse(entry.version[1..]) catch continue;
+        const matches = if (is_lts) lts: {
+            const lts = entry.lts orelse break :lts false;
+            break :lts switch (lts) {
+                .bool => |enabled| enabled,
+                .string => true,
+                else => false,
+            };
+        } else if (is_latest)
+            true
+        else
+            matchesVersionPrefix(entry.version[1..], clean_query);
+
+        if (matches and (best_semver == null or semver.order(best_semver.?) == .gt)) {
+            best_semver = semver;
+            best_entry = entry;
+        }
+    }
+
+    return best_entry;
+}
+
 pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config: ZnvmConfig) !?ResolvedRemote {
     const index_url = try std.fmt.allocPrint(allocator, "{s}/index.json", .{config.mirror});
     defer allocator.free(index_url);
-    
+
     // Use curl as a fallback/alternative approach for fetching
     const argv = &[_][]const u8{ "curl", "-sSL", index_url };
     const result = try process.Child.run(.{
@@ -39,78 +87,28 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
     }
 
     const body_content = result.stdout;
-    
+
     const parsed = try json.parseFromSlice([]NodeEntry, allocator, body_content, .{ .ignore_unknown_fields = true });
     defer parsed.deinit();
-    
-    var best_entry: ?NodeEntry = null;
-    var best_semver: ?std.SemanticVersion = null;
-    
-    var clean_query = query;
-    if (mem.startsWith(u8, query, "v")) clean_query = query[1..];
-    
-    const is_lts = mem.eql(u8, clean_query, "lts") or mem.eql(u8, clean_query, "--lts");
-    const is_latest = mem.eql(u8, clean_query, "latest") or mem.eql(u8, clean_query, "node") or mem.eql(u8, clean_query, "current");
 
-    const required_file = if (mem.eql(u8, config.os, "darwin")) 
+    const required_file = if (mem.eql(u8, config.os, "darwin"))
         try std.fmt.allocPrint(allocator, "osx-{s}-tar", .{config.arch})
     else
-        try std.fmt.allocPrint(allocator, "{s}-{s}", .{config.os, config.arch});
+        try std.fmt.allocPrint(allocator, "{s}-{s}", .{ config.os, config.arch });
     defer allocator.free(required_file);
 
-    for (parsed.value) |entry| {
-        var has_file = false;
-        for (entry.files) |f| {
-            if (mem.eql(u8, f, required_file)) {
-                has_file = true;
-                break;
-            }
-        }
-        if (!has_file) continue;
-        
-        const ver_str = entry.version[1..];
-        const semver = std.SemanticVersion.parse(ver_str) catch continue;
-        
-        var matches = false;
-        
-        if (is_lts) {
-            if (entry.lts) |lts| {
-                switch (lts) {
-                    .bool => |b| if (b) { matches = true; },
-                    .string => |_| { matches = true; }, 
-                    else => {},
-                }
-            }
-        } else if (is_latest) {
-            matches = true;
-        } else {
-             if (mem.startsWith(u8, ver_str, clean_query)) {
-                if (ver_str.len == clean_query.len) {
-                    matches = true;
-                } else if (ver_str[clean_query.len] == '.') {
-                    matches = true;
-                }
-            }
-        }
-        
-        if (matches) {
-            if (best_semver == null or semver.order(best_semver.?) == .gt) {
-                best_semver = semver;
-                best_entry = entry;
-            }
-        }
-    }
-    
+    const best_entry = resolveRemoteEntry(parsed.value, query, required_file);
+
     if (best_entry) |entry| {
         const os_name = if (mem.eql(u8, config.os, "darwin")) "darwin" else config.os;
-        const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.tar.gz", .{entry.version, os_name, config.arch});
-        
+        const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.tar.gz", .{ entry.version, os_name, config.arch });
+
         return ResolvedRemote{
             .version = try allocator.dupe(u8, entry.version),
             .filename = filename,
         };
     }
-    
+
     return null;
 }
 
@@ -122,7 +120,7 @@ pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []cons
     });
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
-    
+
     if (result.term.Exited != 0) {
         return error.DownloadFailed;
     }
@@ -130,13 +128,13 @@ pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []cons
 
 pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]const []const u8 {
     var list = std.ArrayList([]const u8){};
-    
+
     var dir = fs.openDirAbsolute(config.versions_dir, .{ .iterate = true }) catch |err| {
         if (err == error.FileNotFound) return &.{};
         return err;
     };
     defer dir.close();
-    
+
     var it = dir.iterate();
     while (try it.next()) |entry| {
         if (entry.kind == .directory) {
@@ -145,7 +143,7 @@ pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]con
             }
         }
     }
-    
+
     const Sorter = struct {
         pub fn less(context: void, lhs: []const u8, rhs: []const u8) bool {
             _ = context;
@@ -155,7 +153,7 @@ pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]con
         }
     };
     mem.sort([]const u8, list.items, {}, Sorter.less);
-    
+
     return list.toOwnedSlice(allocator);
 }
 
@@ -163,7 +161,7 @@ pub fn resolveLocalVersion(allocator: mem.Allocator, installed: []const []const 
     for (installed) |ver| {
         if (mem.eql(u8, ver, query)) return ver;
     }
-    
+
     if (mem.startsWith(u8, query, "v")) {
         for (installed) |ver| {
             if (mem.eql(u8, ver, query)) return ver;
@@ -175,18 +173,16 @@ pub fn resolveLocalVersion(allocator: mem.Allocator, installed: []const []const 
             if (mem.eql(u8, ver, v_query)) return ver;
         }
     }
-    
+
     var best: ?[]const u8 = null;
-    
+
     var clean_query = query;
     if (mem.startsWith(u8, query, "v")) clean_query = query[1..];
-    
+
     for (installed) |ver| {
-        const ver_num = ver[1..]; 
-        if (mem.startsWith(u8, ver_num, clean_query)) {
-             best = ver;
-        }
+        const ver_num = ver[1..];
+        if (matchesVersionPrefix(ver_num, clean_query)) best = ver;
     }
-    
+
     return best;
 }

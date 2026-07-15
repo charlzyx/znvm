@@ -52,14 +52,40 @@ fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u
     return null;
 }
 
+fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
+    var quoted = std.ArrayList(u8){};
+    errdefer quoted.deinit(allocator);
+
+    try quoted.append(allocator, '\'');
+    for (value) |char| {
+        if (char == '\'') {
+            try quoted.appendSlice(allocator, "'\\''");
+        } else {
+            try quoted.append(allocator, char);
+        }
+    }
+    try quoted.append(allocator, '\'');
+    return quoted.toOwnedSlice(allocator);
+}
+
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     _ = args;
-    _ = allocator;
+
+    const root_dir = try shellQuote(allocator, config.root_dir);
+    defer allocator.free(root_dir);
+    const npm_prefix = try shellQuote(allocator, config.npm_prefix);
+    defer allocator.free(npm_prefix);
+    const npm_bin_path = try fs.path.join(allocator, &.{ config.npm_prefix, "bin" });
+    defer allocator.free(npm_bin_path);
+    const npm_bin = try shellQuote(allocator, npm_bin_path);
+    defer allocator.free(npm_bin);
 
     // The wrapper function
     const shell_script =
         \\# znvm shell setup
-        \\export ZNVM_DIR="{s}"
+        \\export ZNVM_DIR={s}
+        \\export NPM_CONFIG_PREFIX={s}
+        \\export PATH={s}:"$PATH"
         \\
         \\znvm() {{
         \\  if [ "$1" = "use" ]; then
@@ -84,7 +110,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  znvm use "$(cat "$ZNVM_DIR/default" | tr -d '[:space:]')" >/dev/null 2>&1 || true
         \\fi
     ;
-    try stdout(shell_script, .{config.root_dir});
+    try stdout(shell_script, .{ root_dir, npm_prefix, npm_bin });
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -138,6 +164,10 @@ fn useVersion(allocator: mem.Allocator, query: []const u8, config: ZnvmConfig) !
     defer allocator.free(ver_path);
     const bin_path = try fs.path.join(allocator, &.{ ver_path, "bin" });
     defer allocator.free(bin_path);
+    const npm_bin_path = try fs.path.join(allocator, &.{ config.npm_prefix, "bin" });
+    defer allocator.free(npm_bin_path);
+    const versions_dir_with_sep = try std.fmt.allocPrint(allocator, "{s}/", .{config.versions_dir});
+    defer allocator.free(versions_dir_with_sep);
 
     // Check if bin/node exists
     const node_bin = try fs.path.join(allocator, &.{ bin_path, "node" });
@@ -158,19 +188,28 @@ fn useVersion(allocator: mem.Allocator, query: []const u8, config: ZnvmConfig) !
 
     // Add new version path first
     try new_path_list.appendSlice(allocator, bin_path);
+    try new_path_list.append(allocator, ':');
+    try new_path_list.appendSlice(allocator, npm_bin_path);
 
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |p| {
         if (p.len == 0) continue;
-        // Skip if it contains versions_dir
-        if (mem.indexOf(u8, p, config.versions_dir) != null) continue;
+        if (mem.startsWith(u8, p, versions_dir_with_sep) or mem.eql(u8, p, npm_bin_path)) continue;
 
         try new_path_list.append(allocator, ':');
         try new_path_list.appendSlice(allocator, p);
     }
 
-    try stdout("export PATH=\"{s}\"\n", .{new_path_list.items});
-    try stdout("export ZNVM_CURRENT=\"{s}\"\n", .{ver});
+    const quoted_path = try shellQuote(allocator, new_path_list.items);
+    defer allocator.free(quoted_path);
+    const quoted_version = try shellQuote(allocator, ver);
+    defer allocator.free(quoted_version);
+    const quoted_npm_prefix = try shellQuote(allocator, config.npm_prefix);
+    defer allocator.free(quoted_npm_prefix);
+
+    try stdout("export PATH={s}\n", .{quoted_path});
+    try stdout("export ZNVM_CURRENT={s}\n", .{quoted_version});
+    try stdout("export NPM_CONFIG_PREFIX={s}\n", .{quoted_npm_prefix});
 
     try stderr("Using {s}\n", .{ver});
 }
@@ -314,7 +353,7 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
                 pos += 1;
             }
             if (is_current) {
-                @memcpy(markers_buf[pos..pos+2], "->");
+                @memcpy(markers_buf[pos .. pos + 2], "->");
                 pos += 2;
             }
             markers_buf[pos] = ']';

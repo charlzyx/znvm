@@ -46,6 +46,7 @@ znvm supports SemVer patterns. Use `22` to get the latest v22.x.x:
 
 ```bash
 znvm install 22           # Latest v22.x.x
+# Run again later to install the newest release on the v22 line
 znvm install 20.11.0      # Specific version
 znvm install v18.20.0     # With v prefix
 ```
@@ -103,25 +104,21 @@ cd /my-project            # Auto-switches to Node 20
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ZNVM_DIR` | znvm installation directory | `~/.znvm` |
-| `NVM_NODEJS_ORG_MIRROR` | Node.js download mirror | - |
+| `ZNVM_DIR` | znvm data directory | `~/.znvm` |
+| `ZNVM_NODE_MIRROR` | Node.js download mirror | `https://npmmirror.com/mirrors/node` |
+| `ZNVM_NPM_PREFIX` | Shared global npm package prefix | `$ZNVM_DIR/npm` |
 
 ## Mirror Configuration
 
 For users in China, use a mirror to speed up downloads:
 
 ```bash
-export NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
+export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
-## Global Package Isolation
+## Shared Global Packages
 
-Each Node.js version has isolated:
-- Global npm packages (`npm install -g`)
-- npm cache
-- Corepack (pnpm/yarn)
-
-This prevents version conflicts between different Node versions.
+znvm sets npm's global prefix to `$ZNVM_DIR/npm`. Packages installed with `npm install -g` and their commands stay available after switching Node.js versions. Set `ZNVM_NPM_PREFIX` before `eval "$(znvm env)"` to use a different location.
 
 ## Commands Reference
 

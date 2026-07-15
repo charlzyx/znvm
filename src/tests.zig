@@ -42,6 +42,22 @@ test "resolveLocalVersion: major version prefix match" {
     try testing.expect(mem.startsWith(u8, result.?, "v20"));
 }
 
+test "resolveLocalVersion: major query respects segment boundary" {
+    const allocator = std.testing.allocator;
+    const installed = &[_][]const u8{ "v2.4.0", "v20.1.0", "v22.0.0" };
+
+    const result = try version.resolveLocalVersion(allocator, installed, "2");
+    try testing.expectEqualSlices(u8, "v2.4.0", result.?);
+}
+
+test "resolveLocalVersion: selects latest matching installed version" {
+    const allocator = std.testing.allocator;
+    const installed = &[_][]const u8{ "v20.0.0", "v20.5.0", "v22.0.0" };
+
+    const result = try version.resolveLocalVersion(allocator, installed, "20");
+    try testing.expectEqualSlices(u8, "v20.5.0", result.?);
+}
+
 test "resolveLocalVersion: version not found" {
     const allocator = std.testing.allocator;
     const installed = &[_][]const u8{ "v18.0.0", "v20.0.0" };
@@ -175,6 +191,32 @@ test "version list: sorting by semantic version" {
     try testing.expectEqualSlices(u8, "v18.0.0", versions.items[0]);
     try testing.expectEqualSlices(u8, "v20.0.0", versions.items[1]);
     try testing.expectEqualSlices(u8, "v22.0.0", versions.items[2]);
+}
+
+test "resolveRemoteEntry: short version selects latest release line" {
+    const files = &[_][]const u8{"osx-arm64-tar"};
+    const entries = &[_]version.NodeEntry{
+        .{ .version = "v20.1.0", .files = files },
+        .{ .version = "v22.0.0", .files = files },
+        .{ .version = "v20.12.2", .files = files },
+    };
+
+    const result = version.resolveRemoteEntry(entries, "20", "osx-arm64-tar");
+    try testing.expect(result != null);
+    try testing.expectEqualSlices(u8, "v20.12.2", result.?.version);
+}
+
+test "resolveRemoteEntry: short version respects segment boundary" {
+    const files = &[_][]const u8{"linux-x64"};
+    const entries = &[_]version.NodeEntry{
+        .{ .version = "v2.5.0", .files = files },
+        .{ .version = "v20.0.0", .files = files },
+        .{ .version = "v22.0.0", .files = files },
+    };
+
+    const result = version.resolveRemoteEntry(entries, "2", "linux-x64");
+    try testing.expect(result != null);
+    try testing.expectEqualSlices(u8, "v2.5.0", result.?.version);
 }
 
 // ============================================

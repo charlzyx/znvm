@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 ### Install Specific Version
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.0.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.0/install.sh | bash
 ```
 
 ## ✨ Core Features
@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.0.0/install.sh | b
 - 🍎 **Apple Silicon Friendly**: Automatic architecture detection and Rosetta fallback.
 - 🐧 **Unix-First**: Native support for macOS and Linux.
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
-- 📦 **Isolated Environments**: Per-version isolation for global packages, npm cache, and Corepack.
+- 📦 **Shared Global Packages**: Global npm packages remain available when switching Node.js versions.
 - ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.
 
 ## 🛠 Usage
@@ -45,6 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.0.0/install.sh | b
 ```bash
 # Install a version
 znvm install 22          # Match latest v22.x.x
+# Re-running this later updates the v22 line to its newest release
 
 # Switch version
 znvm use 20              # Use Node 20
