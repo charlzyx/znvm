@@ -241,6 +241,30 @@ test "resolveRemoteEntry: short version respects segment boundary" {
     try testing.expectEqualSlices(u8, "v2.5.0", result.?.version);
 }
 
+test "resolveRemoteArtifact: Apple Silicon falls back to x64" {
+    const x64_files = &[_][]const u8{"osx-x64-tar"};
+    const entries = &[_]version.NodeEntry{
+        .{ .version = "v12.22.12", .files = x64_files },
+        .{ .version = "v12.22.11", .files = x64_files },
+    };
+
+    const result = version.resolveRemoteArtifact(entries, "12", "darwin", "arm64");
+    try testing.expect(result != null);
+    try testing.expectEqualSlices(u8, "v12.22.12", result.?.entry.version);
+    try testing.expectEqualSlices(u8, "x64", result.?.arch);
+}
+
+test "resolveRemoteArtifact: Apple Silicon prefers native arm64" {
+    const both_files = &[_][]const u8{ "osx-arm64-tar", "osx-x64-tar" };
+    const entries = &[_]version.NodeEntry{
+        .{ .version = "v20.12.2", .files = both_files },
+    };
+
+    const result = version.resolveRemoteArtifact(entries, "20", "darwin", "arm64");
+    try testing.expect(result != null);
+    try testing.expectEqualSlices(u8, "arm64", result.?.arch);
+}
+
 // ============================================
 // URL and format tests
 // ============================================

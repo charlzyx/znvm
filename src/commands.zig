@@ -242,6 +242,7 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
     }
     const ver = resolved.?.version;
     const filename = resolved.?.filename;
+    const resolved_arch = resolved.?.arch;
     defer allocator.free(ver);
     defer allocator.free(filename);
 
@@ -256,7 +257,7 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
         return;
     }
 
-    try stderr("Installing {s} ({s})...\n", .{ ver, config.arch });
+    try stderr("Installing {s} ({s})...\n", .{ ver, resolved_arch });
 
     // 2. Download
     const download_url = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ config.mirror, ver, filename });

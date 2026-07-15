@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.2.1 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.2.2 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.2.1" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.2.2" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.2.1, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.2.2, got $VERSION_OUTPUT"
     exit 1
 fi
 

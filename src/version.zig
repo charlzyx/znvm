@@ -17,7 +17,23 @@ pub const NodeEntry = struct {
 pub const ResolvedRemote = struct {
     version: []const u8,
     filename: []const u8,
+    arch: []const u8,
 };
+pub const ResolvedEntry = struct {
+    entry: NodeEntry,
+    arch: []const u8,
+};
+
+fn platformFile(os: []const u8, arch: []const u8) ?[]const u8 {
+    if (mem.eql(u8, os, "darwin")) {
+        if (mem.eql(u8, arch, "arm64")) return "osx-arm64-tar";
+        if (mem.eql(u8, arch, "x64")) return "osx-x64-tar";
+    } else if (mem.eql(u8, os, "linux")) {
+        if (mem.eql(u8, arch, "arm64")) return "linux-arm64";
+        if (mem.eql(u8, arch, "x64")) return "linux-x64";
+    }
+    return null;
+}
 
 fn matchesVersionPrefix(version_text: []const u8, query: []const u8) bool {
     if (query.len == 0 or !mem.startsWith(u8, version_text, query)) return false;
@@ -66,6 +82,19 @@ pub fn resolveRemoteEntry(entries: []const NodeEntry, query: []const u8, require
 
     return best_entry;
 }
+pub fn resolveRemoteArtifact(entries: []const NodeEntry, query: []const u8, os: []const u8, arch: []const u8) ?ResolvedEntry {
+    const required_file = platformFile(os, arch) orelse return null;
+    if (resolveRemoteEntry(entries, query, required_file)) |entry| {
+        return .{ .entry = entry, .arch = arch };
+    }
+
+    if (mem.eql(u8, os, "darwin") and mem.eql(u8, arch, "arm64")) {
+        if (resolveRemoteEntry(entries, query, "osx-x64-tar")) |entry| {
+            return .{ .entry = entry, .arch = "x64" };
+        }
+    }
+    return null;
+}
 
 pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config: ZnvmConfig) !?ResolvedRemote {
     const index_url = try std.fmt.allocPrint(allocator, "{s}/index.json", .{config.mirror});
@@ -91,21 +120,17 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
     const parsed = try json.parseFromSlice([]NodeEntry, allocator, body_content, .{ .ignore_unknown_fields = true });
     defer parsed.deinit();
 
-    const required_file = if (mem.eql(u8, config.os, "darwin"))
-        try std.fmt.allocPrint(allocator, "osx-{s}-tar", .{config.arch})
-    else
-        try std.fmt.allocPrint(allocator, "{s}-{s}", .{ config.os, config.arch });
-    defer allocator.free(required_file);
+    const artifact = resolveRemoteArtifact(parsed.value, query, config.os, config.arch);
 
-    const best_entry = resolveRemoteEntry(parsed.value, query, required_file);
-
-    if (best_entry) |entry| {
+    if (artifact) |resolved| {
+        const entry = resolved.entry;
         const os_name = if (mem.eql(u8, config.os, "darwin")) "darwin" else config.os;
-        const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.tar.gz", .{ entry.version, os_name, config.arch });
+        const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.tar.gz", .{ entry.version, os_name, resolved.arch });
 
         return ResolvedRemote{
             .version = try allocator.dupe(u8, entry.version),
             .filename = filename,
+            .arch = resolved.arch,
         };
     }
 

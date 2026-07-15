@@ -10,7 +10,7 @@ const commands = @import("commands.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.2.1";
+const ZNVM_VERSION = "v2.2.2";
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
