@@ -201,39 +201,53 @@ touch "$INSTALL_HOME/.bashrc"
 echo keep > "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker"
 echo "echo original-nvm" > "$INSTALL_HOME/.nvm/nvm.sh"
 echo "original completion" > "$INSTALL_HOME/.nvm/bash_completion"
-env -i \
+INSTALL_OUT=$(env -i \
     HOME="$INSTALL_HOME" \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    ZNVM_INSTALL_BIN_DIR="$INSTALL_HOME/.znvm/bin" \
-    bash ./install-as-nvm.sh >/dev/null
-test -x "$INSTALL_HOME/.znvm/bin/znvm"
-test -L "$INSTALL_HOME/.znvm/bin/nvm"
-test "$(readlink "$INSTALL_HOME/.znvm/bin/nvm")" = "znvm"
-grep -q "znvm-nvm-shim" "$INSTALL_HOME/.nvm/nvm.sh"
-grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.pre-znvm"
-grep -q "original completion" "$INSTALL_HOME/.nvm/bash_completion.pre-znvm"
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$INSTALL_OUT" | grep -q 'nvm is ready.'
+printf '%s\n' "$INSTALL_OUT" | grep -q 'nvm install 22'
+printf '%s\n' "$INSTALL_OUT" | grep -q 'nvm use 22'
+printf '%s\n' "$INSTALL_OUT" | grep -q 'nvm ls'
+printf '%s\n' "$INSTALL_OUT" | grep -q "export NVM_DIR=\"$INSTALL_HOME/.nvm\""
+if printf '%s\n' "$INSTALL_OUT" | grep -q 'znvm\|completion'; then
+    echo "install-as-nvm output mentioned znvm or completion" >&2
+    printf '%s\n' "$INSTALL_OUT" >&2
+    exit 1
+fi
+test -x "$INSTALL_HOME/.nvm/nvm"
+test ! -e "$INSTALL_HOME/.znvm/bin/znvm"
+grep -q "nvm: shell setup" "$INSTALL_HOME/.nvm/nvm.sh"
+if grep -q 'znvm\|completion' "$INSTALL_HOME/.nvm/nvm.sh" "$INSTALL_HOME/.bashrc"; then
+    echo "generated nvm files mentioned znvm or completion" >&2
+    exit 1
+fi
+grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
+test "$(cat "$INSTALL_HOME/.nvm/bash_completion")" = "original completion"
+test ! -e "$INSTALL_HOME/.nvm/bash_completion.bak"
+test ! -e "$INSTALL_HOME/.nvm/bash_completion.pre-znvm"
 test "$(cat "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker")" = "keep"
-grep -q 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc"
-test "$(grep -c 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc")" -eq 1
+test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
 env -i \
     HOME="$INSTALL_HOME" \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    ZNVM_INSTALL_BIN_DIR="$INSTALL_HOME/.znvm/bin" \
     bash ./install-as-nvm.sh >/dev/null
-test "$(grep -c 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc")" -eq 1
-grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.pre-znvm"
+test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
+grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
 bash -c '
     set -e
     export HOME="$1"
-    export PATH="$1/.znvm/bin:/usr/bin:/bin"
+    export PATH="$1/.nvm:/usr/bin:/bin"
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     test "$(nvm --version)" = "v2.2.2"
-    test "$(command -v nvm >/dev/null; nvm current)" = "none"
+    test "$(nvm version)" = "none"
+    test "$(nvm current)" = "none"
+    test -z "$(type znvm 2>/dev/null || true)"
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
 

@@ -22,26 +22,35 @@
 ## 📦 Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
-```
-
-### Install Specific Version
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install.sh | bash
-```
-
-### Use it as `nvm`
-
-`install-as-nvm.sh` installs znvm and makes the `nvm` command run it, including the `~/.nvm/nvm.sh` file existing shell configs already source. Running it again is safe: it will not duplicate shell config, and it will not delete Node versions already installed under `~/.nvm/versions/node`. znvm uses that same tree.
-
-The previous `nvm.sh` and `bash_completion`, if they were not already znvm shims, are copied once to `nvm.sh.pre-znvm` and `bash_completion.pre-znvm`.
-
-```bash
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-Open a new terminal, or `source` the printed profile. `nvm install`, `nvm use`, `nvm ls`, and the other commands below then run znvm. `eval "$(znvm env)"` also defines an `nvm` function.
+The script installs the `nvm` command and writes `~/.nvm/nvm.sh`. Running it again is safe: it does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
+
+When it finishes, it prints:
+
+```text
+nvm is ready.
+
+Open a new terminal, or run:
+  source "~/.bashrc"
+
+export NVM_DIR="$HOME/.nvm"
+nvm install 22
+nvm use 22
+nvm ls
+
+Node versions are stored in $NVM_DIR/versions/node.
+Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
+```
+
+The profile path in the `source` line is the file the script actually updated.
+
+### Install a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm.sh | bash
+```
 
 ## ✨ Core Features
 
@@ -49,75 +58,78 @@ Open a new terminal, or `source` the printed profile. `nvm install`, `nvm use`, 
 - 🍎 **Apple Silicon Friendly**: Automatic architecture detection and Rosetta fallback.
 - 🐧 **Unix-First**: Native support for macOS and Linux.
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
-- 📦 **Per-version globals**: Global npm packages stay inside each Node version, as they do with nvm. Set `ZNVM_NPM_PREFIX` to an absolute path for one shared prefix.
+- 📦 **Per-version globals**: Global npm packages stay inside each Node version, as they do with nvm.
 - ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.
 
 ## 🛠 Usage
 
 ```bash
 # Install a version. `node` is the newest release, `lts/*` the newest LTS.
-znvm install 22
-znvm install --lts
-znvm install          # version from .nvmrc, then switch to it
+nvm install 22
+nvm install --lts
+nvm install          # version from .nvmrc, then switch to it
 
 # Switch version. `use` with no version reads .nvmrc from this directory or a parent.
-znvm use 20
-znvm use
-znvm use --lts
+nvm use 20
+nvm use
+nvm use --lts
 
 # What is active, and where is its node binary?
-znvm current
-znvm which 20
+nvm current
+nvm which 20
 
 # List installed versions (`->` marks the active one) and aliases
-znvm ls
-znvm ls 20
-znvm ls-remote --lts
+nvm ls
+nvm ls 20
+nvm ls-remote --lts
 
 # Default and other aliases. `default` is the same as `alias default`.
-znvm alias default 20
-znvm alias
-znvm unalias work
+nvm alias default 20
+nvm alias
+nvm unalias work
 
 # Run one command without changing the shell
-znvm run 20 --version
-znvm exec 20 npm test
+nvm run 20 --version
+nvm exec 20 npm test
 
 # Remove a version, or drop it from PATH
-znvm uninstall 20
-znvm deactivate
+nvm uninstall 20
+nvm deactivate
 ```
 
-`nvm <command>` accepts the same commands after `install-as-nvm.sh` (or after `eval "$(znvm env)"`).
+An interactive guided mode is planned. This version is the `nvm` command line above.
 
 ### Differences from nvm
 
-Node versions live in `$NVM_DIR/versions/node` (default `~/.nvm`), including versions nvm already installed. `ZNVM_DIR` is only used when `NVM_DIR` is unset. A previous znvm tree at `~/.znvm/versions/vX.Y.Z` is still detected. Node older than 0.12 is read from `$NVM_DIR/vX.Y.Z`, matching nvm.
+Node versions live in `$NVM_DIR/versions/node` (default `~/.nvm`), including versions nvm already installed. Node older than 0.12 is read from `$NVM_DIR/vX.Y.Z`, matching nvm.
 
-The download mirror defaults to `https://npmmirror.com/mirrors/node`. Override it with `ZNVM_NODE_MIRROR` or `NVM_NODEJS_ORG_MIRROR`.
+The download mirror defaults to `https://npmmirror.com/mirrors/node`. Set `NVM_NODEJS_ORG_MIRROR` to use a different mirror.
 
-`znvm version` with no arguments prints the znvm version. `nvm version` prints the active Node version (`none` or `system` when znvm is not providing it). `nvm --version` and `znvm --version` both print the znvm version.
+`nvm version` prints the active Node version (`none` or `system` when this nvm is not providing it). `nvm --version` prints the installed tool version.
+
+There is no `nvm completion` command, and the installer does not add shell completion.
 
 Shell setup switches to `.nvmrc` when you enter a directory, then the default alias. It does not download a missing version. `.node-version` is used only when no `.nvmrc` exists anywhere above the current directory (nvm 0.40 reads `.nvmrc` only). `#` comments are ignored.
 
-Global npm packages stay inside each Node version, as they do with nvm. `reinstall-packages` and `--reinstall-packages-from` copy them to the version you are switching to. Set `ZNVM_NPM_PREFIX` to an absolute path when you want one shared global prefix instead.
+Global npm packages stay inside each Node version, as they do with nvm. `reinstall-packages` and `--reinstall-packages-from` copy them to the version you are switching to.
 
 Not implemented, because they are not just a different default:
 
-- `-s` compiles Node from source. znvm installs official binaries only.
+- `-s` compiles Node from source. This `nvm` installs official binaries only.
 - io.js and the `unstable` alias are retired and are not on the Node mirror.
-- `set-colors` only changes nvm.sh's terminal colors. znvm prints plain text.
+- `set-colors` only changes terminal colors in nvm.sh. `nvm ls` prints plain text.
 
 ## ⚙️ Shell Setup
 
-To start using `znvm`, add the following to your shell configuration file (e.g., `~/.zshrc`, `~/.bashrc`):
+`install-as-nvm.sh` appends this to the shell profile it updates (`~/.bashrc`, `~/.zshrc`, or `~/.profile`):
 
 ```bash
-# Initialize znvm
-eval "$(znvm env)"
+# nvm: shell setup
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-> **Note**: The installation script attempts to configure this automatically. If `znvm` command is not found, ensure the binary is in your `PATH`.
+Open a new terminal, or `source` that profile. The command is `nvm`. Versions live in `$NVM_DIR/versions/node`.
 
 ## 📊 Benchmarks
 

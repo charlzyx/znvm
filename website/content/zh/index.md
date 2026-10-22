@@ -1,7 +1,7 @@
 ## 安装
 
 ```bash
-curl -fsSL https://znvm.dev/install.sh | bash
+curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 ```
 
 ## 为什么选择 znvm?
@@ -37,8 +37,8 @@ shell 启动 p95：nvm 115 / 128 ms，fnm 1.76 / 6.67 ms，znvm 3.64 / 9.28 ms�
 ### 📦 **零依赖**
 单个静态二进制文件。无运行时，无包管理器依赖，无意外。
 
-### 🔌 **即插即用**
-与您现有的 `.nvmrc` 文件和 shell 工作流无缝协作。迁移轻松无负担。
+### 🔌 **当作 `nvm` 使用**
+上面的安装命令提供的是 `nvm`。版本放在 `~/.nvm`（`NVM_DIR`）。交互式引导模式还在计划中；现在使用 `nvm` 命令行。
 
 ## 关键词
 

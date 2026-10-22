@@ -20,20 +20,35 @@
 ## 📦 快速安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bash
-```
-
-### 当作 `nvm` 使用
-
-`install-as-nvm.sh` 会安装 znvm，并让 `nvm` 命令以及已有配置里的 `~/.nvm/nvm.sh` 指向 znvm。脚本可以重复执行：不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。znvm 使用同一目录。
-
-如果原来的 `nvm.sh` 和 `bash_completion` 还不是 znvm 的兼容文件，会先各备份一份为 `*.pre-znvm`。
-
-```bash
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-新开一个终端，或 source 脚本打印出的配置文件。之后 `nvm install`、`nvm use`、`nvm ls` 等日常命令都会走 znvm。
+脚本会安装 `nvm` 命令并写入 `~/.nvm/nvm.sh`。可以重复执行：不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
+
+结束后会打印：
+
+```text
+nvm is ready.
+
+Open a new terminal, or run:
+  source "~/.bashrc"
+
+export NVM_DIR="$HOME/.nvm"
+nvm install 22
+nvm use 22
+nvm ls
+
+Node versions are stored in $NVM_DIR/versions/node.
+Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
+```
+
+`source` 那一行里的路径是脚本实际改过的配置文件。
+
+### 安装指定版本
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm.sh | bash
+```
 
 ## ✨ 核心特性
 
@@ -41,46 +56,57 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.s
 - 🍎 **Apple Silicon 友好**: 自动检测架构，支持 Node.js 旧版本的 Rosetta 自动回退。
 - 🐧 **Unix 原生**: 深度适配 macOS 和 Linux。
 - 🔄 **自动切换**: 进入包含 `.nvmrc` 的目录时自动切换 Node 版本。
-- 📦 **按版本隔离的全局包**: 与 nvm 一样，全局 npm 包留在各自的 Node 版本里。若要共用一个目录，把 `ZNVM_NPM_PREFIX` 设成绝对路径。
+- 📦 **按版本隔离的全局包**: 与 nvm 一样，全局 npm 包留在各自的 Node 版本里。
 
 ## 🛠 使用方法
 
 ```bash
-znvm install 22          # 安装该版本线的最新版本
-znvm install --lts       # 最新 LTS
-znvm install             # 读取 .nvmrc 并安装，然后切换过去
+# 安装。`node` 是最新正式版，`lts/*` 是最新 LTS。
+nvm install 22
+nvm install --lts
+nvm install             # 读取 .nvmrc 并安装，然后切换过去
 
-znvm use 20
-znvm use                 # 从当前目录或父目录的 .nvmrc 切换
-znvm current
-znvm which 20
-znvm ls                  # -> 表示当前版本，并列出别名
-znvm ls-remote --lts
+# 切换。不带版本时从当前目录或父目录的 .nvmrc 读取。
+nvm use 20
+nvm use
+nvm use --lts
 
-znvm alias default 20    # 与 znvm default 20 相同
-znvm run 20 --version
-znvm exec 20 npm test
-znvm uninstall 20
+nvm current
+nvm which 20
+nvm ls                  # -> 表示当前版本，并列出别名
+nvm ls-remote --lts
+
+nvm alias default 20    # 与 nvm default 20 相同
+nvm run 20 --version
+nvm exec 20 npm test
+nvm uninstall 20
 ```
 
-安装 `install-as-nvm.sh` 之后，这些命令也可以用 `nvm` 调用。
+交互式引导模式还在计划中。这一版就是上面的 `nvm` 命令行。
 
-版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已安装的版本可以直接使用。只有在未设置 `NVM_DIR` 时才会用 `ZNVM_DIR`。旧的 `~/.znvm/versions/vX.Y.Z` 仍然能被找到。
+版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已经装好的版本可以直接用。0.12 之前的 Node 从 `$NVM_DIR/vX.Y.Z` 读取。
 
-默认下载镜像是 npmmirror，可用 `ZNVM_NODE_MIRROR` 或 `NVM_NODEJS_ORG_MIRROR` 覆盖。进入目录时会根据 `.nvmrc` 切换已安装的版本，找不到 `.nvmrc` 时再读 `.node-version`，都不会自动下载。全局包跟 nvm 一样放在各个 Node 版本里；`reinstall-packages` 和 `--reinstall-packages-from` 会把它们复制到当前版本。若要共用一个全局目录，设置绝对路径 `ZNVM_NPM_PREFIX`。
+默认下载镜像是 `https://npmmirror.com/mirrors/node`。要换镜像，设置 `NVM_NODEJS_ORG_MIRROR`。
 
-不做源码编译（`-s`，只安装官方二进制）、io.js / `unstable`（已停止维护，不在 Node 镜像上）和 `set-colors`（只影响 nvm.sh 的终端颜色）。`znvm version` 不带参数时打印 znvm 自身版本，`nvm version` 打印当前 Node 版本。
+`nvm version` 打印当前 Node 版本（这个 nvm 没有提供 Node 时是 `none` 或 `system`）。`nvm --version` 打印已安装工具的版本。
+
+没有 `nvm completion` 命令，安装脚本也不会加入 shell 补全。
+
+进入目录时会根据 `.nvmrc` 切换已安装的版本，找不到 `.nvmrc` 时再读 `.node-version`，都不会自动下载。全局包跟 nvm 一样放在各个 Node 版本里；`reinstall-packages` 和 `--reinstall-packages-from` 会把它们复制到要切换到的版本。
+
+不做源码编译（`-s`，只安装官方二进制）、io.js / `unstable`（已停止维护，不在 Node 镜像上）和 `set-colors`（只影响终端颜色）。`nvm ls` 输出纯文本。
 
 ## ⚙️ Shell 配置
 
-要开始使用 `znvm`，请将以下内容添加到您的 Shell 配置文件（如 `~/.zshrc`, `~/.bashrc`）中：
+`install-as-nvm.sh` 会把下面几行追加到它更新的 shell 配置（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）：
 
 ```bash
-# 初始化 znvm
-eval "$(znvm env)"
+# nvm: shell setup
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-> **注意**：安装脚本通常会自动为您配置。如果 `znvm` 命令未找到，请确保二进制文件位于您的 `PATH` 中。
+新开一个终端，或 `source` 那个配置文件。之后的命令是 `nvm`。版本在 `$NVM_DIR/versions/node`。
 
 ## 📊 性能对比
 

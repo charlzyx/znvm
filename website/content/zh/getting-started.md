@@ -2,160 +2,161 @@
 
 **znvm** — **零负担 Node 版本管理器**
 
-基于 Zig 的 **Node.js 版本管理器**。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
+基于 Zig 的 **Node.js 版本管理器**。安装之后的命令是 `nvm`。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
+
+交互式引导模式还在计划中。这一版就是 `nvm` 命令行。
 
 ## 安装
 
 ### 快速安装（推荐）
 
 ```bash
-curl -fsSL https://znvm.dev/install.sh | bash
+curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 ```
 
-然后重启终端或运行：
+结束后会打印：
 
-```bash
-source ~/.zshrc  # 或 ~/.bashrc
+```text
+nvm is ready.
+
+Open a new terminal, or run:
+  source "~/.bashrc"
+
+export NVM_DIR="$HOME/.nvm"
+nvm install 22
+nvm use 22
+nvm ls
+
+Node versions are stored in $NVM_DIR/versions/node.
+Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
+
+`source` 那一行是脚本实际改过的配置文件（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。脚本可以重复执行：不会重复写入这段配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。
 
 ### 安装器做了什么
 
-1. 检测您的平台（macOS/Linux）和架构（x64/arm64）
-2. 下载最新的 `znvm` 二进制文件到 `~/.znvm/bin/`
-3. 在 shell 配置中将 `znvm` 添加到 `PATH`
-4. 设置 shell 包装器以支持 `use` 命令和自动切换
+1. 检测平台（macOS/Linux）和架构（x64/arm64）
+2. 安装 `nvm` 命令并写入 `~/.nvm/nvm.sh`
+3. 把 `NVM_DIR` 的启动行追加到 shell 配置
+4. 保留 `$NVM_DIR/versions/node` 里已经装好的 Node 版本
 
 ### Shell 配置
 
-如果自动设置未生效，请添加以下内容到您的 shell 配置文件（`~/.zshrc`、`~/.bashrc` 等）：
+安装器写入：
 
 ```bash
-eval "$(znvm env)"
+# nvm: shell setup
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-此命令会：
-- 将 `znvm` 添加到您的 PATH
-- 设置 `use` 命令的 shell 包装器
-- 启用 `cd` 到带有 `.nvmrc` 目录时的自动切换
+新开一个终端，或 `source` 那个配置文件。之后的命令是 `nvm`。
 
 ## 使用
 
 ### 安装 Node.js
 
-znvm 支持 SemVer 模式。使用 `22` 即可获取最新的 v22.x.x：
+用 `22` 获取最新的 v22.x.x：
 
 ```bash
-znvm install 22           # 最新的 v22.x.x
-# 之后再次运行会安装 v22 版本线的最新版本
-znvm install 20.11.0      # 特定版本
-znvm install v18.20.0     # 带 v 前缀
+nvm install 22            # 最新的 v22.x.x
+nvm install --lts         # 最新 LTS
+nvm install 20.11.0       # 特定版本
+nvm install v18.20.0      # 带 v 前缀
+nvm install               # 读取 .nvmrc 并安装，然后切换过去
 ```
 
 ### 切换版本
 
 ```bash
-znvm use 20               # 切换到 Node 20
-znvm use                  # 从 .nvmrc 自动检测
+nvm use 20                # 切换到 Node 20
+nvm use                   # 从当前目录或父目录的 .nvmrc 读取
+nvm use --lts
 ```
 
 ### 列出已安装版本
 
 ```bash
-znvm ls
-# 或
-znvm list
+nvm ls
+nvm current
+nvm which 20
 ```
 
-输出显示：
-- `[*]` - 当前激活版本
-- `[->]` - 默认版本
+`->` 标出当前版本。别名列在版本后面。
 
 ### 设置默认版本
 
 ```bash
-znvm default 20           # 设置 v20 为默认
-znvm default              # 显示当前默认版本
+nvm alias default 20      # 与 nvm default 20 相同
+nvm alias
 ```
 
-默认版本在以下情况使用：
-- 当前目录不存在 `.nvmrc` 文件
-- `.nvmrc` 中的版本未安装
+进入没有 `.nvmrc`、也没有 `.node-version` 的目录时，会用 `default` 别名。
 
 ### 卸载版本
 
 ```bash
-znvm uninstall 20
-# 或
-znvm rm 20
+nvm uninstall 20
+nvm deactivate
 ```
 
 ## 使用 .nvmrc 自动切换
 
-当您 `cd` 到带有 `.nvmrc` 的目录时，znvm 会自动切换 Node 版本：
+加载了 `nvm.sh` 之后，进入目录会读取 `.nvmrc` 并切换到已安装的版本。当前目录往上都不存在 `.nvmrc` 时，才读 `.node-version`。缺少的版本不会自动下载。
 
 ```bash
-echo "20" > .nvmrc        # 创建 .nvmrc
-cd /my-project            # 自动切换到 Node 20
+echo "20" > .nvmrc
+cd /my-project
 ```
-
-> **注意：** 当您在 shell 配置中使用 `eval "$(znvm env)"` 时，自动切换默认启用。
 
 ## 环境变量
 
 | 变量 | 描述 | 默认值 |
 |------|------|--------|
-| `NVM_DIR` | Node 版本根目录，布局与 nvm 相同（`versions/node`） | `~/.nvm` |
-| `ZNVM_DIR` | 仅在未设置 `NVM_DIR` 时作为版本根目录 | 未设置 |
-| `ZNVM_NODE_MIRROR` | Node.js 下载镜像 | `https://npmmirror.com/mirrors/node` |
-| `ZNVM_NPM_PREFIX` | 可选的共享全局 npm 目录。不设置时与 nvm 一样按版本隔离 | 未设置 |
-
-## 镜像配置
-
-中国用户可使用镜像加速下载：
+| `NVM_DIR` | Node 版本根目录（`versions/node`） | `~/.nvm` |
+| `NVM_NODEJS_ORG_MIRROR` | 覆盖 Node.js 下载镜像 | 未设置；下载使用 `https://npmmirror.com/mirrors/node` |
 
 ```bash
-export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
+export NVM_DIR="$HOME/.nvm"
+export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 ```
 
 ## 全局包
 
-`npm install -g` 会装到当前 Node 版本里，和 nvm 一样。`znvm reinstall-packages <version>` 把该版本的全局包复制到当前版本。只有在希望所有版本共用一个目录时，才在 `eval "$(znvm env)"` 之前把 `ZNVM_NPM_PREFIX` 设成绝对路径。
+`npm install -g` 装到当前 Node 版本里。`nvm reinstall-packages <version>` 把该版本的全局包复制到当前版本。
 
-## 命令参考
+## 命令
 
 | 命令 | 描述 |
 |------|------|
-| `znvm install <ver>` | 安装 Node.js 版本 |
-| `znvm use [ver]` | 切换到版本（或使用 .nvmrc） |
-| `znvm ls` | 列出已安装版本 |
-| `znvm default [ver]` | 设置/显示默认版本 |
-| `znvm uninstall <ver>` | 移除版本 |
-| `znvm version` | 显示 znvm 版本 |
-| `znvm env` | 输出 shell 配置 |
+| `nvm install [version]` | 安装 Node.js 版本 |
+| `nvm use [version]` | 切换版本，或读取 `.nvmrc` |
+| `nvm ls` | 列出已安装版本 |
+| `nvm alias default [version]` | 设置或显示默认别名 |
+| `nvm uninstall <version>` | 移除版本 |
+| `nvm version` | 当前 Node 版本（这个 nvm 没有提供 Node 时是 `none` 或 `system`） |
+| `nvm --version` | 已安装工具的版本 |
 
 ## 故障排除
 
-### 命令未找到
+### 找不到 `nvm`
 
-确保 `~/.znvm/bin` 在您的 PATH 中：
+新开一个终端，或加载安装器打印的配置：
 
 ```bash
-export PATH="$HOME/.znvm/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
 ### 安装后版本未找到
 
-运行 `znvm use <version>` 或重启终端。
+```bash
+nvm use 22
+```
 
 ### 自动切换不工作
 
-确保 shell 包装器已在您的配置中加载：
-
-```bash
-eval "$(znvm env)"
-```
-
-如需禁用自动切换，从 shell 配置中移除或注释掉 `eval "$(znvm env)"` 这一行。
+确认配置里仍有上面的 `NVM_DIR` / `nvm.sh` 两行。要停用自动切换，删掉这两行。
 
 ---
 

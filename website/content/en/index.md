@@ -1,7 +1,7 @@
 ## Install
 
 ```bash
-curl -fsSL https://znvm.dev/install.sh | bash
+curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 ```
 
 ## Why znvm?
@@ -37,8 +37,8 @@ Do one thing and do it well. znvm focuses exclusively on macOS and Linux, levera
 ### 📦 **Zero Dependencies**
 Single static binary. No runtime, no package manager dependencies, no surprises.
 
-### 🔌 **Drop-in Replacement**
-Works seamlessly with your existing `.nvmrc` files and shell workflows. Migration is effortless.
+### 🔌 **Drop-in `nvm`**
+The install command above gives you `nvm`. Versions live in `~/.nvm` (`NVM_DIR`). An interactive guided mode is planned; today you use the `nvm` command line.
 
 ## Keywords
 

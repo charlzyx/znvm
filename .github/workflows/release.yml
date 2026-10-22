@@ -68,13 +68,14 @@ jobs:
           sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
           cp install.sh ./website/public/install.sh
+          cp install-as-nvm.sh ./website/public/install-as-nvm.sh
           echo "✅ install scripts updated to ${{ github.ref_name }}"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh install-as-nvm.sh ./website/public/install.sh
+          git add install.sh install-as-nvm.sh ./website/public/install.sh ./website/public/install-as-nvm.sh
           if git diff --cached --quiet; then
             echo "install scripts already match ${{ github.ref_name }}"
           else

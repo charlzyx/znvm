@@ -736,13 +736,6 @@ fn applyHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, silent:
     }
 }
 
-fn siblingExe(allocator: mem.Allocator, name: []const u8) ![]u8 {
-    const self_path = std.fs.selfExePathAlloc(allocator) catch return allocator.dupe(u8, name);
-    defer allocator.free(self_path);
-    const dir = fs.path.dirname(self_path) orelse ".";
-    return fs.path.join(allocator, &.{ dir, name });
-}
-
 pub fn printHelp() !void {
     try stdout(
         \\{s} — fast Node.js version manager
@@ -776,11 +769,12 @@ pub fn printHelp() !void {
         \\  --version, -v              print the znvm version
         \\  help, --help
         \\
-        \\Node versions are stored like nvm, under $NVM_DIR/versions/node (default ~/.nvm).
-        \\ZNVM_DIR is used only when NVM_DIR is unset. Downloads use $ZNVM_NODE_MIRROR or
-        \\$NVM_NODEJS_ORG_MIRROR (default https://npmmirror.com/mirrors/node).
-        \\Global npm packages belong to each Node version unless ZNVM_NPM_PREFIX is set.
+        \\Node versions are stored under $NVM_DIR/versions/node (default ~/.nvm).
+        \\Downloads use $NVM_NODEJS_ORG_MIRROR when it is set, otherwise
+        \\https://npmmirror.com/mirrors/node.
+        \\Global npm packages belong to each Node version.
         \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
+        \\An interactive guided mode is planned; this version is the nvm command line.
         \\
     , .{ program_name, program_name });
 }
@@ -814,32 +808,21 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     }
     const optional_text = optional.items;
 
-    const znvm_exe_raw = try siblingExe(allocator, "znvm");
-    defer allocator.free(znvm_exe_raw);
-    const nvm_exe_raw = try siblingExe(allocator, "nvm");
+    const nvm_exe_raw = std.fs.selfExePathAlloc(allocator) catch try allocator.dupe(u8, "nvm");
     defer allocator.free(nvm_exe_raw);
-    const znvm_exe = try shellQuote(allocator, znvm_exe_raw);
-    defer allocator.free(znvm_exe);
     const nvm_exe = try shellQuote(allocator, nvm_exe_raw);
     defer allocator.free(nvm_exe);
 
     const shell_script =
-        \\# znvm shell setup
+        \\# nvm
         \\export NVM_DIR={s}
-        \\export ZNVM_DIR={s}
         \\{s}
-        \\__znvm_exe={s}
         \\__nvm_exe={s}
-        \\if [ ! -x "$__nvm_exe" ]; then
-        \\  __nvm_exe="$__znvm_exe"
-        \\fi
         \\
-        \\__znvm_apply() {{
-        \\  local bin="$1"
-        \\  shift
+        \\__nvm_apply() {{
         \\  local result
         \\  local exit_code
-        \\  result="$("$bin" "$@")"
+        \\  result="$("$__nvm_exe" "$@")"
         \\  exit_code=$?
         \\  if [ "$exit_code" -eq 0 ]; then
         \\    if [ -n "$result" ]; then
@@ -853,66 +836,53 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  fi
         \\}}
         \\
-        \\__znvm_dispatch() {{
-        \\  local bin="$1"
-        \\  shift
+        \\nvm() {{
         \\  case "${{1-}}" in
         \\    use|install|uninstall|rm|deactivate)
-        \\      __znvm_apply "$bin" "$@"
+        \\      __nvm_apply "$@"
         \\      ;;
         \\    unload)
-        \\      unset -f znvm nvm __znvm_apply __znvm_dispatch __znvm_autoload __znvm_on_chdir 2>/dev/null || true
+        \\      unset -f nvm __nvm_apply __nvm_autoload __nvm_on_chdir 2>/dev/null || true
+        \\      unset __nvm_last_pwd
         \\      ;;
         \\    *)
-        \\      "$bin" "$@"
+        \\      "$__nvm_exe" "$@"
         \\      ;;
         \\  esac
         \\}}
         \\
-        \\znvm() {{
-        \\  __znvm_dispatch "$__znvm_exe" "$@"
-        \\}}
-        \\
-        \\nvm() {{
-        \\  if [ "${{1-}}" = "version" ] && [ "$#" -eq 1 ]; then
-        \\    __znvm_dispatch "$__nvm_exe" current
-        \\    return
-        \\  fi
-        \\  __znvm_dispatch "$__nvm_exe" "$@"
-        \\}}
-        \\
-        \\__znvm_autoload() {{
+        \\__nvm_autoload() {{
         \\  local result
-        \\  if result="$("$__znvm_exe" use --silent 2>/dev/null)"; then
+        \\  if result="$("$__nvm_exe" use --silent 2>/dev/null)"; then
         \\    [ -n "$result" ] && eval "$result"
-        \\  elif result="$("$__znvm_exe" use --silent default 2>/dev/null)"; then
+        \\  elif result="$("$__nvm_exe" use --silent default 2>/dev/null)"; then
         \\    [ -n "$result" ] && eval "$result"
         \\  fi
         \\}}
         \\
-        \\__znvm_on_chdir() {{
-        \\  if [ "${{PWD-}}" = "${{ZNVM_LAST_PWD-}}" ]; then
+        \\__nvm_on_chdir() {{
+        \\  if [ "${{PWD-}}" = "${{__nvm_last_pwd-}}" ]; then
         \\    return 0
         \\  fi
-        \\  ZNVM_LAST_PWD="${{PWD-}}"
-        \\  __znvm_autoload
+        \\  __nvm_last_pwd="${{PWD-}}"
+        \\  __nvm_autoload
         \\}}
         \\
         \\if [ -n "${{ZSH_VERSION-}}" ]; then
         \\  autoload -U add-zsh-hook 2>/dev/null || true
-        \\  add-zsh-hook chpwd __znvm_on_chdir 2>/dev/null || true
+        \\  add-zsh-hook chpwd __nvm_on_chdir 2>/dev/null || true
         \\elif [ -n "${{BASH_VERSION-}}" ]; then
         \\  case ";${{PROMPT_COMMAND-}};" in
-        \\    *";__znvm_on_chdir;"*) ;;
-        \\    *) PROMPT_COMMAND="__znvm_on_chdir${{PROMPT_COMMAND:+;$PROMPT_COMMAND}}" ;;
+        \\    *";__nvm_on_chdir;"*) ;;
+        \\    *) PROMPT_COMMAND="__nvm_on_chdir${{PROMPT_COMMAND:+;$PROMPT_COMMAND}}" ;;
         \\  esac
         \\fi
         \\
-        \\__znvm_autoload
-        \\ZNVM_LAST_PWD="${{PWD-}}"
+        \\__nvm_autoload
+        \\__nvm_last_pwd="${{PWD-}}"
         \\
     ;
-    try stdout(shell_script, .{ root_dir, root_dir, optional_text, znvm_exe, nvm_exe });
+    try stdout(shell_script, .{ root_dir, optional_text, nvm_exe });
 }
 
 fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, usage: []const u8, silent: bool) ![]u8 {

@@ -12,7 +12,7 @@ Rust is great, but Zig offers a level of raw, predictable control that is unpara
 
 In znvm, we don't have a garbage collector waking up at the wrong time. We don't have complex async runtimes bloating our binary.
 
-Zig has no garbage collector and no async runtime in znvm. `znvm use` is still a process: it resolves a version and prints the exports that the shell `eval`s. The tables below are one Linux VM, measured with `benchmarks/measure.py`, with warm and cold samples. They do not say every operation is faster than every other manager. On this run, in-shell commands were quicker than nvm and fnm both warm and cold, and shell startup was quicker than nvm and slower than fnm in both cases.
+Zig has no garbage collector and no async runtime in znvm. `nvm use` is still a process: it resolves a version and prints the exports that the shell `eval`s. The tables below are one Linux VM, measured with `benchmarks/measure.py`, with warm and cold samples. They do not say every operation is faster than every other manager. On this run, in-shell commands were quicker than nvm and fnm both warm and cold, and shell startup was quicker than nvm and slower than fnm in both cases.
 
 ## 2. The "No Hidden Control Flow" Philosophy
 

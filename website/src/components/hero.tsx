@@ -20,7 +20,7 @@ interface HeroProps {
 export function Hero({ lang = "en" }: HeroProps) {
   const isZh = lang === "zh";
   const [copied, setCopied] = useState(false);
-  const installCmd = "curl -fsSL https://znvm.dev/install.sh | bash";
+  const installCmd = "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash";
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(installCmd);

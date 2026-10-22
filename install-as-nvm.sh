@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Install znvm and present it as nvm.
+# Install the nvm command.
 #
-# Safe to run more than once. Node versions stay in ~/.nvm/versions/node, the
-# same tree nvm uses, and are not deleted. The previous nvm.sh and
-# bash_completion are copied aside once, as *.pre-znvm, before znvm's shims
-# replace them.
+# Safe to run more than once. Node versions stay in ~/.nvm/versions/node and
+# are not deleted. A previous nvm.sh that is not this setup is copied once to
+# nvm.sh.bak. This script does not install shell completion.
 
 set -euo pipefail
 
@@ -19,7 +18,7 @@ NC='\033[0m'
 ZNVM_VERSION="v2.2.2"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
-MARKER="znvm-nvm-shim"
+MARKER="nvm: shell setup"
 
 if [ -z "${HOME:-}" ]; then
     echo "HOME is not set." >&2
@@ -29,13 +28,13 @@ fi
 NVM_COMPAT_DIR="${ZNVM_NVM_DIR:-$HOME/.nvm}"
 case "$NVM_COMPAT_DIR" in
     /|"$HOME"|"")
-        echo "Refusing to use '$NVM_COMPAT_DIR' as the nvm compatibility directory." >&2
+        echo "Refusing to use '$NVM_COMPAT_DIR' as NVM_DIR." >&2
         exit 1
         ;;
 esac
 
-echo -e "${CYAN}${BOLD}znvm: install as nvm${NC}"
-echo -e "${BLUE}The nvm command will run znvm. Node versions stay in ~/.nvm/versions/node.${NC}"
+echo -e "${CYAN}${BOLD}nvm${NC}"
+echo -e "${BLUE}Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.${NC}"
 echo ""
 
 shell_quote() {
@@ -61,7 +60,7 @@ choose_bin_dir() {
                 ;;
         esac
     done
-    printf '%s\n' "$HOME/.znvm/bin"
+    printf '%s\n' "$NVM_COMPAT_DIR"
 }
 
 download_binary() {
@@ -86,7 +85,7 @@ download_binary() {
     fi
 
     if [ -z "$target" ]; then
-        echo -e "${RED}No pre-compiled znvm binary for ${os}/${arch}.${NC}" >&2
+        echo -e "${RED}No pre-compiled nvm binary for ${os}/${arch}.${NC}" >&2
         exit 1
     fi
 
@@ -99,12 +98,12 @@ download_binary() {
     fi
 
     if [ -z "$version" ]; then
-        echo -e "${RED}Could not determine which znvm version to download.${NC}" >&2
+        echo -e "${RED}Could not determine which nvm version to download.${NC}" >&2
         exit 1
     fi
 
     url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
-    echo -e "${CYAN}=> Downloading $version ($target)...${NC}" >&2
+    echo -e "${CYAN}=> Downloading nvm $version ($target)...${NC}" >&2
     if ! curl -fL --retry 3 -o "$dest" "$url"; then
         rm -f "$dest"
         echo -e "${RED}Download failed: $url${NC}" >&2
@@ -118,76 +117,33 @@ install_binary() {
 
     if [ -n "${ZNVM_BIN_SRC:-}" ]; then
         if [ ! -f "$ZNVM_BIN_SRC" ]; then
-            echo "ZNVM_BIN_SRC does not exist: $ZNVM_BIN_SRC" >&2
+            echo "Install source does not exist: $ZNVM_BIN_SRC" >&2
             exit 1
         fi
-        dest_dir="${ZNVM_INSTALL_BIN_DIR:-$HOME/.znvm/bin}"
+        dest_dir="${ZNVM_INSTALL_BIN_DIR:-$NVM_COMPAT_DIR}"
         mkdir -p "$dest_dir"
-        dest="$dest_dir/znvm"
+        dest="$dest_dir/nvm"
         cp "$ZNVM_BIN_SRC" "$dest"
         chmod +x "$dest"
         printf '%s\n' "$dest"
         return
     fi
 
-    if [ -n "${ZNVM_INSTALL_BIN_DIR:-}" ] && [ -x "$ZNVM_INSTALL_BIN_DIR/znvm" ]; then
-        printf '%s\n' "$ZNVM_INSTALL_BIN_DIR/znvm"
+    if [ -n "${ZNVM_INSTALL_BIN_DIR:-}" ] && [ -x "$ZNVM_INSTALL_BIN_DIR/nvm" ]; then
+        printf '%s\n' "$ZNVM_INSTALL_BIN_DIR/nvm"
         return
-    fi
-
-    if command -v znvm >/dev/null 2>&1; then
-        dest="$(command -v znvm)"
-        if [ -x "$dest" ]; then
-            echo -e "${GREEN}✔ Using existing znvm at $dest${NC}" >&2
-            printf '%s\n' "$dest"
-            return
-        fi
     fi
 
     dest_dir="$(choose_bin_dir)"
     mkdir -p "$dest_dir"
-    dest="$dest_dir/znvm"
+    dest="$dest_dir/nvm"
     if [ -x "$dest" ]; then
-        echo -e "${GREEN}✔ znvm is already installed at $dest${NC}" >&2
+        echo -e "${GREEN}✔ nvm is already installed at $dest${NC}" >&2
         printf '%s\n' "$dest"
         return
     fi
     download_binary "$dest"
     printf '%s\n' "$dest"
-}
-
-link_nvm_command() {
-    local znvm_exe="$1"
-    local bin_dir link
-
-    bin_dir="$(dirname "$znvm_exe")"
-    link="$bin_dir/nvm"
-    if [ ! -w "$bin_dir" ]; then
-        echo "Cannot create the nvm command in $bin_dir (not writable)." >&2
-        exit 1
-    fi
-
-    if [ -d "$link" ] && [ ! -L "$link" ]; then
-        echo "Refusing to replace directory $link" >&2
-        exit 1
-    fi
-
-    if [ -L "$link" ] && [ "$(readlink "$link")" = "znvm" ]; then
-        echo -e "${GREEN}✔ nvm already points at znvm${NC}"
-        return
-    fi
-
-    if [ -e "$link" ] || [ -L "$link" ]; then
-        if [ ! -e "$link.pre-znvm" ]; then
-            mv "$link" "$link.pre-znvm"
-            echo -e "${YELLOW}=> Moved existing nvm command to $link.pre-znvm${NC}"
-        else
-            rm -f "$link"
-            echo -e "${YELLOW}=> Replacing nvm command; backup already exists at $link.pre-znvm${NC}"
-        fi
-    fi
-    ln -s znvm "$link"
-    echo -e "${GREEN}✔ Linked $link -> znvm${NC}"
 }
 
 safe_replace() {
@@ -214,9 +170,9 @@ safe_replace() {
                 else
                     cp -p "$dest" "$backup"
                 fi
-                echo -e "${YELLOW}=> Backed up $dest to $backup${NC}"
+                echo -e "${YELLOW}=> Saved the previous $dest as $backup${NC}"
             else
-                echo -e "${GREEN}✔ Backup already exists at $backup${NC}"
+                echo -e "${GREEN}✔ Previous copy already exists at $backup${NC}"
             fi
             rm -f "$dest"
         fi
@@ -227,47 +183,31 @@ safe_replace() {
 }
 
 write_nvm_sh() {
-    local znvm_exe="$1"
-    local quoted
-    quoted="$(shell_quote "$znvm_exe")"
+    local nvm_exe="$1"
+    local quoted_exe quoted_dir
+    quoted_exe="$(shell_quote "$nvm_exe")"
+    quoted_dir="$(shell_quote "$NVM_COMPAT_DIR")"
     mkdir -p "$NVM_COMPAT_DIR"
 
     {
         echo "# $MARKER"
-        echo "# Compatibility entry point. Sourcing this file loads znvm as nvm."
-        echo "# Node versions previously installed by nvm in this directory are not modified."
-        printf 'ZNVM_EXE=%s\n' "$quoted"
+        printf 'export NVM_DIR=%s\n' "$quoted_dir"
+        printf 'NVM_BIN=%s\n' "$quoted_exe"
         cat <<'EOF'
-if [ ! -x "$ZNVM_EXE" ]; then
-    echo "znvm: expected binary at $ZNVM_EXE" >&2
+if [ ! -x "$NVM_BIN" ]; then
+    echo "nvm: expected binary at $NVM_BIN" >&2
     return 1 2>/dev/null || exit 1
 fi
-__znvm_bin_dir=$(dirname "$ZNVM_EXE")
+__nvm_bin_dir=$(dirname "$NVM_BIN")
 case ":${PATH:-}:" in
-    *":$__znvm_bin_dir:"*) ;;
-    *) PATH="$__znvm_bin_dir:${PATH:-}" ;;
+    *":$__nvm_bin_dir:"*) ;;
+    *) PATH="$__nvm_bin_dir:${PATH:-}" ;;
 esac
 export PATH
-eval "$("$ZNVM_EXE" env)"
+eval "$("$NVM_BIN" env)"
 EOF
-    } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.pre-znvm"
+    } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.bak"
     echo -e "${GREEN}✔ Wrote $NVM_COMPAT_DIR/nvm.sh${NC}"
-}
-
-write_completion() {
-    mkdir -p "$NVM_COMPAT_DIR"
-    cat <<EOF | safe_replace "$NVM_COMPAT_DIR/bash_completion" "$NVM_COMPAT_DIR/bash_completion.pre-znvm"
-# $MARKER
-_znvm_complete() {
-    local cur="\${COMP_WORDS[COMP_CWORD]}"
-    if [ "\${COMP_CWORD}" -eq 1 ]; then
-        COMPREPLY=( \$(compgen -W "help install use exec run ls list ls-remote list-remote current which version version-remote alias unalias uninstall rm deactivate env" -- "\$cur") )
-    fi
-}
-complete -F _znvm_complete nvm
-complete -F _znvm_complete znvm
-EOF
-    echo -e "${GREEN}✔ Wrote $NVM_COMPAT_DIR/bash_completion${NC}"
 }
 
 configure_profile() {
@@ -298,8 +238,8 @@ configure_profile() {
         exit 1
     fi
 
-    if [ -f "$profile" ] && grep -Eq 'nvm\.sh|znvm env|znvm-nvm-shim' "$profile"; then
-        echo -e "${GREEN}✔ Shell config already loads nvm or znvm ($profile)${NC}" >&2
+    if [ -f "$profile" ] && grep -q 'NVM_DIR/nvm.sh' "$profile"; then
+        echo -e "${GREEN}✔ Shell config already loads nvm ($profile)${NC}" >&2
         printf '%s\n' "$profile"
         return
     fi
@@ -311,29 +251,30 @@ configure_profile() {
 # $MARKER
 export NVM_DIR="$NVM_COMPAT_DIR"
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-[ -s "\$NVM_DIR/bash_completion" ] && . "\$NVM_DIR/bash_completion"
 EOF
     echo -e "${CYAN}=> Added nvm startup to $profile${NC}" >&2
     printf '%s\n' "$profile"
 }
 
 ZNVM_VERSION_ARG="${1:-}"
-ZNVM_EXE="$(install_binary)"
-if [ ! -x "$ZNVM_EXE" ]; then
-    echo "znvm binary was not installed." >&2
+NVM_EXE="$(install_binary)"
+if [ ! -x "$NVM_EXE" ]; then
+    echo "nvm was not installed." >&2
     exit 1
 fi
 
-link_nvm_command "$ZNVM_EXE"
-write_nvm_sh "$ZNVM_EXE"
-write_completion
+write_nvm_sh "$NVM_EXE"
 PROFILE_PATH="$(configure_profile)"
 
 echo ""
-echo -e "${GREEN}${BOLD}nvm now runs znvm.${NC}"
+echo -e "${GREEN}${BOLD}nvm is ready.${NC}"
 echo -e "${CYAN}Open a new terminal, or run:${NC}"
 echo -e "  ${BOLD}source \"$PROFILE_PATH\"${NC}"
 echo ""
-echo -e "${YELLOW}Node versions stay in $NVM_COMPAT_DIR/versions/node, the same tree nvm uses.${NC}"
-echo -e "${YELLOW}Existing installs there are kept. The znvm binary itself lives next to the nvm command.${NC}"
-echo -e "${YELLOW}Restore the previous nvm startup files from *.pre-znvm in $NVM_COMPAT_DIR if you need them.${NC}"
+echo -e "${BOLD}export NVM_DIR=\"$NVM_COMPAT_DIR\"${NC}"
+echo -e "${BOLD}nvm install 22${NC}"
+echo -e "${BOLD}nvm use 22${NC}"
+echo -e "${BOLD}nvm ls${NC}"
+echo ""
+echo -e "${YELLOW}Node versions are stored in \$NVM_DIR/versions/node.${NC}"
+echo -e "${YELLOW}Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.${NC}"
