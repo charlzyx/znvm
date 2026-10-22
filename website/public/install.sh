@@ -2,21 +2,12 @@
 
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
-
 # Header
-echo -e "${CYAN}${BOLD}znvm: Zig Node Version Manager${NC}"
-echo -e "${BLUE}Node.js version manager. nvm-compatible layout, npmmirror by default.${NC}"
+echo "znvm: Zig Node Version Manager"
+echo "Node.js version manager. nvm-compatible layout, npmmirror by default."
 echo ""
 
-# 版本号（发布时更新此行）
+# Version baked in at release time. Update this line when publishing.
 ZNVM_VERSION="v2.4.0"
 
 ZNVM_DIR="$HOME/.znvm"
@@ -52,19 +43,20 @@ done
 VERSION_ARG="$1"
 
 # 确定要使用的版本
-# 优先级：参数 > 内置版本 > 获取最新
+# Priority: argument, then the baked-in version, then the latest release.
 if [ -n "$VERSION_ARG" ]; then
     VERSION="$VERSION_ARG"
 elif [ "$ZNVM_VERSION" != "main" ]; then
     VERSION="$ZNVM_VERSION"
-    echo -e "${GREEN}=> 使用内置版本 / Using built-in version: ${BOLD}$VERSION${NC}"
+    echo "> 使用内置版本: $VERSION"
+    echo "> Using built-in version: $VERSION"
 else
     VERSION=""
 fi
 
-echo -e "${CYAN}=> 安装 znvm 到 $ZNVM_DIR...${NC}"
-echo -e "${CYAN}=> Installing znvm to $ZNVM_DIR...${NC}"
-echo -e "${CYAN}=> Binary will be installed to $INSTALL_BIN_DIR${NC}"
+echo "> 安装 znvm 到 $ZNVM_DIR"
+echo "> Installing znvm to $ZNVM_DIR"
+echo "> Binary will be installed to $INSTALL_BIN_DIR"
 
 # 确保目录存在
 mkdir -p "$ZNVM_DIR"
@@ -96,63 +88,69 @@ BINARY_DOWNLOADED=false
 if [ -n "$TARGET" ]; then
     # 确定要下载的版本
     if [ -n "$VERSION" ]; then
-        echo -e "${GREEN}=> 使用指定版本 / Using specified version: ${BOLD}$VERSION${NC}"
+        echo "> 使用指定版本: $VERSION"
+        echo "> Using specified version: $VERSION"
     else
-        echo -e "${YELLOW}=> 获取最新版本信息...${NC}"
-        echo -e "${YELLOW}=> Fetching latest version info...${NC}"
+        echo "> 获取最新版本信息"
+        echo "> Fetching latest version info"
 
         # 从 GitHub API 获取最新 release tag
         VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
 
         if [ -n "$VERSION" ]; then
-            echo -e "${GREEN}=> 最新版本 / Latest version: ${BOLD}$VERSION${NC}"
+            echo "> 最新版本: $VERSION"
+            echo "> Latest version: $VERSION"
         fi
     fi
 
     if [ -n "$VERSION" ]; then
         DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-$VERSION-$TARGET"
 
-        echo -e "${CYAN}=> 尝试下载预编译二进制文件 ($TARGET)...${NC}"
-        echo -e "${CYAN}=> Attempting to download pre-compiled binary ($TARGET)...${NC}"
+        echo "> 尝试下载预编译二进制文件 ($TARGET)"
+        echo "> Attempting to download pre-compiled binary ($TARGET)"
 
         if curl -L -o "$INSTALL_BIN_DIR/znvm" "$DOWNLOAD_URL" --fail 2>/dev/null; then
             chmod +x "$INSTALL_BIN_DIR/znvm"
             BINARY_DOWNLOADED=true
-            echo -e "${GREEN}✔ 二进制文件下载成功！${NC}"
-            echo -e "${GREEN}✔ Binary downloaded successfully!${NC}"
+            echo "ok 二进制文件下载成功"
+            echo "ok Binary downloaded"
         else
-            echo -e "${RED}✘ 预编译二进制文件下载失败。${NC}"
-            echo -e "${RED}✘ Failed to download pre-compiled binary.${NC}"
+            echo "error: 预编译二进制文件下载失败"
+            echo "error: Failed to download pre-compiled binary."
             rm -f "$INSTALL_BIN_DIR/znvm"
         fi
     else
-        echo -e "${RED}✘ 无法获取版本信息。${NC}"
-        echo -e "${RED}✘ Failed to get version info.${NC}"
+        echo "error: 无法获取版本信息"
+        echo "error: Failed to get version info."
     fi
 else
-    echo -e "${YELLOW}⚠ 未找到当前平台的预编译版本。${NC}"
-    echo -e "${YELLOW}⚠ No pre-compiled binary found for current platform.${NC}"
+    echo "error: 未找到当前平台的预编译版本"
+    echo "error: No pre-compiled binary found for current platform."
 fi
 
-# 2. 如果下载失败，直接报错退出
+# 2. If the download failed, print an error and exit.
 if [ "$BINARY_DOWNLOADED" = false ]; then
     echo ""
-    echo -e "${RED}${BOLD}✘ 安装失败 / Installation failed${NC}"
+    echo "error: 安装失败"
+    echo "error: Installation failed"
     echo ""
-    echo -e "${YELLOW}原因: 当前平台 (${OS}/${ARCH}) 暂无可用的预编译二进制文件。${NC}"
-    echo -e "${YELLOW}Reason: No pre-compiled binary available for current platform (${OS}/${ARCH}).${NC}"
+    echo "原因: 当前平台 (${OS}/${ARCH}) 暂无可用的预编译二进制文件."
+    echo "Reason: No pre-compiled binary available for current platform (${OS}/${ARCH})."
     echo ""
-    echo -e "${CYAN}您可以尝试以下解决方案 / You can try the following solutions:${NC}"
+    echo "您可以尝试以下解决方案:"
+    echo "You can try the following solutions:"
     echo ""
-    echo -e "${CYAN}1. 手动编译安装 / Compile manually:${NC}"
-    echo -e "   git clone $REPO_URL $ZNVM_DIR"
-    echo -e "   cd $ZNVM_DIR"
-    echo -e "   zig build -Doptimize=ReleaseFast"
-    echo -e "   cp zig-out/bin/znvm $INSTALL_BIN_DIR/znvm"
+    echo "1. 手动编译安装"
+    echo "1. Compile manually:"
+    echo "   git clone $REPO_URL $ZNVM_DIR"
+    echo "   cd $ZNVM_DIR"
+    echo "   zig build -Doptimize=ReleaseFast"
+    echo "   cp zig-out/bin/znvm $INSTALL_BIN_DIR/znvm"
     echo ""
-    echo -e "${CYAN}2. 或者等待官方支持 / Or wait for official support:${NC}"
-    echo -e "   在 GitHub 提交 issue 请求支持 ${OS}/${ARCH} 平台${NC}"
-    echo -e "   Submit an issue on GitHub to request ${OS}/${ARCH} support${NC}"
+    echo "2. 或者等待官方支持"
+    echo "2. Or wait for official support:"
+    echo "   在 GitHub 提交 issue 请求支持 ${OS}/${ARCH} 平台"
+    echo "   Submit an issue on GitHub to request ${OS}/${ARCH} support"
     echo ""
     exit 1
 fi
@@ -186,20 +184,20 @@ else
 fi
 
 if [ -f "$PROFILE" ] && grep -q "znvm env" "$PROFILE"; then
-    echo -e "${GREEN}✔ znvm 已在 $PROFILE 中配置。${NC}"
-    echo -e "${GREEN}✔ znvm is already configured in $PROFILE.${NC}"
+    echo "ok znvm 已在 $PROFILE 中配置"
+    echo "ok znvm is already configured in $PROFILE"
 else
-    echo -e "${CYAN}=> 添加配置到 $PROFILE...${NC}"
-    echo -e "${CYAN}=> Adding configuration to $PROFILE...${NC}"
+    echo "> 添加配置到 $PROFILE"
+    echo "> Adding configuration to $PROFILE"
     echo "" >> "$PROFILE"
     echo "# znvm" >> "$PROFILE"
     echo "$SOURCE_STR" >> "$PROFILE"
 fi
 
 echo ""
-echo -e "${GREEN}${BOLD}🎉 安装成功！${NC}"
-echo -e "${GREEN}${BOLD}🎉 Installation successful!${NC}"
-echo -e "${CYAN}请重新打开终端或运行以下命令生效：${NC}"
-echo -e "${CYAN}Please restart your terminal or run the following command to take effect:${NC}"
-echo -e "   ${BOLD}source $PROFILE${NC}"
+echo "ok 安装完成"
+echo "ok Installation complete."
+echo "请重新打开终端或运行:"
+echo "Open a new terminal, or run:"
+echo "  source $PROFILE"
 echo ""

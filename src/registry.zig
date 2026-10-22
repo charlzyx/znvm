@@ -70,12 +70,12 @@ pub const Map = struct {
 
 pub fn printError(err: anyerror) !void {
     switch (err) {
-        error.InvalidScope => try stderr("Scope must look like @company.\n", .{}),
-        error.InvalidUrl => try stderr("Registry must be an http:// or https:// URL.\n", .{}),
-        error.ScopeMissing => try stderr("That scope is not in the map.\n", .{}),
-        error.NoHome => try stderr("HOME is not set.\n", .{}),
-        error.NoMap => try stderr("No registry map yet. Set a default or a scope first.\n", .{}),
-        else => try stderr("registry failed: {s}\n", .{@errorName(err)}),
+        error.InvalidScope => try stderr("error: Scope must look like @company.\n", .{}),
+        error.InvalidUrl => try stderr("error: Registry must be an http:// or https:// URL.\n", .{}),
+        error.ScopeMissing => try stderr("error: That scope is not in the map.\n", .{}),
+        error.NoHome => try stderr("error: HOME is not set.\n", .{}),
+        error.NoMap => try stderr("error: No registry map yet. Set a default or a scope first.\n", .{}),
+        else => try stderr("error: registry failed: {s}\n", .{@errorName(err)}),
     }
 }
 

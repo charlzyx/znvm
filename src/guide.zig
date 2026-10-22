@@ -97,7 +97,7 @@ fn parseChoice(raw: []const u8, max: usize) Choice {
 }
 
 fn sayInvalid(zh: bool) !void {
-    try stderr("{s}\n", .{text(zh, "Enter a number from the menu.", "请输入菜单中的编号。")});
+    try stderr("{s}\n", .{text(zh, "Enter a number from the menu.", "请输入菜单中的编号.")});
 }
 
 fn printItems(zh: bool, items: []const [2][]const u8) !void {
@@ -110,17 +110,17 @@ fn printItems(zh: bool, items: []const [2][]const u8) !void {
 fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
     const items = [_][2][]const u8{
         .{ "Install Node", "安装 Node" },
-        .{ "Switch version (use)", "切换版本（use）" },
-        .{ "Show current", "查看当前（current）" },
-        .{ "List versions (ls / ls-remote)", "列出版本（ls / ls-remote）" },
+        .{ "Switch version (use)", "切换版本(use)" },
+        .{ "Show current", "查看当前(current)" },
+        .{ "List versions (ls / ls-remote)", "列出版本(ls / ls-remote)" },
         .{ "Project", "项目管理" },
-        .{ "Aliases", "别名（alias）" },
-        .{ "Uninstall", "卸载（uninstall）" },
-        .{ "Install / migrate (install-as-nvm)", "安装 / 迁移（install-as-nvm）" },
-        .{ "Registries (scopes)", "镜像源（scope）" },
+        .{ "Aliases", "别名(alias)" },
+        .{ "Uninstall", "卸载(uninstall)" },
+        .{ "Install / migrate (install-as-nvm)", "安装 / 迁移(install-as-nvm)" },
+        .{ "Registries (scopes)", "镜像源(scope)" },
     };
     while (true) {
-        try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "（交互引导）") });
+        try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "(交互引导)") });
         for (items, 0..) |item, i| {
             try stderr("  {d}  {s}\n", .{ i + 1, text(zh, item[0], item[1]) });
         }
@@ -145,17 +145,17 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
         1 => itemMenu(allocator, config, zh, which, "Install Node", "安装 Node", &.{
             .{ "Install latest LTS", "装最新 LTS" },
             .{ "Install latest Current", "装最新 Current" },
-            .{ "Enter a version (20.18.0 / lts/hydrogen)", "输入具体版本（如 20.18.0 / lts/hydrogen）" },
+            .{ "Enter a version (20.18.0 / lts/hydrogen)", "输入具体版本(如 20.18.0 / lts/hydrogen)" },
             .{ "Pick from the remote list, then install", "从远程列表里选一个再装" },
         }),
-        2 => itemMenu(allocator, config, zh, which, "Switch version (use)", "切换版本（use）", &.{
+        2 => itemMenu(allocator, config, zh, which, "Switch version (use)", "切换版本(use)", &.{
             .{ "Choose an installed version", "选已安装版本" },
-            .{ "Enter a version or alias (node, stable, lts/*)", "输入版本号 / alias（node、stable、lts/*）" },
+            .{ "Enter a version or alias (node, stable, lts/*)", "输入版本号 / alias(node, stable, lts/*)" },
             .{ "Use .nvmrc / .node-version in this directory", "按当前目录 .nvmrc / .node-version" },
         }),
-        3 => itemMenu(allocator, config, zh, which, "Show current", "查看当前（current）", &.{
+        3 => itemMenu(allocator, config, zh, which, "Show current", "查看当前(current)", &.{
             .{ "Active version", "当前激活版本" },
-            .{ "Path under NVM_DIR", "对应路径（NVM_DIR 下）" },
+            .{ "Path under NVM_DIR", "对应路径(NVM_DIR 下)" },
         }),
         4 => itemMenu(allocator, config, zh, which, "List versions", "列出版本", &.{
             .{ "Installed", "已安装" },
@@ -164,30 +164,30 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
         }),
         5 => itemMenu(allocator, config, zh, which, "Project", "项目管理", &.{
             .{ "Read .nvmrc and use", "读 .nvmrc 并 use" },
-            .{ "Create .nvmrc with the current version if missing", "没有则创建 .nvmrc（写当前版本）" },
+            .{ "Create .nvmrc with the current version if missing", "没有则创建 .nvmrc(写当前版本)" },
             .{ "Install the .nvmrc version, then use", "install 对齐 .nvmrc 再 use" },
         }),
-        6 => itemMenu(allocator, config, zh, which, "Aliases", "别名（alias）", &.{
+        6 => itemMenu(allocator, config, zh, which, "Aliases", "别名(alias)", &.{
             .{ "Show aliases", "查看别名" },
             .{ "Set an alias", "设置别名" },
             .{ "Delete an alias", "删除别名" },
         }),
-        7 => itemMenu(allocator, config, zh, which, "Uninstall", "卸载（uninstall）", &.{
+        7 => itemMenu(allocator, config, zh, which, "Uninstall", "卸载(uninstall)", &.{
             .{ "Choose an installed version", "选已安装版本卸载" },
             .{ "Confirm, then delete", "确认后再删" },
         }),
         8 => itemMenu(allocator, config, zh, which, "Install / migrate", "安装 / 迁移", &.{
-            .{ "Print the install-as-nvm.sh curl (does not run it)", "指向官网 install-as-nvm.sh（打印 curl，不替用户 curl）" },
-            .{ "Shell hooks (bashrc / zshrc / fish)", "说明 shell 钩子（bashrc / zshrc / fish）" },
+            .{ "Print the install-as-nvm.sh curl (does not run it)", "指向官网 install-as-nvm.sh(打印 curl, 不替用户 curl)" },
+            .{ "Shell hooks (bashrc / zshrc / fish)", "说明 shell 钩子(bashrc / zshrc / fish)" },
             .{ "Default npmmirror / NVM_NODEJS_ORG_MIRROR", "说明默认 npmmirror / NVM_NODEJS_ORG_MIRROR" },
         }),
-        9 => itemMenu(allocator, config, zh, which, "Registries (scopes)", "镜像源（scope）", &.{
+        9 => itemMenu(allocator, config, zh, which, "Registries (scopes)", "镜像源(scope)", &.{
             .{ "View the current map", "查看当前映射" },
             .{ "Add or edit a scope", "添加或修改 scope" },
             .{ "Delete a scope", "删除 scope" },
             .{ "Set the default registry", "设置默认源" },
-            .{ "China default, keep scopes", "中国默认源，保留 scope" },
-            .{ "Sync npm, yarn, pnpm, and bun", "同步 npm、yarn、pnpm、bun" },
+            .{ "China default, keep scopes", "中国默认源, 保留 scope" },
+            .{ "Sync npm, yarn, pnpm, and bun", "同步 npm, yarn, pnpm, bun" },
             .{ "Restore the official registry", "恢复官方源" },
         }),
         else => .back,
@@ -286,7 +286,7 @@ fn registryAction(
 }
 
 fn promptRegistryScope(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, editing: bool) !void {
-    try stderr("{s}\n", .{text(zh, "Scope (for example @company)", "scope（例如 @company）")});
+    try stderr("{s}\n", .{text(zh, "Scope (for example @company)", "scope(例如 @company)")});
     const scope_line = try prompt(allocator) orelse return;
     defer allocator.free(scope_line);
     const scope = mem.trim(u8, scope_line, " \t");
@@ -316,7 +316,7 @@ fn promptRegistryDefault(allocator: mem.Allocator, config: ZnvmConfig, zh: bool)
 }
 
 fn running(zh: bool, command: []const u8) !void {
-    try stderr("{s} {s}\n", .{ text(zh, "Running:", "正在执行："), command });
+    try stderr("{s} {s}\n", .{ text(zh, "Running:", "正在执行:"), command });
 }
 
 fn show(comptime func: anytype, args: anytype) !void {
@@ -355,7 +355,7 @@ fn runUse(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, extra: []const
 }
 
 fn promptInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
-    try stderr("{s}\n", .{text(zh, "Version (for example 20.18.0 or lts/hydrogen)", "版本（例如 20.18.0 或 lts/hydrogen）")});
+    try stderr("{s}\n", .{text(zh, "Version (for example 20.18.0 or lts/hydrogen)", "版本(例如 20.18.0 或 lts/hydrogen)")});
     const line = try prompt(allocator) orelse return;
     defer allocator.free(line);
     const spec = mem.trim(u8, line, " \t");
@@ -364,7 +364,7 @@ fn promptInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
 }
 
 fn promptUse(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
-    try stderr("{s}\n", .{text(zh, "Version or alias (node, stable, lts/*)", "版本号或 alias（node、stable、lts/*）")});
+    try stderr("{s}\n", .{text(zh, "Version or alias (node, stable, lts/*)", "版本号或 alias(node, stable, lts/*)")});
     const line = try prompt(allocator) orelse return;
     defer allocator.free(line);
     const spec = mem.trim(u8, line, " \t");
@@ -379,7 +379,7 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !voi
         allocator.free(installed);
     }
     if (installed.len == 0) {
-        try stderr("{s}\n", .{text(zh, "No versions installed.\n", "没有已安装的版本。\n")});
+        try stderr("{s}\n", .{text(zh, "No versions installed.\n", "没有已安装的版本.\n")});
         return;
     }
     switch (try pickIndex(allocator, zh, installed)) {
@@ -391,7 +391,7 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !voi
 fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
     try stderr("{s}\n", .{text(zh, "Fetching the remote list...", "正在获取远程列表...")});
     const labels = remoteLabels(allocator, config) catch |err| {
-        try stderr("Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
+        try stderr("error: Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
         return;
     };
     defer {
@@ -399,7 +399,7 @@ fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !vo
         allocator.free(labels);
     }
     if (labels.len == 0) {
-        try stderr("{s}\n", .{text(zh, "No remote versions found.\n", "远程列表是空的。\n")});
+        try stderr("{s}\n", .{text(zh, "No remote versions found.\n", "远程列表是空的.\n")});
         return;
     }
     switch (try pickIndex(allocator, zh, labels)) {
@@ -482,12 +482,12 @@ fn createNvmrc(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
         defer file.close();
         const body = try file.readToEndAlloc(allocator, 8192);
         defer allocator.free(body);
-        try stderr("{s} {s}\n", .{ text(zh, ".nvmrc already exists:", ".nvmrc 已存在："), mem.trim(u8, body, " \t\r\n") });
+        try stderr("{s} {s}\n", .{ text(zh, ".nvmrc already exists:", ".nvmrc 已存在:"), mem.trim(u8, body, " \t\r\n") });
         return;
     } else |_| {}
 
     const current = try commands.activeVersion(allocator, config) orelse {
-        try stderr("{s}\n", .{text(zh, "No active Node version to write.", "没有可写入的当前 Node 版本。")});
+        try stderr("{s}\n", .{text(zh, "No active Node version to write.", "没有可写入的当前 Node 版本.")});
         return;
     };
     defer allocator.free(current);
@@ -530,7 +530,7 @@ fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
         allocator.free(installed);
     }
     if (installed.len == 0) {
-        try stderr("{s}\n", .{text(zh, "No versions installed.\n", "没有已安装的版本。\n")});
+        try stderr("{s}\n", .{text(zh, "No versions installed.\n", "没有已安装的版本.\n")});
         return;
     }
     const picked = switch (try pickIndex(allocator, zh, installed)) {
@@ -555,8 +555,8 @@ fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
 
 fn explainCurl(zh: bool) !void {
     try stderr("{s}\n\ncurl -fsSL https://znvm.dev/install-as-nvm.sh | bash\n\n{s}\n", .{
-        text(zh, "Install command (not run from this menu):", "安装命令（这个菜单不会替你执行）："),
-        text(zh, "After it finishes, the command is nvm and versions live in ~/.nvm.", "结束后命令是 nvm，版本在 ~/.nvm。"),
+        text(zh, "Install command (not run from this menu):", "安装命令(这个菜单不会替你执行):"),
+        text(zh, "After it finishes, the command is nvm and versions live in ~/.nvm.", "结束后命令是 nvm, 版本在 ~/.nvm."),
     });
 }
 
@@ -567,16 +567,16 @@ fn explainHooks(zh: bool) !void {
     ;
     if (zh) {
         try stderr(
-            \\bash 写在 ~/.bashrc，zsh 写在 ~/.zshrc：
+            \\bash 写在 ~/.bashrc, zsh 写在 ~/.zshrc:
             \\
             \\{s}
             \\
-            \\fish 不会被安装脚本修改。nvm.sh 是 bash/zsh 文件，fish 不能 source 它。
-            \\在 fish 里可以设置数据目录：
+            \\fish 不会被安装脚本修改. nvm.sh 是 bash/zsh 文件, fish 不能 source 它.
+            \\在 fish 里可以设置数据目录:
             \\
             \\set -gx NVM_DIR $HOME/.nvm
             \\
-            \\切换版本仍使用 bash 或 zsh 里的 nvm 函数。
+            \\切换版本仍使用 bash 或 zsh 里的 nvm 函数.
             \\
         , .{snippet});
     } else {
@@ -599,9 +599,9 @@ fn explainHooks(zh: bool) !void {
 fn explainMirror(config: ZnvmConfig, zh: bool) !void {
     if (zh) {
         try stderr(
-            \\默认下载镜像是 https://npmmirror.com/mirrors/node。
-            \\设置 NVM_NODEJS_ORG_MIRROR 可以换成别的镜像。
-            \\当前镜像：{s}
+            \\默认下载镜像是 https://npmmirror.com/mirrors/node.
+            \\设置 NVM_NODEJS_ORG_MIRROR 可以换成别的镜像.
+            \\当前镜像: {s}
             \\
         , .{config.mirror});
     } else {

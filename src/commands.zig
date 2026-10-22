@@ -773,7 +773,7 @@ fn applyHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, silent:
 
 pub fn printHelp() !void {
     try stdout(
-        \\{s} — fast Node.js version manager
+        \\{s} - fast Node.js version manager
         \\
         \\Version selectors: 20, 20.11, v20.11.0, node, stable, lts/*, lts/<name>, default, current, system
         \\.nvmrc is read from the current directory and its parents. .node-version is used when no .nvmrc exists.
@@ -1426,7 +1426,7 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
     const list_all = query.special == .none and query.lts == null and query.prefix.len == 0;
 
     const index = version.loadRemoteIndex(allocator, config) catch |err| {
-        try stderr("Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
+        try stderr("error: Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
         process.exit(1);
     };
     defer index.deinit();

@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- CLI text is plain ASCII. Install scripts say `ok` or `error:` instead of check marks, crosses, arrows, or emoji. The help title uses a hyphen.
+- Registry failures start with `error:`.
+- Chinese guide prompts keep the words and use ASCII punctuation.
+
 ## [v2.4.0] - 2026-10-22
 
 ### Added
