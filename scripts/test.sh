@@ -138,7 +138,14 @@ ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
 ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" ls)
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
-env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >/dev/null
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/alias.out" 2>"$NVM_ALIGN_TMP/alias.err"
+ALIAS_STATUS=$?
+set -e
+echo "alias status=$ALIAS_STATUS stdout=[$(cat "$NVM_ALIGN_TMP/alias.out")] stderr=[$(cat "$NVM_ALIGN_TMP/alias.err")]" >&2
+if [[ "$ALIAS_STATUS" -ne 0 ]]; then
+    exit 1
+fi
 set +e
 DEFAULT_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default 2>"$NVM_ALIGN_TMP/default.err")
 DEFAULT_STATUS=$?
