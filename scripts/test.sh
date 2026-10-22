@@ -839,6 +839,147 @@ print("pty nrm ok")
 PY
 echo -e "    ${GREEN}✓${NC} nrm command OK"
 
+echo "  Testing nvm and nrm commands stay separate..."
+SPLIT_HOME="$NVM_ALIGN_TMP/split-home"
+SPLIT_NVM="$SPLIT_HOME/.nvm"
+mkdir -p "$SPLIT_NVM/versions/node/v22.23.4/bin" "$SPLIT_HOME/bin" "$SPLIT_HOME/.bashrc.d"
+printf '#!/bin/sh\nprintf "v22.23.4\\n"\n' > "$SPLIT_NVM/versions/node/v22.23.4/bin/node"
+chmod +x "$SPLIT_NVM/versions/node/v22.23.4/bin/node"
+cp "$ZNVM_BIN" "$SPLIT_HOME/bin/nvm"
+ln -s nvm "$SPLIT_HOME/bin/nrm"
+touch "$SPLIT_HOME/.bashrc"
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" use 22 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -ne 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "Using v22.23.4"; then
+    echo "FAIL nvm use 22 status=$SPLIT_STATUS stdout=$(printf %q "$SPLIT_OUT") stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+if printf '%s\n' "$SPLIT_OUT" "$SPLIT_ERR" | grep -q "The registry has been changed"; then
+    echo "nvm use 22 changed a registry" >&2
+    exit 1
+fi
+printf '%s\n' "$SPLIT_OUT" | grep -q 'export PATH='
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" ls >"$NVM_ALIGN_TMP/nvm-ls.out"
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" ls >"$NVM_ALIGN_TMP/nrm-ls.out"
+grep -q "v22.23.4" "$NVM_ALIGN_TMP/nvm-ls.out"
+if grep -q "registry.npmjs.org" "$NVM_ALIGN_TMP/nvm-ls.out"; then
+    echo "nvm ls printed registries" >&2
+    exit 1
+fi
+grep -q "taobao https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/nrm-ls.out"
+if grep -q "v22.23.4" "$NVM_ALIGN_TMP/nrm-ls.out"; then
+    echo "nrm ls printed Node versions" >&2
+    exit 1
+fi
+if cmp -s "$NVM_ALIGN_TMP/nvm-ls.out" "$NVM_ALIGN_TMP/nrm-ls.out"; then
+    echo "nvm ls and nrm ls printed the same text" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "not installed"; then
+    echo "FAIL nvm use taobao status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" use 22 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "22 is not a registry"; then
+    echo "FAIL nrm use 22 status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "The registry has been changed to 'taobao'." "$NVM_ALIGN_TMP/cmd.out"
+if grep -q "Using v22" "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "nrm use taobao switched Node" >&2
+    exit 1
+fi
+grep -q 'registry=https://registry.npmmirror.com/' "$SPLIT_HOME/.npmrc"
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" add local http://127.0.0.1:1 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+if [[ "$SPLIT_STATUS" -eq 0 ]]; then
+    echo "nvm add was accepted" >&2
+    exit 1
+fi
+grep -q "Unknown command: add" "$NVM_ALIGN_TMP/cmd.err"
+env -i \
+    HOME="$SPLIT_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ZNVM_BIN" \
+    bash ./install-as-nvm.sh >/dev/null
+if grep -q 'nrm()' "$SPLIT_NVM/nvm.sh"; then
+    echo "nvm.sh defined an nrm function" >&2
+    exit 1
+fi
+bash -c '
+    set -e
+    export HOME="$1"
+    export PATH="/usr/bin:/bin"
+    # shellcheck disable=SC1091
+    . "$1/.nvm/nvm.sh"
+    if [ "$(type -t nvm)" != "function" ]; then
+        echo "nvm is not a shell function: $(type -t nvm)" >&2
+        exit 1
+    fi
+    if [ "$(type -t nrm)" = "function" ]; then
+        echo "nvm.sh intercepted nrm" >&2
+        exit 1
+    fi
+    if [ "$(type -t nrm)" != "file" ]; then
+        echo "nrm is not the binary: $(type -t nrm 2>&1)" >&2
+        exit 1
+    fi
+    nvm use 22 >/dev/null
+    cur=$(nvm current)
+    if [ "$cur" != "v22.23.4" ]; then
+        echo "shell nvm use 22 current=$cur" >&2
+        exit 1
+    fi
+    nvm_ls=$(nvm ls)
+    nrm_ls=$(nrm ls)
+    printf "%s\n" "$nvm_ls" | grep -q "v22.23.4"
+    if printf "%s\n" "$nvm_ls" | grep -q "registry.npmjs.org"; then
+        echo "shell nvm ls printed registries" >&2
+        exit 1
+    fi
+    printf "%s\n" "$nrm_ls" | grep -q "taobao https://registry.npmmirror.com/"
+    if printf "%s\n" "$nrm_ls" | grep -q "v22.23.4"; then
+        echo "shell nrm ls printed Node versions" >&2
+        exit 1
+    fi
+    nrm use npm >/dev/null
+    reg=$(nrm current)
+    if [ "$reg" != "npm" ]; then
+        echo "shell nrm current=$reg" >&2
+        exit 1
+    fi
+    cur=$(nvm current)
+    if [ "$cur" != "v22.23.4" ]; then
+        echo "nrm use changed the Node version: $cur" >&2
+        exit 1
+    fi
+' _ "$SPLIT_HOME"
+echo -e "    ${GREEN}✓${NC} nvm and nrm commands stay separate"
+
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"
 

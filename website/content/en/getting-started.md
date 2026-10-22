@@ -89,7 +89,7 @@ nvm registry sync
 
 ## nrm
 
-`nrm` is the same binary. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help.
+`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only.
 
 ```bash
 nrm ls

@@ -89,7 +89,7 @@ nvm registry sync
 
 ## nrm
 
-`nrm` 是同一个二进制。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。
+`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。
 
 ```bash
 nrm ls

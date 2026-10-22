@@ -47,6 +47,8 @@ pub fn main() !void {
         return;
     }
 
+    // Node commands only. use, ls, and current here never switch a registry.
+
     if (args.len < 2) {
         try guide.run(allocator, config, .session);
         return;

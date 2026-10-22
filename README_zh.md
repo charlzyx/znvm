@@ -96,7 +96,7 @@ nvm registry show
 
 映射保存在 `$NVM_DIR/registries.json`。同步会改写 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc（Linux 是 `~/.config/pnpm/rc`，macOS 是 `~/Library/Preferences/pnpm/rc`）和 `~/.bunfig.toml` 里的默认源和 `@scope` 源。这些文件里的其他行会留下。`~/.yarnrc.yml` 里的 `npmScopes` 段会按已保存的 scope 重写。Electron 和其他二进制镜像不在这个命令里。
 
-同一次安装也提供 `nrm`。命令名是 `nrm` 时，运行的是同一个二进制。`nvm registry` 改的是同一张表。
+同一次安装也提供 `nrm`。命令名是 `nrm` 时，运行的是同一个二进制。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。`nvm registry` 是这张表的带前缀别名。
 
 ```bash
 nrm ls

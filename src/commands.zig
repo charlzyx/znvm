@@ -818,9 +818,8 @@ pub fn printHelp() !void {
         \\china sets https://registry.npmmirror.com and keeps scopes.
         \\official sets https://registry.npmjs.org and keeps scopes.
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
-        \\The same binary is nrm when argv0 is nrm. nrm ls, use, current, add, del, and test
-        \\switch named registries. nrm scope edits @scope routes. nvm registry stays available.
-        \\With no arguments in a terminal, nrm opens the registry menu. Otherwise it prints nrm help.
+        \\use, ls, and current on this command always select Node versions.
+        \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
         \\
     , .{ program_name, program_name, program_name, program_name });
 }
@@ -1012,6 +1011,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  done
         \\}}
         \\
+        \\# nrm is not a shell function. The nrm symlink runs the binary directly.
         \\nvm() {{
         \\  case "${{1-}}" in
         \\    ""|guide|interactive)

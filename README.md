@@ -111,7 +111,7 @@ nvm registry show
 
 The saved map is `$NVM_DIR/registries.json`. Sync rewrites the default registry and `@scope` registry lines in `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc (`~/.config/pnpm/rc`, or `~/Library/Preferences/pnpm/rc` on macOS), and `~/.bunfig.toml`. Other lines in those files stay. A `npmScopes` block in `~/.yarnrc.yml` is replaced by the saved scopes. Electron and other binary mirrors are not part of this command.
 
-The same install provides `nrm`. It is this binary when the command name is `nrm`. `nvm registry` edits the same map.
+The same install provides `nrm`. It is this binary when the command name is `nrm`. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. `nvm registry` is the prefixed alias for that map.
 
 ```bash
 nrm ls
