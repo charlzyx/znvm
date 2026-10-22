@@ -2,7 +2,7 @@
 
 **znvm** — **Zero-overhead Node Version Manager**
 
-A **Node.js version manager** built with Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. Measured shell startup on 2026-10-22 was **3.55 ms** (nvm 118 ms, fnm 1.58 ms; see the homepage table).
+A **Node.js version manager** built with Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
 
 ## Installation
 

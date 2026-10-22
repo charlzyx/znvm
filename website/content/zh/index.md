@@ -10,21 +10,21 @@ curl -fsSL https://znvm.dev/install.sh | bash
 
 厌倦了缓慢的 **node version manager** 工具？**znvm** 专为追求速度与简洁的开发者设计：
 
-- **⚡️ 实测启动**: 2026-10-22 的 shell 开销 3.55 ms（nvm 118 ms，fnm 文档化 init 1.58 ms）
+- **⚡️ 实测启动**: 2026-10-22 暖 3.31 ms、冷 5.01 ms（fnm 1.58 / 4.70 ms，nvm 113 / 121 ms）
 - **🎯 Unix 优先**: 精简专注，无跨平台臃肿代码
 - **🛠 零配置**: 直接使用现有的 `.nvmrc`
 
 ## 性能对比
 
-**2026-10-22 暖机中位数。4 核 KVM 虚拟机（Intel Xeon，Ubuntu 24.04），`benchmarks/measure.py`，znvm 为 ReleaseSafe。** shell 内命令预热 10 次、采样 40 次。shell 启动预热 5 次、采样 20 次。fnm 的文档化 init 当时已经激活 Node v22.14.0。完整样本：`benchmarks/results/2026-10-22.json`。
+**同一次运行，2026-10-22 15:38–15:40 UTC。4 核 KVM 虚拟机（Intel Xeon，Ubuntu 24.04），`benchmarks/measure.py`，znvm 为 ReleaseSafe。** 暖 shell 启动预热 5 次、采样 20 次。冷 shell 启动 20 次，每次丢掉页缓存。命令：暖为预热 10 次、采样 40 次；冷为已打开的 shell 里 20 次。这里 p50 等于中位数。样本：`benchmarks/results/2026-10-22-cold-warm.json`。
 
-| 管理器 | shell 启动 | `list` | `use` | `.nvmrc` | 体积 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB 脚本 |
-| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
-| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+| 管理器 | 暖启动 | 冷启动 | list 暖 | list 冷 | use 暖 | use 冷 | .nvmrc 暖 | .nvmrc 冷 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 113 ms | 121 ms | 559 ms | 557 ms | 158 ms | 221 ms | 166 ms | 222 ms |
+| `fnm` | 1.58 ms | 4.70 ms | 1.26 ms | 6.10 ms | 1.35 ms | 6.19 ms | 1.41 ms | 5.20 ms |
+| **`znvm`** | **3.31 ms** | **5.01 ms** | **0.61 ms** | **3.18 ms** | **0.84 ms** | **3.44 ms** | **0.86 ms** | **3.06 ms** |
 
-从 nodejs.org 安装 Node 22.13.1（清缓存，含下载，3 次）：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms。差距主要来自网络。冷启动单次样本只在 JSON 里。这次 znvm 的 shell 启动低于 nvm、高于 fnm。
+shell 启动 p95：nvm 115 / 128 ms，fnm 1.76 / 6.67 ms，znvm 3.64 / 9.28 ms（暖 / 冷）。fnm 的文档化 init 当时已经激活 Node v22.14.0。这次 shell 启动是 fnm 低于 znvm；shell 内命令是 znvm 更低。更早的安装计时（含下载，3 次：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms）在 `benchmarks/results/2026-10-22.json`，这次没有重跑。
 
 ## 是什么让 znvm 与众不同？
 

@@ -2,7 +2,7 @@
 
 在现代开发生态中，我们已经习惯了"足够快"。但对于生活在终端的开发者来说，"足够快"是一个谎言。
 
-每次打开一个新的 shell 标签页，笨重的版本管理器都会在提示符可用之前加上一段时间。下面 2026-10-22 的测量里，source nvm 增加了 118 ms。这就是这个项目要压下去的成本。
+每次打开一个新的 shell 标签页，笨重的版本管理器都会在提示符可用之前加上一段时间。下面 2026-10-22 的测量里，source nvm 在页缓存是热的时候增加 113 ms，每次丢掉页缓存时是 121 ms。这就是这个项目要压下去的成本。
 
 我构建 **znvm** 是因为我想要夺回这些毫秒，而 **Zig** 是唯一适合这个使命的语言。
 
@@ -12,7 +12,7 @@ Rust 很棒，但 Zig 提供了一种无与伦比的原始、可预测的控制�
 
 在 znvm 中，我们没有在错误时间醒来的垃圾收集器。我们没有膨胀二进制的复杂异步运行时。
 
-znvm 里没有垃圾收集器，也没有异步运行时。`znvm use` 仍然是一个进程：它解析版本，然后打印由 shell `eval` 执行的导出。下面的表是一台 Linux 虚拟机、用 `benchmarks/measure.py` 测出来的。它并不表示每一项操作都比其他管理器快。这次运行里，shell 内命令比 nvm 和 fnm 快，shell 启动比 nvm 快、比 fnm 慢。
+znvm 里没有垃圾收集器，也没有异步运行时。`znvm use` 仍然是一个进程：它解析版本，然后打印由 shell `eval` 执行的导出。下面的表是一台 Linux 虚拟机、用 `benchmarks/measure.py` 测出来的，暖启动和冷启动都有多次样本。它并不表示每一项操作都比其他管理器快。这次运行里，shell 内命令在暖和冷时都比 nvm 和 fnm 快，shell 启动在两种情况下都比 nvm 快、比 fnm 慢。
 
 ## 2. "无隐藏控制流"哲学
 
@@ -24,15 +24,15 @@ Zig 的座右铭——**无隐藏控制流，无隐藏内存分配**——完美
 
 ## 3. 性能 & 二进制大小
 
-2026-10-22 暖机中位数。4 核 KVM 虚拟机（Intel Xeon，Ubuntu 24.04），znvm 为 ReleaseSafe（3.73 MiB，未 strip）。方法：`benchmarks/measure.py`。原始样本：`benchmarks/results/2026-10-22.json`。
+同一次运行的中位数，2026-10-22 15:38–15:40 UTC。4 核 KVM 虚拟机（Intel Xeon，Ubuntu 24.04），znvm 为 ReleaseSafe（3.73 MiB，未 strip）。方法：`benchmarks/measure.py`。原始样本：`benchmarks/results/2026-10-22-cold-warm.json`。冷启动在 20 次样本的每一次之前丢掉页缓存。冷命令是在已经打开的 shell 里丢掉文件缓存。
 
-| 管理器 | shell 启动 | `list` | `use` | `.nvmrc` | 体积 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB 脚本 |
-| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
-| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+| 管理器 | 暖启动 | 冷启动 | list 暖 | list 冷 | use 暖 | use 冷 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 113 ms | 121 ms | 559 ms | 557 ms | 158 ms | 221 ms |
+| `fnm` | 1.58 ms | 4.70 ms | 1.26 ms | 6.10 ms | 1.35 ms | 6.19 ms |
+| **`znvm`** | **3.31 ms** | **5.01 ms** | **0.61 ms** | **3.18 ms** | **0.84 ms** | **3.44 ms** |
 
-shell 启动是新 bash 减去 `bash -c true`。fnm 的文档化 init 当时已经激活 Node v22.14.0，所以表里的启动是 1.58 ms。从 nodejs.org 安装 Node 22.13.1（3 次，含下载）：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms。安装差距主要是网络。
+`.nvmrc` 中位数，暖 / 冷：nvm 166 / 222 ms，fnm 1.41 / 5.20 ms，znvm 0.86 / 3.06 ms。shell 启动 p95，暖 / 冷：nvm 115 / 128 ms，fnm 1.76 / 6.67 ms，znvm 3.64 / 9.28 ms。fnm 的文档化 init 当时已经激活 Node v22.14.0。更早的 Node 22.13.1 安装计时（3 次，含下载：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms）没有重跑，见 `benchmarks/results/2026-10-22.json`。
 
 ## 4. Unix 优先的战略选择
 

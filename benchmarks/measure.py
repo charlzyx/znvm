@@ -6,17 +6,16 @@ sample, included `source nvm.sh` only in the nvm timings, and called
 `znvm resolve` (not a znvm command). This replaces it.
 
 What is timed
-  shell startup
-    Fresh `bash --noprofile --norc -c` process. Overhead is the median of the
-    init command minus the median of `bash -c true` in the same environment.
-    "node active" init is the documented shell line, plus an extra `fnm use`
-    for the fnm sample that is kept only as a comparison. nvm's `source nvm.sh`
-    and znvm's `eval "$(znvm env)"` already put the default Node on PATH.
-    With a default alias set, `eval "$(fnm env --use-on-cd)"` does too: the
-    2026-10-22 run recorded node v22.14.0 after that init alone. Publish
-    fnm's startup_documented overhead for shell startup. The extra `fnm use`
-    sample is slower and is not the documented init.
-  list / use / .nvmrc
+  warm shell startup
+    Fresh `bash --noprofile --norc -c` process, page cache left hot.
+    Warmup runs are discarded. Overhead is the median of the documented init
+    minus the median of warm `bash -c true`.
+    The documented init is `source nvm.sh`, `eval "$(znvm env)"`, or
+    `eval "$(fnm env --use-on-cd)"`. With a default alias set, that fnm init
+    puts the default Node on PATH. Publish this command for both warm and
+    cold shell startup. "node active" adds an extra `fnm use` and is kept
+    only as a warm comparison; it is not the headline.
+  warm list / use / .nvmrc
     Inside one already-initialized bash (the init cost is not included).
     Wall time is minus the median of an in-shell `true` measured the same way,
     which removes the printf/pipe harness.
@@ -26,13 +25,23 @@ What is timed
     `.nvmrc` is `use` with no arguments in a directory whose `.nvmrc` contains
     `20.19.0`. The shell is put back on v22.14.0 before each sample (not timed).
     `cd` is the builtin (`\\cd`), not fnm's cd hook.
+  cold shell startup
+    Every sample runs `sync` and `echo 3 > /proc/sys/vm/drop_caches`, then a
+    new bash of the documented init. There is no warmup and every sample is
+    kept. A cold `bash -c true` is measured the same way, round-robin with the
+    tools inside each sample index. Overhead subtracts that cold baseline
+    median. This is a cold process plus a cold file cache.
+  cold list / use / .nvmrc
+    The shell is already initialized, then each sample drops the page cache
+    and runs the command. This is a cold file cache, not a cold process.
+    Adjusted time subtracts that tool's cold in-shell `true` median. Tools
+    are round-robin within each sample index. `use` and `.nvmrc` match the
+    warm protocol.
   install
     Wall time of `install 22.13.1` from https://nodejs.org/dist, including the
     version-index fetch and the tarball download. The tool's download cache and
     installed copies are deleted before every sample. Network time is included.
-  cold
-    One sample after `sync` and `echo 3 > /proc/sys/vm/drop_caches`, when that
-    is permitted. A single sample is not a median and is reported separately.
+    This is not split into cold and warm.
 
 Each latency data directory has exactly those two Node versions. PATH during
 the runs is only the tool binary directory plus /usr/bin:/bin. znvm is the
@@ -108,17 +117,23 @@ def percentile(values: list[float], p: float) -> float:
     return ordered[low] * (1 - weight) + ordered[high] * weight
 
 
-def summarize(samples_s: list[float]) -> dict[str, float | int]:
-    ms = [value * 1000 for value in samples_s]
+def summarize_ms(ms: list[float]) -> dict[str, float | int]:
+    if not ms:
+        raise ValueError("empty")
     return {
         "n": len(ms),
         "median_ms": statistics.median(ms),
         "min_ms": min(ms),
         "max_ms": max(ms),
+        "p50_ms": percentile(ms, 0.50),
         "p95_ms": percentile(ms, 0.95),
         "mean_ms": statistics.fmean(ms),
         "samples_ms": ms,
     }
+
+
+def summarize(samples_s: list[float]) -> dict[str, float | int]:
+    return summarize_ms([value * 1000 for value in samples_s])
 
 
 def fmt_ms(value: float) -> str:
@@ -234,16 +249,9 @@ def bash_c(command: str, env: dict[str, str], cwd: Path, timeout: float = 60) ->
 
 def adjust(raw: dict[str, float | int], harness_median_ms: float) -> dict[str, float | int]:
     samples = [float(value) - harness_median_ms for value in raw["samples_ms"]]  # type: ignore[index]
-    return {
-        "n": len(samples),
-        "median_ms": statistics.median(samples),
-        "min_ms": min(samples),
-        "max_ms": max(samples),
-        "p95_ms": percentile(samples, 0.95),
-        "mean_ms": statistics.fmean(samples),
-        "samples_ms": samples,
-        "harness_median_ms": harness_median_ms,
-    }
+    stats = summarize_ms(samples)
+    stats["harness_median_ms"] = harness_median_ms
+    return stats
 
 
 def measure_repeats(fn, warmup: int, samples: int) -> tuple[float, dict[str, float | int]]:
@@ -507,44 +515,162 @@ def measure_install(tool: str, spec: dict[str, str], env: dict[str, str], cwd: P
     return {"command": install_cmd, "raw": raw, "adjusted": adjust(raw, harness_median), "node_tarball": f"node-v{NODE_INSTALL}-linux-x64.tar.xz"}
 
 
-def measure_cold(tool: str, spec: dict[str, str], env: dict[str, str], neutral: Path, nvmrc_dir: Path, logs: Path) -> dict:
-    """One sample after dropping the page cache.
+def require_drop_caches() -> None:
+    error = drop_caches()
+    if error:
+        raise RuntimeError(error)
 
-    Startup is a fresh bash. list/use/.nvmrc run in a shell that is already
-    initialized, so those samples are cold file cache rather than cold process
-    start. Each figure is a single sample.
+
+def last_output_line(log_path: Path) -> str:
+    out = log_path.with_suffix(".cmd.out")
+    lines = [line.strip() for line in out.read_text().splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
+def measure_cold_suite(
+    specs: dict[str, dict[str, str]],
+    envs: dict[str, dict[str, str]],
+    baseline_env: dict[str, str],
+    neutral: Path,
+    nvmrc_dir: Path,
+    logs: Path,
+    samples: int,
+) -> dict:
+    """Repeated cold samples. Every sample drops the page cache first.
+
+    Shell startup is a new process. list/use/.nvmrc keep one shell open per
+    tool, so those figures are a cold file cache inside a warm process.
     """
-    comparable = prelude_for(tool, spec, activate_node=True)
-    result: dict[str, float | str] = {"init": comparable, "samples": "1 (not a median)"}
+    if samples < 1:
+        raise SystemExit("--cold-samples must be at least 1")
+    documented = {tool: prelude_for(tool, specs[tool], activate_node=False) for tool in TOOLS}
+    list_cmd = {"znvm": "znvm ls", "nvm": "nvm ls", "fnm": "fnm list"}
+    use_bin = {"znvm": "znvm use", "nvm": "nvm use", "fnm": "fnm use"}
+    expected = f"v{NODE_A}"
 
-    def one_process(command: str) -> float:
-        error = drop_caches()
-        if error:
-            raise RuntimeError(error)
-        elapsed, proc = bash_c(command, env, neutral, timeout=90)
+    baseline_s: list[float] = []
+    startup_s = {tool: [] for tool in TOOLS}
+    log(f"cold shell startup x{samples}, round-robin")
+    for index in range(samples):
+        require_drop_caches()
+        elapsed, proc = bash_c("true", baseline_env, neutral, timeout=90)
         if proc.returncode != 0:
-            raise RuntimeError(proc.stderr[-400:])
-        return elapsed * 1000
+            raise RuntimeError(f"cold baseline failed: {proc.stderr[-400:]}")
+        baseline_s.append(elapsed)
+        for tool in TOOLS:
+            require_drop_caches()
+            elapsed, proc = bash_c(documented[tool], envs[tool], neutral, timeout=90)
+            if proc.returncode != 0:
+                raise RuntimeError(f"{tool} cold startup sample {index + 1} failed: {proc.stderr[-400:]}")
+            startup_s[tool].append(elapsed)
+        log(f"  cold startup {index + 1}/{samples}")
 
-    result["startup_node_active_ms"] = one_process(comparable)
-    list_cmd = {"znvm": "znvm ls", "nvm": "nvm ls", "fnm": "fnm list"}[tool]
-    use_bin = {"znvm": "znvm use", "nvm": "nvm use", "fnm": "fnm use"}[tool]
-    session = BashSession(env, neutral, comparable, logs / f"{tool}-cold.log")
+    baseline_stats = summarize(baseline_s)
+    startup: dict[str, dict] = {}
+    for tool in TOOLS:
+        raw = summarize(startup_s[tool])
+        startup[tool] = {
+            "command": documented[tool],
+            "raw": raw,
+            "overhead": overhead(raw, float(baseline_stats["median_ms"])),
+        }
+
+    sessions: dict[str, BashSession] = {}
+    harness_s = {tool: [] for tool in TOOLS}
+    list_s = {tool: [] for tool in TOOLS}
+    use_s = {tool: [] for tool in TOOLS}
+    nvmrc_s = {tool: [] for tool in TOOLS}
+    node_after: dict[str, str] = {}
     try:
-        def one_shell(command: str) -> float:
-            error = drop_caches()
-            if error:
-                raise RuntimeError(error)
-            elapsed, _ = session.run(command, timeout=90)
-            return elapsed * 1000
+        for tool in TOOLS:
+            log_path = logs / f"{tool}-cold.log"
+            sessions[tool] = BashSession(envs[tool], neutral, documented[tool], log_path)
+            sessions[tool].run("node -v", timed=False)
+            node_after[tool] = last_output_line(log_path)
+            if node_after[tool] != expected:
+                raise SystemExit(f"{tool} cold shell has node {node_after[tool]!r}, expected {expected}")
 
-        result["list_ms"] = one_shell(list_cmd)
-        result["use_ms"] = one_shell(f"{use_bin} {NODE_B}")
-        session.run(f"\\cd {nvmrc_dir} && {use_bin} {NODE_A}", timed=False)
-        result["nvmrc_ms"] = one_shell(use_bin)
+        log(f"cold in-shell harness x{samples}")
+        for index in range(samples):
+            for tool in TOOLS:
+                require_drop_caches()
+                elapsed, _ = sessions[tool].run("true", timeout=90)
+                harness_s[tool].append(elapsed)
+            log(f"  cold harness {index + 1}/{samples}")
+
+        log(f"cold list x{samples}")
+        for index in range(samples):
+            for tool in TOOLS:
+                require_drop_caches()
+                elapsed, _ = sessions[tool].run(list_cmd[tool], timeout=90)
+                list_s[tool].append(elapsed)
+            log(f"  cold list {index + 1}/{samples}")
+
+        log(f"cold use x{samples}")
+        counters = {tool: 0 for tool in TOOLS}
+        versions = [NODE_B, NODE_A]
+        for index in range(samples):
+            for tool in TOOLS:
+                version = versions[counters[tool] % 2]
+                counters[tool] += 1
+                require_drop_caches()
+                elapsed, _ = sessions[tool].run(f"{use_bin[tool]} {version}", timeout=90)
+                use_s[tool].append(elapsed)
+            log(f"  cold use {index + 1}/{samples}")
+
+        log(f"cold .nvmrc x{samples}")
+        for index in range(samples):
+            for tool in TOOLS:
+                sessions[tool].run(f"\\cd {nvmrc_dir} && {use_bin[tool]} {NODE_A}", timed=False)
+                require_drop_caches()
+                elapsed, _ = sessions[tool].run(use_bin[tool], timeout=90)
+                nvmrc_s[tool].append(elapsed)
+            log(f"  cold nvmrc {index + 1}/{samples}")
     finally:
-        session.close()
-    return result
+        for session in sessions.values():
+            session.close()
+
+    tools: dict[str, dict] = {}
+    for tool in TOOLS:
+        harness_stats = summarize(harness_s[tool])
+        harness_median = float(harness_stats["median_ms"])
+        commands = {
+            "list": summarize(list_s[tool]),
+            "use": summarize(use_s[tool]),
+            "nvmrc": summarize(nvmrc_s[tool]),
+        }
+        tools[tool] = {
+            "node_after_init": node_after[tool],
+            "startup_documented": startup[tool],
+            "harness_true": harness_stats,
+            "list": {
+                "command": list_cmd[tool],
+                "raw": commands["list"],
+                "adjusted": adjust(commands["list"], harness_median),
+            },
+            "use": {
+                "command": f"{use_bin[tool]} {NODE_B} / {use_bin[tool]} {NODE_A} (alternating)",
+                "raw": commands["use"],
+                "adjusted": adjust(commands["use"], harness_median),
+            },
+            "nvmrc": {
+                "command": f"{use_bin[tool]} with no args in a directory containing .nvmrc ({NODE_B})",
+                "raw": commands["nvmrc"],
+                "adjusted": adjust(commands["nvmrc"], harness_median),
+            },
+        }
+
+    return {
+        "available": True,
+        "samples": samples,
+        "definition": {
+            "shell_startup": "sync and drop_caches before every sample, then a new bash --noprofile --norc -c of the documented init. No discarded warmup. Overhead subtracts the median cold bash -c true. Round-robin across the baseline and the three tools.",
+            "in_shell": "One already-initialized bash per tool. drop_caches before every command sample. Cold file cache, warm process. Adjusted time subtracts that tool's cold in-shell true median.",
+            "published_startup_command": "documented init (fnm: eval \"$(fnm env --use-on-cd)\"), not an extra fnm use",
+        },
+        "baseline_bash_true": baseline_stats,
+        "tools": tools,
+    }
 
 
 def environment_record(znvm_bin: Path, fnm_bin: Path, nvm_sh: Path) -> dict:
@@ -578,16 +704,9 @@ def environment_record(znvm_bin: Path, fnm_bin: Path, nvm_sh: Path) -> dict:
 
 def overhead(raw_stats: dict, baseline_median_ms: float) -> dict[str, float | int]:
     samples = [float(value) - baseline_median_ms for value in raw_stats["samples_ms"]]
-    return {
-        "n": len(samples),
-        "median_ms": statistics.median(samples),
-        "min_ms": min(samples),
-        "max_ms": max(samples),
-        "p95_ms": percentile(samples, 0.95),
-        "mean_ms": statistics.fmean(samples),
-        "samples_ms": samples,
-        "baseline_median_ms": baseline_median_ms,
-    }
+    stats = summarize_ms(samples)
+    stats["baseline_median_ms"] = baseline_median_ms
+    return stats
 
 
 def main() -> None:
@@ -602,9 +721,11 @@ def main() -> None:
     parser.add_argument("--startup-warmup", type=int, default=5)
     parser.add_argument("--startup-samples", type=int, default=20)
     parser.add_argument("--install-samples", type=int, default=3)
+    parser.add_argument("--cold-samples", type=int, default=20)
     parser.add_argument("--skip-install", action="store_true")
     parser.add_argument("--skip-cold", action="store_true")
     args = parser.parse_args()
+    started_at = datetime.now(timezone.utc).isoformat()
 
     work = Path(args.work_dir)
     home = work / "home"
@@ -709,7 +830,7 @@ def main() -> None:
                 Path(root_env["XDG_CACHE_HOME"]),
             )
 
-    cold: dict[str, dict | str] = {}
+    cold: dict[str, dict | str | bool | int] = {}
     if args.skip_cold:
         cold = {"skipped": "not requested"}
     else:
@@ -718,17 +839,17 @@ def main() -> None:
             cold = {"available": False, "error": error}
             log(f"drop_caches unavailable: {error}")
         else:
-            cold = {"available": True, "note": "one sample per figure after sync and drop_caches; not a median"}
-            for tool in TOOLS:
-                log(f"cold samples: {tool}")
-                cold[tool] = measure_cold(
-                    tool,
-                    specs[tool],
-                    shell_env(root_env, tool, specs[tool]),
-                    neutral,
-                    nvmrc_dir,
-                    logs,
-                )
+            baseline_env = dict(root_env)
+            baseline_env["PATH"] = "/usr/bin:/bin"
+            cold = measure_cold_suite(
+                specs,
+                {tool: shell_env(root_env, tool, specs[tool]) for tool in TOOLS},
+                baseline_env,
+                neutral,
+                nvmrc_dir,
+                logs,
+                args.cold_samples,
+            )
 
     payload = {
         "method": Path(__file__).read_text().split('"""', 2)[1].strip(),
@@ -737,6 +858,7 @@ def main() -> None:
             "samples": args.samples,
             "startup_warmup": args.startup_warmup,
             "startup_samples": args.startup_samples,
+            "cold_samples": args.cold_samples,
             "install_samples": args.install_samples,
             "latency_versions": [NODE_A, NODE_B],
             "default_version": NODE_A,
@@ -755,6 +877,8 @@ def main() -> None:
             "nvm_sh": {"bytes": (nvm_src / "nvm.sh").stat().st_size, "display": fmt_size((nvm_src / "nvm.sh").stat().st_size) + " script"},
         },
     }
+    payload["environment"]["started_at"] = started_at
+    payload["environment"]["finished_at"] = datetime.now(timezone.utc).isoformat()
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2) + "\n")
@@ -767,18 +891,35 @@ def print_summary(payload: dict) -> None:
     log("")
     log("sizes: " + ", ".join(f"{name}={info['display']}" for name, info in sizes.items()))
     log(f"baseline bash -c true median {fmt_ms(payload['baseline_bash_true']['raw']['median_ms'])}")
-    log(f"{'tool':<6} {'list':>10} {'use':>10} {'nvmrc':>10} {'startup':>10} {'startup p95':>12}")
+    log(f"{'tool':<6} {'list':>10} {'use':>10} {'nvmrc':>10} {'warm start':>12} {'p95':>10}")
     for tool in TOOLS:
         item = payload["latency"][tool]
-        startup = item["startup_node_active"]["overhead"]
+        startup = item["startup_documented"]["overhead"]
         log(
             f"{tool:<6} "
             f"{fmt_ms(item['list']['adjusted']['median_ms']):>10} "
             f"{fmt_ms(item['use']['adjusted']['median_ms']):>10} "
             f"{fmt_ms(item['nvmrc']['adjusted']['median_ms']):>10} "
-            f"{fmt_ms(startup['median_ms']):>10} "
-            f"{fmt_ms(startup['p95_ms']):>12}"
+            f"{fmt_ms(startup['median_ms']):>12} "
+            f"{fmt_ms(startup['p95_ms']):>10}"
         )
+    cold = payload.get("cold") or {}
+    tools = cold.get("tools") if isinstance(cold, dict) else None
+    if isinstance(tools, dict):
+        base = cold["baseline_bash_true"]["median_ms"]
+        log(f"cold baseline bash -c true median {fmt_ms(base)} n={cold['samples']}")
+        log(f"{'tool':<6} {'list':>10} {'use':>10} {'nvmrc':>10} {'cold start':>12} {'p95':>10}")
+        for tool in TOOLS:
+            item = tools[tool]
+            startup = item["startup_documented"]["overhead"]
+            log(
+                f"{tool:<6} "
+                f"{fmt_ms(item['list']['adjusted']['median_ms']):>10} "
+                f"{fmt_ms(item['use']['adjusted']['median_ms']):>10} "
+                f"{fmt_ms(item['nvmrc']['adjusted']['median_ms']):>10} "
+                f"{fmt_ms(startup['median_ms']):>12} "
+                f"{fmt_ms(startup['p95_ms']):>10}"
+            )
     if payload["install"]:
         log("install medians (cache cleared, includes download):")
         for tool in TOOLS:

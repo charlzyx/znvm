@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: "znvm - Zero-overhead Node Version Manager",
     template: "%s | znvm",
   },
-  description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default. Measured shell startup 3.55 ms on Linux (2026-10-22).",
+  description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default. Measured 2026-10-22 on Linux: warm shell startup 3.31 ms, cold 5.01 ms.",
   keywords: ["znvm", "nvm", "fnm", "nvm-slow", "node version manager", "zig", "fast", "lightweight", "performance", "zero-overhead", "unix-philosophy", "minimalism", "性能", "零负担", "极简主义", "轻量级"],
   authors: [{ name: "charlzyx" }],
   openGraph: {

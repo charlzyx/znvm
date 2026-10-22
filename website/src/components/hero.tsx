@@ -52,8 +52,8 @@ export function Hero({ lang = "en" }: HeroProps) {
           {/* Description */}
           <p className="mt-6 max-w-[700px] text-lg text-muted-foreground sm:text-xl">
             {isZh
-              ? "按 nvm 的目录存放 Node 版本，默认从 npmmirror 下载。2026-10-22 在一台 Linux 虚拟机上测得 shell 启动开销 3.55 ms（nvm 118 ms，fnm 1.58 ms）。"
-              : "Stores Node versions the way nvm does, and downloads from npmmirror by default. Measured shell startup was 3.55 ms on a Linux VM (2026-10-22); nvm was 118 ms and fnm was 1.58 ms."
+              ? "按 nvm 的目录存放 Node 版本，默认从 npmmirror 下载。2026-10-22 在一台 Linux 虚拟机上，暖 shell 启动 3.31 ms，冷 shell 启动 5.01 ms（fnm 1.58 / 4.70 ms，nvm 113 / 121 ms）。"
+              : "Stores Node versions the way nvm does, and downloads from npmmirror by default. On a Linux VM (2026-10-22): warm shell startup 3.31 ms, cold 5.01 ms (fnm 1.58 / 4.70 ms, nvm 113 / 121 ms)."
             }
           </p>
 

@@ -2,7 +2,7 @@
 
 **znvm** — **零负担 Node 版本管理器**
 
-基于 Zig 的 **Node.js 版本管理器**。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得 shell 启动开销 **3.55 ms**（nvm 118 ms，fnm 1.58 ms；见首页表格）。
+基于 Zig 的 **Node.js 版本管理器**。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
 
 ## 安装
 

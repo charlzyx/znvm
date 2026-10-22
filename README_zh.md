@@ -12,7 +12,7 @@
 
 **znvm** 是面向日常 nvm 用法的 Zig 版 Node.js 版本管理器。默认下载镜像是 npmmirror。下面的性能对比是实测，不是口号。
 
-- **实测启动**: 2026-10-22，新 bash 执行 `eval "$(znvm env)"` 比 `bash -c true` 多 **3.55 ms**。同一环境里 nvm 0.40.3 是 **118 ms**，fnm 1.39.0 文档化 init（Node 已经激活）是 **1.58 ms**。shell 内 `list` / `use` / `.nvmrc` 中位数是 **0.62 / 0.89 / 0.97 ms**。
+- **实测启动**: 2026-10-22，暖 shell 启动中位数是 znvm **3.31 ms**、fnm **1.58 ms**、nvm **113 ms**。每次丢掉页缓存后，中位数是 **5.01 ms**、**4.70 ms**、**121 ms**。p95 和 shell 内命令见下面的性能对比。
 - **零配置**: 完美支持 `.nvmrc`。只需 `cd` 进入目录，环境立即就绪。
 - **极简专注**: 无冗余依赖，无 Windows 平台的沉重抽象。纯粹为 Unix 性能而生。
 - **智能架构**: Zig 核心处理复杂的 SemVer 解析；Shell 脚本负责环境切换。
@@ -84,21 +84,31 @@ eval "$(znvm env)"
 
 ## 📊 性能对比
 
-下表是 **2026-10-22** 用 [`benchmarks/measure.py`](benchmarks/measure.py) 测得的暖机中位数。环境：4 核 KVM 虚拟机，lscpu 型号为 `Intel(R) Xeon(R) Processor`，Ubuntu 24.04.5。计时用的 znvm 是 ReleaseSafe，3,908,768 字节（3.73 MiB，未 strip）。之后加上 `--copy-packages-from` 再编译是 3,910,296 字节，按这个精度仍是 3.73 MiB。那次计时没有重跑。对照 nvm v0.40.3（`nvm.sh` 150,227 字节）和 fnm 1.39.0（7,374,576 字节）。已安装 v22.14.0（默认）和 v20.19.0。PATH 只有工具目录加 `/usr/bin:/bin`。原始样本：[`benchmarks/results/2026-10-22.json`](benchmarks/results/2026-10-22.json)。
+下面是 **2026-10-22 15:38:50Z–15:40:25Z** 同一次运行里的暖启动和冷启动中位数，脚本是 [`benchmarks/measure.py`](benchmarks/measure.py)。环境：4 核 KVM 虚拟机，lscpu 型号为 `Intel(R) Xeon(R) Processor`，Ubuntu 24.04.5。znvm 是 ReleaseSafe，3,910,296 字节（3.73 MiB，未 strip）。对照 nvm v0.40.3（`nvm.sh` 150,227 字节）和 fnm 1.39.0（7,374,576 字节）。已安装 v22.14.0（默认）和 v20.19.0。PATH 只有工具目录加 `/usr/bin:/bin`。原始样本：[`benchmarks/results/2026-10-22-cold-warm.json`](benchmarks/results/2026-10-22-cold-warm.json)。
 
-| 管理器 | shell 启动 | `list` | `use` | `.nvmrc` | 体积 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB 脚本 |
-| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
-| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+shell 启动是新的 `bash --noprofile --norc` 执行文档化 init，再减去同样方式测得的 `bash -c true`。暖：预热 5 次、采样 20 次，页缓存保持热（基线中位数 0.63 ms）。冷：20 次，不丢弃预热，每次包括基线都先 `sync` 并丢掉页缓存（基线中位数 2.02 ms，p95 3.91 ms）。每个冷样本序号里三个工具轮流测。fnm 的文档化 init 当时已经是 Node v22.14.0。暖运行里多一次 `fnm use` 是 2.50 ms（p95 2.80 ms），不是表中的数字。以这次的样本量，插值 p50 等于中位数。
 
-shell 启动是新的 `bash --noprofile --norc` 执行文档化 init，再减去 `bash -c true`（预热 5 次，采样 20 次）。fnm 的 `eval "$(fnm env --use-on-cd)"` 在这次运行里已经得到 Node v22.14.0（JSON 里的 `latency.fnm.node_after_documented_init`），所以对比用 1.58 ms。JSON 里的方法说明仍写着这次 init 不会选中默认版本，那句已经过时。init 之后再跑一次 `fnm use 22.14.0` 是 2.43 ms，不是表中的数字。
+| 管理器 | 暖中位数 | 暖 p95 | 冷中位数 | 冷 p95 |
+| :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 113 ms | 115 ms | 121 ms | 128 ms |
+| `fnm` | 1.58 ms | 1.76 ms | 4.70 ms | 6.67 ms |
+| **`znvm`** | **3.31 ms** | **3.64 ms** | **5.01 ms** | **9.28 ms** |
 
-`list` / `use` / `.nvmrc` 在已经初始化的 shell 里测量，并减去 shell 内 `true` 的耗时（预热 10 次，采样 40 次）。`use` 在 v20.19.0 和 v22.14.0 之间交替。`.nvmrc` 的内容是 `20.19.0`。
+下面的 `list` / `use` / `.nvmrc` 在已经初始化的 shell 里。暖：预热 10 次、采样 40 次，减去 shell 内 `true`（约 0.04 ms）。冷：20 次，每次命令前丢掉页缓存，shell 进程保留；减去该工具冷的 shell 内 `true`（0.20–0.26 ms）。`use` 在 v20.19.0 和 v22.14.0 之间交替。`.nvmrc` 的内容是 `20.19.0`。
 
-从 `https://nodejs.org/dist` 安装 Node v22.13.1（压缩包 `node-v22.13.1-linux-x64.tar.xz`，29,885,824 字节，每次清缓存，3 次，含下载）。原始中位数：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms。主要是网络时间，不能当成稳定倍数。
+| 管理器 | list 暖 | list 冷 | use 暖 | use 冷 | .nvmrc 暖 | .nvmrc 冷 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 559 ms | 557 ms | 158 ms | 221 ms | 166 ms | 222 ms |
+| `fnm` | 1.26 ms | 6.10 ms | 1.35 ms | 6.19 ms | 1.41 ms | 5.20 ms |
+| **`znvm`** | **0.61 ms** | **3.18 ms** | **0.84 ms** | **3.44 ms** | **0.86 ms** | **3.06 ms** |
 
-丢掉页缓存后的单次样本在 JSON 的 `cold` 里。那不是中位数，也不在上表中。fnm 的冷启动命令还额外执行了 `fnm use 22.14.0`。
+暖命令 p95：nvm 587 / 165 / 170 ms，fnm 1.63 / 1.70 / 1.87 ms，znvm 0.87 / 1.21 / 1.33 ms。冷命令 p95：nvm 570 / 246 / 244 ms，fnm 8.70 / 8.80 / 7.61 ms，znvm 5.03 / 7.36 / 4.69 ms（list / use / .nvmrc）。
+
+这次暖、冷 shell 启动都是 fnm 低于 znvm，两者都低于 nvm。暖、冷的 shell 内命令都是 znvm 更低。znvm 冷启动的 p95（9.28 ms）比中位数散。
+
+体积：znvm 3.73 MiB，fnm 7.03 MiB，nvm 146.7 KiB 脚本。
+
+这次没有重跑安装。更早的 3 次安装（含下载）仍在 [`benchmarks/results/2026-10-22.json`](benchmarks/results/2026-10-22.json)：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms。那个文件里的暖表和单次冷样本是更早的一次运行，上面的表替换它们。安装耗时主要是网络。
 
 `benchmarks/benchmark_key_operations.sh` 已停用。它只采一次 `time`，只在 nvm 的计时里 `source nvm.sh`，并且调用了不存在的 `znvm resolve`。
 
