@@ -557,6 +557,12 @@ echo "  Testing registry scopes..."
 REG_HOME="$EMPTY_ROOT/registry-home"
 REG_NVM="$EMPTY_ROOT/registry-nvm"
 mkdir -p "$REG_HOME" "$REG_NVM"
+# pnpm follows ~/Library/Preferences on macOS when XDG_CONFIG_HOME is unset.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    PNPM_RC="$REG_HOME/Library/Preferences/pnpm/rc"
+else
+    PNPM_RC="$REG_HOME/.config/pnpm/rc"
+fi
 printf '%s\n' 'fund=false' 'registry=https://keep.example' '//registry.npmjs.org/:_authToken=secret' > "$REG_HOME/.npmrc"
 printf '%s\n' 'save-prefix "~"' > "$REG_HOME/.yarnrc"
 reg() {
@@ -567,7 +573,7 @@ grep -q 'fund=false' "$REG_HOME/.npmrc"
 grep -q 'registry=https://keep.example' "$REG_HOME/.npmrc"
 grep -q '_authToken=secret' "$REG_HOME/.npmrc"
 grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
-grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.config/pnpm/rc"
+grep -q '@company:registry=https://npm.company.example' "$PNPM_RC"
 grep -q 'save-prefix "~"' "$REG_HOME/.yarnrc"
 grep -q '"@company:registry" "https://npm.company.example"' "$REG_HOME/.yarnrc"
 grep -q 'company:' "$REG_HOME/.yarnrc.yml"
@@ -575,7 +581,7 @@ grep -q 'company = "https://npm.company.example"' "$REG_HOME/.bunfig.toml"
 reg china
 grep -q 'registry=https://registry.npmmirror.com' "$REG_HOME/.npmrc"
 grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
-grep -q 'registry=https://registry.npmmirror.com' "$REG_HOME/.config/pnpm/rc"
+grep -q 'registry=https://registry.npmmirror.com' "$PNPM_RC"
 grep -q 'registry "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc"
 grep -q 'npmRegistryServer: "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc.yml"
 grep -q 'registry = "https://registry.npmmirror.com"' "$REG_HOME/.bunfig.toml"
@@ -591,9 +597,9 @@ grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
 reg official
 grep -q 'registry=https://registry.npmjs.org' "$REG_HOME/.npmrc"
 grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
-grep -q 'registry=https://registry.npmjs.org' "$REG_HOME/.config/pnpm/rc"
+grep -q 'registry=https://registry.npmjs.org' "$PNPM_RC"
 reg remove @acme
-if grep -q '@acme:registry' "$REG_HOME/.npmrc" "$REG_HOME/.config/pnpm/rc" "$REG_HOME/.yarnrc"; then
+if grep -q '@acme:registry' "$REG_HOME/.npmrc" "$PNPM_RC" "$REG_HOME/.yarnrc"; then
     echo "removed scope still present" >&2
     exit 1
 fi
