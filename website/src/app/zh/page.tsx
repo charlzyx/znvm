@@ -1,5 +1,7 @@
 import { Hero } from "@/components/hero";
 import { Features } from "@/components/features";
+import { GuideTerminal } from "@/components/guide-terminal";
+import { Compare } from "@/components/compare";
 import { Benchmark } from "@/components/benchmark";
 
 export default function HomeZh() {
@@ -7,6 +9,8 @@ export default function HomeZh() {
     <>
       <Hero lang="zh" />
       <Features lang="zh" />
+      <GuideTerminal lang="zh" />
+      <Compare lang="zh" />
       <Benchmark lang="zh" />
     </>
   );

@@ -1,81 +1,67 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Zap,
-  Target,
-  Box,
-  Plug
-} from "lucide-react";
+const features = {
+  en: [
+    {
+      title: "Drop-in nvm",
+      body: "install-as-nvm.sh installs the nvm command. Versions live in ~/.nvm ($NVM_DIR). The shell hook exports NVM_DIR and sources nvm.sh. Everyday commands are install, use, ls, current, alias, and uninstall.",
+    },
+    {
+      title: "npmmirror by default",
+      body: "Node archives download from https://npmmirror.com/mirrors/node. Set NVM_NODEJS_ORG_MIRROR when you want a different mirror.",
+    },
+    {
+      title: "Interactive guide",
+      body: "In a terminal, nvm with no arguments opens a number menu. nvm guide and nvm interactive open the same menu. Chinese prompts follow a locale that starts with zh. Without a terminal it prints a short notice and exits.",
+    },
+    {
+      title: "Scope registries",
+      body: "Keep a default registry and any number of @scope routes, for example @company to an intranet registry and everything else on npmmirror. nvm registry china and nvm registry official change only the default. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+    },
+  ],
+  zh: [
+    {
+      title: "当作 nvm 使用",
+      body: "install-as-nvm.sh 安装的命令是 nvm。版本在 ~/.nvm（$NVM_DIR）。shell 钩子导出 NVM_DIR 并 source nvm.sh。日常命令是 install、use、ls、current、alias 和 uninstall。",
+    },
+    {
+      title: "默认 npmmirror",
+      body: "Node 压缩包从 https://npmmirror.com/mirrors/node 下载。要换镜像，设置 NVM_NODEJS_ORG_MIRROR。",
+    },
+    {
+      title: "交互引导",
+      body: "在终端里不带参数运行 nvm 会打开数字菜单。nvm guide 和 nvm interactive 是同一个菜单。语言以 zh 开头时用中文。没有终端时只打印一句说明并退出。",
+    },
+    {
+      title: "按 scope 分流源",
+      body: "可以同时保存一个默认源和任意多个 @scope，例如 @company 走内网，其余走 npmmirror。nvm registry china 和 nvm registry official 只改默认源。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+    },
+  ],
+};
 
-interface FeaturesProps {
-  lang?: "en" | "zh";
-}
-
-export function Features({ lang = "en" }: FeaturesProps) {
-  const isZh = lang === "zh";
-
-  const features = [
-    {
-      icon: Zap,
-      title: isZh ? "Zig 驱动的极速" : "Zig-Powered Speed",
-      description: isZh
-        ? "基于 Zig 的零成本抽象和显式内存控制构建。无运行时开销，无垃圾回收停顿。"
-        : "Built with Zig's zero-cost abstractions and explicit memory control. No runtime overhead, no garbage collection pauses.",
-    },
-    {
-      icon: Target,
-      title: isZh ? "Unix 哲学" : "Unix Philosophy",
-      description: isZh
-        ? "做一件事，并做好它。znvm 专注于 macOS 和 Linux，利用原生系统调用，而非跨平台妥协。"
-        : "Do one thing and do it well. znvm focuses exclusively on macOS and Linux, leveraging native system calls instead of cross-platform compromises.",
-    },
-    {
-      icon: Box,
-      title: isZh ? "零依赖" : "Zero Dependencies",
-      description: isZh
-        ? "单个静态二进制文件。无运行时，无包管理器依赖，无意外。"
-        : "Single static binary. No runtime, no package manager dependencies, no surprises.",
-    },
-    {
-      icon: Plug,
-      title: isZh ? "即插即用" : "Drop-in Replacement",
-      description: isZh
-        ? "安装后的命令是 nvm，版本放在 ~/.nvm。在终端里不带参数运行 nvm 会打开交互引导。"
-        : "Installs as nvm and stores versions in ~/.nvm. In a terminal, nvm with no arguments opens an interactive guide.",
-    },
-  ];
+export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
+  const zh = lang === "zh";
+  const items = zh ? features.zh : features.en;
 
   return (
-    <section className="py-20 bg-muted/50">
+    <section className="py-16 sm:py-20">
       <div className="container">
-        <div className="mx-auto max-w-2xl text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            {isZh ? "为什么选择 znvm?" : "Why znvm?"}
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            {isZh
-              ? "znvm = Zig + nvm。名字说明一切。"
-              : "znvm = Zig + nvm. The name says it all."
-            }
-          </p>
-        </div>
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((feature) => (
-            <Card key={feature.title} className="border-0 bg-background/50">
-              <CardHeader>
-                <feature.icon className="h-8 w-8 text-orange-500 mb-2" />
-                <CardTitle className="text-lg">{feature.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {feature.description}
-                </p>
-              </CardContent>
-            </Card>
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          {zh ? "它现在能做什么" : "What it does"}
+        </h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {items.map((item) => (
+            <article key={item.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
+              <h3 className="font-mono text-sm text-orange-300">{item.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.body}</p>
+            </article>
           ))}
         </div>
+        <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
+          {zh
+            ? "Electron 和其他二进制镜像还没有接入。registry 只处理包的源。"
+            : "Electron and other binary mirrors are not wired up. registry only writes package registries."}
+        </p>
       </div>
     </section>
   );

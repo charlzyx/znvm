@@ -41,9 +41,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className="dark scroll-smooth">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans text-foreground`}
       >
         <div className="relative flex min-h-screen flex-col">
           <Navbar />
