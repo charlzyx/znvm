@@ -41,8 +41,8 @@ export function Features({ lang = "en" }: FeaturesProps) {
       icon: Plug,
       title: isZh ? "即插即用" : "Drop-in Replacement",
       description: isZh
-        ? "与您现有的 .nvmrc 文件和 shell 工作流无缝协作。迁移轻松无负担。"
-        : "Works seamlessly with your existing .nvmrc files and shell workflows. Migration is effortless.",
+        ? "安装后的命令是 nvm，版本放在 ~/.nvm。在终端里不带参数运行 nvm 会打开交互引导。"
+        : "Installs as nvm and stores versions in ~/.nvm. In a terminal, nvm with no arguments opens an interactive guide.",
     },
   ];
 

@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.2.2 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.4.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.2.2" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.4.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.2.2, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.4.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -138,39 +138,169 @@ ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
 ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" ls)
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
-env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >/dev/null
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default)" = "18"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default)" = "v18.0.0"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current)" = "none"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version)" = "none"
-test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
+# bash 3.2 exits on a failing command inside a function or $(...) even after
+# set +e. Stay in the main script and capture through files.
+trap 'echo "ERR status=$? line=${BASH_LINENO[0]} cmd=$BASH_COMMAND" >&2' ERR
+echo "alias files before: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
 set +e
-env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >/dev/null
-ALIGN_STATUS=$?
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
 set -e
-test "$ALIGN_STATUS" -eq 3
-USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
-printf '%s\n' "$USE_OUT" | grep -q "v20.11.0"
-printf '%s\n' "$USE_OUT" | grep -q "Found '$ALIGN_ROOT/proj/.nvmrc'"
-NODEVER_OUT=$(cd "$ALIGN_ROOT/nodever" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
-printf '%s\n' "$NODEVER_OUT" | grep -q "Found '$ALIGN_ROOT/nodever/.node-version'"
-printf '%s\n' "$NODEVER_OUT" | grep -q "v18.0.0"
+echo "alias status=$st stdout=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.out" || true)") stderr=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.err" || true)")" >&2
+echo "alias files after: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
+if [[ "$st" -ne 0 ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "18" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "version-default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "which-20 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "which-18 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/v18.0.0/bin/node" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "nvm-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    exit 1
+fi
+set +e
+env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "nvm-tool-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "v2.4.0" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "version-missing status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 3 || "$out" != "N/A" ]]; then
+    exit 1
+fi
+# findUp prints the real path. macOS /var is a symlink to /private/var.
+set +e
+( cd "$ALIGN_ROOT/proj/sub" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use ) >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "v20.11.0" || ! printf '%s\n' "$out" "$err" | grep -q "proj/.nvmrc"; then
+    echo "FAIL use-nvmrc status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
+set +e
+( cd "$ALIGN_ROOT/nodever" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use ) >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "nodever/.node-version" || ! printf '%s\n' "$out" "$err" | grep -q "v18.0.0"; then
+    echo "FAIL use-node-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
 ( cd "$ALIGN_ROOT/save" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 20 --save >/dev/null )
 test "$(cat "$ALIGN_ROOT/save/.nvmrc")" = "v20.11.0"
 PATH="$ALIGN_ROOT/versions/v18.0.0/bin:/usr/bin:/bin" env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" reinstall-packages 20 >/dev/null
 grep -q "install -g cowsay" "$ALIGN_ROOT/npm-log"
+# NVM_DIR may be a symlink while PATH holds the real directory (macOS /var -> /private/var).
+SYMLINK_TARGET="$NVM_ALIGN_TMP/symlink-target"
+mkdir -p "$SYMLINK_TARGET/versions/v18.0.0/bin"
+cp "$ALIGN_ROOT/versions/v18.0.0/bin/node" "$SYMLINK_TARGET/versions/v18.0.0/bin/node"
+ln -s "$SYMLINK_TARGET" "$NVM_ALIGN_TMP/symlink-root"
 set +e
-COPY_FROM_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --copy-packages-from=9.9.9 20 2>&1)
-COPY_FROM_STATUS=$?
+env -u ZNVM_DIR NVM_DIR="$NVM_ALIGN_TMP/symlink-root" HOME="$NVM_ALIGN_TMP/home" PATH="$SYMLINK_TARGET/versions/v18.0.0/bin:/usr/bin:/bin" "$ALIGN_BIN" current >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
 set -e
-test "$COPY_FROM_STATUS" -ne 0
-printf '%s\n' "$COPY_FROM_OUT" | grep -q "installed version of node"
-RUN_OUT=$(cd "$ALIGN_ROOT/proj" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" run --version)
-printf '%s\n' "$RUN_OUT" | grep -q "v20 --version"
-EXEC_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" exec 18 "$ALIGN_ROOT/versions/v18.0.0/bin/node" hi)
-printf '%s\n' "$EXEC_OUT" | grep -q "v18 hi"
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    echo "FAIL symlink-current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --copy-packages-from=9.9.9 20 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -eq 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "installed version of node"; then
+    echo "FAIL copy-packages status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
+set +e
+( cd "$ALIGN_ROOT/proj" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" run --version ) >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "v20 --version"; then
+    echo "FAIL run status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" exec 18 "$ALIGN_ROOT/versions/v18.0.0/bin/node" hi >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "v18 hi"; then
+    echo "FAIL exec status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
 bash -c '
     set -e
     unset NVM_DIR
@@ -182,16 +312,22 @@ bash -c '
         "v20 "*) ;;
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
-    test "$(nvm --version)" = "v2.2.2"
+    ver=$(nvm --version || true)
+    if [ "$ver" != "v2.4.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
 set +e
-OFFLINE_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --offline 22.14.0 2>&1)
-ALIGN_STATUS=$?
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --offline 22.14.0 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
 set -e
-test "$ALIGN_STATUS" -ne 0
-printf '%s\n' "$OFFLINE_OUT" | grep -q "cached tarball"
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -eq 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "cached tarball"; then
+    echo "FAIL offline status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
+trap - ERR
 echo -e "    ${GREEN}✓${NC} nvm-compatible commands OK"
 
 echo "  Testing install-as-nvm.sh..."
@@ -244,12 +380,172 @@ bash -c '
     export PATH="$1/.nvm:/usr/bin:/bin"
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
-    test "$(nvm --version)" = "v2.2.2"
-    test "$(nvm version)" = "none"
-    test "$(nvm current)" = "none"
-    test -z "$(type znvm 2>/dev/null || true)"
+    ver=$(nvm --version || true)
+    if [ "$ver" != "v2.4.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    ver=$(nvm version || true)
+    if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
+    ver=$(nvm current || true)
+    if [ "$ver" != "none" ]; then echo "nvm current produced: $ver" >&2; exit 1; fi
+    if type znvm >/dev/null 2>&1; then echo "znvm leaked into the shell" >&2; exit 1; fi
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
+echo "  Testing interactive guide..."
+GUIDE_BIN="$ZNVM_BIN"
+set +e
+env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+GUIDE_STATUS=$?
+set -e
+GUIDE_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"; then
+    echo "FAIL bare-guide status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
+    exit 1
+fi
+set +e
+env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" guide </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+GUIDE_STATUS=$?
+set -e
+GUIDE_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"; then
+    echo "FAIL guide status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
+    exit 1
+fi
+set +e
+env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" interactive </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+GUIDE_STATUS=$?
+set -e
+GUIDE_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"; then
+    echo "FAIL interactive status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
+    exit 1
+fi
+HELP_OUT=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" help)
+printf '%s\n' "$HELP_OUT" | grep -q "interactive guide"
+if printf '%s\n' "$HELP_OUT" | grep -q 'completion'; then
+    echo "help mentioned completion" >&2
+    exit 1
+fi
+ENV_GUIDE=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" env)
+printf '%s\n' "$ENV_GUIDE" | grep -q '__nvm_guide'
+printf '%s\n' "$ENV_GUIDE" | grep -q 'guide|interactive'
+python3 - "$GUIDE_BIN" "$EMPTY_ROOT" <<'PY'
+import os, pty, select, subprocess, sys, time
+bin_path, root = sys.argv[1], sys.argv[2]
+
+def run_pty(args, env, sends, needles, timeout=5, stdout_pipe=False):
+    master, slave = pty.openpty()
+    stdout = subprocess.PIPE if stdout_pipe else slave
+    proc = subprocess.Popen(args, stdin=slave, stdout=stdout, stderr=slave, env=env, close_fds=True)
+    os.close(slave)
+    data = b""
+    pos = 0
+    pending = list(sends)
+    waiting = list(needles)
+    end = time.time() + timeout
+    while time.time() < end:
+        r, _, _ = select.select([master], [], [], 0.2)
+        if master in r:
+            try:
+                chunk = os.read(master, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            data += chunk
+        while waiting:
+            encoded = waiting[0].encode()
+            found = data.find(encoded, pos)
+            if found < 0:
+                break
+            pos = found + len(encoded)
+            waiting.pop(0)
+            if pending:
+                os.write(master, pending.pop(0).encode())
+        if proc.poll() is not None and not waiting:
+            break
+    else:
+        proc.kill()
+        text = data.decode("utf-8", "replace")
+        raise SystemExit(f"timeout args={args[1:]} waiting={waiting!r}\n{text}")
+    captured = b""
+    if stdout_pipe:
+        captured = proc.stdout.read()
+    proc.wait(timeout=2)
+    os.close(master)
+    text = data.decode("utf-8", "replace")
+    if waiting:
+        raise SystemExit(f"missing {waiting!r} status={proc.returncode}\n{text}")
+    return proc.returncode, text, captured.decode("utf-8", "replace")
+
+base = os.environ.copy()
+base.update({
+    "LC_ALL": "C",
+    "LANG": "C",
+    "HOME": root + "/home",
+    "PATH": "/usr/bin:/bin",
+})
+base.pop("NVM_DIR", None)
+base.pop("ZNVM_DIR", None)
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["4\n", "1\n", "\n", "0\n"],
+    ["Install Node", "Installed", "Press Enter to continue", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"english menu exit {code}\n{text}")
+if "No versions installed" not in text:
+    raise SystemExit(f"ls did not run\n{text}")
+zh = dict(base)
+zh["LC_ALL"] = "zh_CN.UTF-8"
+zh["LANG"] = "zh_CN.UTF-8"
+code, text, _ = run_pty([bin_path], zh, ["0\n"], ["安装 Node"])
+if code != 0:
+    raise SystemExit(f"chinese menu exit {code}\n{text}")
+
+nvm_dir = root + "/guide-node"
+os.makedirs(nvm_dir + "/versions/node/v20.11.0/bin")
+node = nvm_dir + "/versions/node/v20.11.0/bin/node"
+with open(node, "w") as fh:
+    fh.write("#!/bin/sh\nprintf 'v20 %s\\n' \"$*\"\n")
+os.chmod(node, 0o755)
+use_env = dict(base)
+use_env["NVM_DIR"] = nvm_dir
+code, text, _ = run_pty(
+    [bin_path],
+    use_env,
+    ["2\n", "1\n", "1\n", "\n", "3\n", "1\n", "\n", "0\n"],
+    [
+        "Switch version (use)",
+        "Choose an installed version",
+        "v20.11.0",
+        "Press Enter to continue",
+        "Show current",
+        "Active version",
+        "Press Enter to continue",
+        "(interactive guide)",
+    ],
+)
+if code != 0:
+    raise SystemExit(f"use menu exit {code}\n{text}")
+if "export PATH=" not in text:
+    raise SystemExit(f"use did not print shell exports\n{text}")
+if text.rfind("v20.11.0") <= text.find("Using v20.11.0"):
+    raise SystemExit(f"current did not run after use\n{text}")
+code, screen, captured = run_pty(
+    [bin_path, "--guide-step"],
+    base,
+    ["4\n", "1\n"],
+    ["Install Node", "Installed", "No versions installed"],
+    stdout_pipe=True,
+)
+if code != 0:
+    raise SystemExit(f"step exit {code}\n{screen}\nSTDOUT:\n{captured}")
+if "Install Node" in captured or "No versions installed" in captured:
+    raise SystemExit(f"step stdout mixed with the menu\n{captured}")
+print("pty guide ok")
+PY
+echo -e "    ${GREEN}✓${NC} interactive guide OK"
 
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"

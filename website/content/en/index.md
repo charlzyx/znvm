@@ -38,7 +38,7 @@ Do one thing and do it well. znvm focuses exclusively on macOS and Linux, levera
 Single static binary. No runtime, no package manager dependencies, no surprises.
 
 ### 🔌 **Drop-in `nvm`**
-The install command above gives you `nvm`. Versions live in `~/.nvm` (`NVM_DIR`). An interactive guided mode is planned; today you use the `nvm` command line.
+The install command above gives you `nvm`. Versions live in `~/.nvm` (`NVM_DIR`). In a terminal, `nvm` with no arguments opens an interactive guide.
 
 ## Keywords
 

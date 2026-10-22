@@ -9,6 +9,9 @@ const ZnvmConfig = @import("config.zig").ZnvmConfig;
 const stdout = util.stdout;
 const stderr = util.stderr;
 
+extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
+extern "c" fn unsetenv(name: [*:0]const u8) c_int;
+
 pub var program_name: []const u8 = "znvm";
 
 const LocalHit = union(enum) {
@@ -59,19 +62,31 @@ fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
     return quoted.toOwnedSlice(allocator);
 }
 
-fn pathEntryIsManaged(config: ZnvmConfig, entry: []const u8) bool {
+fn underManagedPrefix(entry: []const u8, root: []const u8) bool {
+    if (root.len == 0 or entry.len <= root.len) return false;
+    if (!mem.startsWith(u8, entry, root) or entry[root.len] != '/') return false;
+    const rest = entry[root.len + 1 ..];
+    if (mem.startsWith(u8, rest, "versions/")) return true;
+    return rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null;
+}
+
+/// `realpath` rewrites symlink prefixes. macOS `/var` and `/tmp` are `/private/var`
+/// and `/private/tmp`, so a node path and `NVM_DIR` can disagree until both are resolved.
+fn pathEntryIsManaged(allocator: mem.Allocator, config: ZnvmConfig, entry: []const u8) !bool {
     for (config.managed_roots) |root| {
-        if (root.len == 0 or entry.len <= root.len) continue;
-        if (!mem.startsWith(u8, entry, root) or entry[root.len] != '/') continue;
-        const rest = entry[root.len + 1 ..];
-        if (mem.startsWith(u8, rest, "versions/")) return true;
-        if (rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null) return true;
+        if (underManagedPrefix(entry, root)) return true;
+        const real_root = fs.realpathAlloc(allocator, root) catch continue;
+        defer allocator.free(real_root);
+        if (underManagedPrefix(entry, real_root)) return true;
+        const real_entry = fs.realpathAlloc(allocator, entry) catch continue;
+        defer allocator.free(real_entry);
+        if (underManagedPrefix(real_entry, real_root)) return true;
     }
     return false;
 }
 
 fn managedVersionFromRealPath(allocator: mem.Allocator, config: ZnvmConfig, real_path: []const u8) !?[]u8 {
-    if (!pathEntryIsManaged(config, real_path)) return null;
+    if (!try pathEntryIsManaged(allocator, config, real_path)) return null;
     const bin_at = mem.lastIndexOf(u8, real_path, "/bin/") orelse return null;
     const before = real_path[0..bin_at];
     const slash = mem.lastIndexOfScalar(u8, before, '/') orelse return null;
@@ -137,6 +152,10 @@ fn pathEntries(allocator: mem.Allocator) !?[]const u8 {
     return try allocator.dupe(u8, path_env);
 }
 
+pub fn activeVersion(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
+    return getCurrentVersionFromPath(allocator, config);
+}
+
 fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
     const path_env_owned = try pathEntries(allocator) orelse return null;
     defer allocator.free(path_env_owned);
@@ -194,7 +213,7 @@ fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8
 
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0 or pathEntryIsManaged(config, entry) or mem.eql(u8, entry, bin_path)) continue;
+        if (entry.len == 0 or try pathEntryIsManaged(allocator, config, entry) or mem.eql(u8, entry, bin_path)) continue;
         if (npm_bin_path) |path| if (mem.eql(u8, entry, path)) continue;
         try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
@@ -207,7 +226,7 @@ fn pathWithoutVersions(allocator: mem.Allocator, config: ZnvmConfig, current_pat
     errdefer list.deinit(allocator);
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0 or pathEntryIsManaged(config, entry)) continue;
+        if (entry.len == 0 or try pathEntryIsManaged(allocator, config, entry)) continue;
         if (list.items.len > 0) try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
     }
@@ -248,13 +267,19 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const quoted_inc = try shellQuote(allocator, inc_path);
     defer allocator.free(quoted_inc);
 
+    putEnv(allocator, "PATH", new_path);
+    putEnv(allocator, "ZNVM_CURRENT", ver);
+    putEnv(allocator, "NVM_BIN", bin_path);
+    putEnv(allocator, "NVM_INC", inc_path);
     try stdout("export PATH={s}\n", .{quoted_path});
     try stdout("export ZNVM_CURRENT={s}\n", .{quoted_version});
     if (config.npm_prefix) |prefix| {
         const quoted_prefix = try shellQuote(allocator, prefix);
         defer allocator.free(quoted_prefix);
+        putEnv(allocator, "NPM_CONFIG_PREFIX", prefix);
         try stdout("export NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
     } else {
+        _ = unsetenv("NPM_CONFIG_PREFIX");
         try stdout("unset NPM_CONFIG_PREFIX\n", .{});
     }
     try stdout("export NVM_BIN={s}\n", .{quoted_bin});
@@ -271,12 +296,22 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
 
+    putEnv(allocator, "PATH", new_path);
+    _ = unsetenv("ZNVM_CURRENT");
+    _ = unsetenv("NVM_BIN");
+    _ = unsetenv("NVM_INC");
     try stdout("export PATH={s}\n", .{quoted_path});
     try stdout("unset ZNVM_CURRENT\n", .{});
     try stdout("unset NVM_BIN\n", .{});
     try stdout("unset NVM_INC\n", .{});
     try stdout("hash -r 2>/dev/null || true\n", .{});
     if (!silent and message.len > 0) try stderr("{s}\n", .{message});
+}
+
+fn putEnv(allocator: mem.Allocator, key: [:0]const u8, value: []const u8) void {
+    const owned = allocator.dupeZ(u8, value) catch return;
+    defer allocator.free(owned);
+    _ = setenv(key, owned.ptr, 1);
 }
 
 fn ensureDir(path: []const u8) !void {
@@ -764,6 +799,7 @@ pub fn printHelp() !void {
         \\  install-latest-npm
         \\  cache dir|clear
         \\  deactivate [--silent]
+        \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
@@ -774,9 +810,10 @@ pub fn printHelp() !void {
         \\https://npmmirror.com/mirrors/node.
         \\Global npm packages belong to each Node version.
         \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
-        \\An interactive guided mode is planned; this version is the nvm command line.
+        \\With no arguments in a terminal, {s} opens an interactive guide.
+        \\Without a terminal it prints a short notice and exits.
         \\
-    , .{ program_name, program_name });
+    , .{ program_name, program_name, program_name, program_name });
 }
 
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -836,13 +873,37 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  fi
         \\}}
         \\
+        \\__nvm_guide() {{
+        \\  local result
+        \\  local exit_code
+        \\  while true; do
+        \\    result="$("$__nvm_exe" --guide-step)"
+        \\    exit_code=$?
+        \\    if [ "$exit_code" -eq 2 ]; then
+        \\      return 0
+        \\    fi
+        \\    if [ "$exit_code" -ne 0 ]; then
+        \\      if [ -n "$result" ]; then
+        \\        printf '%s\\n' "$result" >&2
+        \\      fi
+        \\      return "$exit_code"
+        \\    fi
+        \\    if [ -n "$result" ]; then
+        \\      eval "$result"
+        \\    fi
+        \\  done
+        \\}}
+        \\
         \\nvm() {{
         \\  case "${{1-}}" in
+        \\    ""|guide|interactive)
+        \\      __nvm_guide "$@"
+        \\      ;;
         \\    use|install|uninstall|rm|deactivate)
         \\      __nvm_apply "$@"
         \\      ;;
         \\    unload)
-        \\      unset -f nvm __nvm_apply __nvm_autoload __nvm_on_chdir 2>/dev/null || true
+        \\      unset -f nvm __nvm_apply __nvm_guide __nvm_autoload __nvm_on_chdir 2>/dev/null || true
         \\      unset __nvm_last_pwd
         \\      ;;
         \\    *)
@@ -1732,7 +1793,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.2.2\n", .{});
+    try stderr("znvm version: v2.4.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});
