@@ -109,6 +109,105 @@ else
     exit 1
 fi
 
+echo "  Testing nvm-compatible commands..."
+NVM_ALIGN_TMP=$(mktemp -d)
+trap 'rm -rf "$TEST_ROOT" "$NVM_ALIGN_TMP"' EXIT
+ALIGN_ROOT="$NVM_ALIGN_TMP/root"
+mkdir -p "$ALIGN_ROOT/versions/v18.0.0/bin" "$ALIGN_ROOT/versions/v20.11.0/bin" "$ALIGN_ROOT/proj/sub" "$ALIGN_ROOT/bin"
+printf '#!/bin/sh\nprintf "v18 %%s\\n" "$*"\n' > "$ALIGN_ROOT/versions/v18.0.0/bin/node"
+printf '#!/bin/sh\nprintf "v20 %%s\\n" "$*"\n' > "$ALIGN_ROOT/versions/v20.11.0/bin/node"
+chmod +x "$ALIGN_ROOT/versions/v18.0.0/bin/node" "$ALIGN_ROOT/versions/v20.11.0/bin/node"
+printf '20 # pin\n' > "$ALIGN_ROOT/proj/.nvmrc"
+cp "$ZNVM_BIN" "$ALIGN_ROOT/bin/znvm"
+ln -s znvm "$ALIGN_ROOT/bin/nvm"
+ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
+
+ALIGN_LS=$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" ls)
+printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
+printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
+PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" alias default 18 >/dev/null
+test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" default)" = "18"
+test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" version default)" = "v18.0.0"
+test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/v20.11.0/bin/node"
+test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" current)" = "none"
+test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" version)" = "none"
+test "$(ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
+set +e
+PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" version 99 >/dev/null
+ALIGN_STATUS=$?
+set -e
+test "$ALIGN_STATUS" -eq 3
+USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" use 2>&1)
+printf '%s\n' "$USE_OUT" | grep -q "v20.11.0"
+printf '%s\n' "$USE_OUT" | grep -q "Found '$ALIGN_ROOT/proj/.nvmrc'"
+RUN_OUT=$(cd "$ALIGN_ROOT/proj" && PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" run --version)
+printf '%s\n' "$RUN_OUT" | grep -q "v20 --version"
+EXEC_OUT=$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" exec 18 "$ALIGN_ROOT/versions/v18.0.0/bin/node" hi)
+printf '%s\n' "$EXEC_OUT" | grep -q "v18 hi"
+bash -c '
+    set -e
+    eval "$(ZNVM_DIR="$1" "$2" env)"
+    cd "$1/proj/sub"
+    nvm use >/dev/null
+    out=$(node)
+    case "$out" in
+        "v20 "*) ;;
+        *) echo "shell use produced: $out" >&2; exit 1 ;;
+    esac
+    test "$(nvm --version)" = "v2.2.2"
+' _ "$ALIGN_ROOT" "$ALIGN_BIN"
+PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" uninstall 18 >/dev/null
+test ! -d "$ALIGN_ROOT/versions/v18.0.0"
+set +e
+PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" install --offline 1 >/dev/null 2>&1
+ALIGN_STATUS=$?
+set -e
+test "$ALIGN_STATUS" -eq 55
+echo -e "    ${GREEN}✓${NC} nvm-compatible commands OK"
+
+echo "  Testing install-as-nvm.sh..."
+INSTALL_HOME="$NVM_ALIGN_TMP/home"
+mkdir -p "$INSTALL_HOME/.nvm/versions/node/v1.2.3" "$INSTALL_HOME/.nvm"
+touch "$INSTALL_HOME/.bashrc"
+echo keep > "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker"
+echo "echo original-nvm" > "$INSTALL_HOME/.nvm/nvm.sh"
+echo "original completion" > "$INSTALL_HOME/.nvm/bash_completion"
+env -i \
+    HOME="$INSTALL_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ALIGN_BIN" \
+    ZNVM_INSTALL_BIN_DIR="$INSTALL_HOME/.znvm/bin" \
+    bash ./install-as-nvm.sh >/dev/null
+test -x "$INSTALL_HOME/.znvm/bin/znvm"
+test -L "$INSTALL_HOME/.znvm/bin/nvm"
+test "$(readlink "$INSTALL_HOME/.znvm/bin/nvm")" = "znvm"
+grep -q "znvm-nvm-shim" "$INSTALL_HOME/.nvm/nvm.sh"
+grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.pre-znvm"
+grep -q "original completion" "$INSTALL_HOME/.nvm/bash_completion.pre-znvm"
+test "$(cat "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker")" = "keep"
+grep -q 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc"
+test "$(grep -c 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc")" -eq 1
+env -i \
+    HOME="$INSTALL_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ALIGN_BIN" \
+    ZNVM_INSTALL_BIN_DIR="$INSTALL_HOME/.znvm/bin" \
+    bash ./install-as-nvm.sh >/dev/null
+test "$(grep -c 'znvm-nvm-shim' "$INSTALL_HOME/.bashrc")" -eq 1
+grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.pre-znvm"
+bash -c '
+    set -e
+    export HOME="$1"
+    export PATH="$1/.znvm/bin:/usr/bin:/bin"
+    # shellcheck disable=SC1091
+    . "$1/.nvm/nvm.sh"
+    test "$(nvm --version)" = "v2.2.2"
+    test "$(command -v nvm >/dev/null; nvm current)" = "none"
+' _ "$INSTALL_HOME"
+echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"
 

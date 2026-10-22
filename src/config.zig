@@ -50,7 +50,7 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     const npm_prefix = try resolveNpmPrefix(allocator, env_map.get("ZNVM_NPM_PREFIX"), root_dir);
     errdefer allocator.free(npm_prefix);
 
-    const mirror_env = env_map.get("ZNVM_NODE_MIRROR") orelse "https://npmmirror.com/mirrors/node";
+    const mirror_env = env_map.get("ZNVM_NODE_MIRROR") orelse env_map.get("NVM_NODEJS_ORG_MIRROR") orelse "https://npmmirror.com/mirrors/node";
     const mirror = try allocator.dupe(u8, mirror_env);
     errdefer allocator.free(mirror);
 

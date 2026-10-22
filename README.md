@@ -31,6 +31,18 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install.sh | bas
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install.sh | bash
 ```
 
+### Use it as `nvm`
+
+`install-as-nvm.sh` installs znvm and makes the `nvm` command run it, including the `~/.nvm/nvm.sh` file existing shell configs already source. Running it again is safe: it will not duplicate shell config, and it will not delete Node versions already installed by nvm. Those stay in `~/.nvm`. znvm keeps its own copies in `~/.znvm`.
+
+The previous `nvm.sh` and `bash_completion`, if they were not already znvm shims, are copied once to `nvm.sh.pre-znvm` and `bash_completion.pre-znvm`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
+```
+
+Open a new terminal, or `source` the printed profile. `nvm install`, `nvm use`, `nvm ls`, and the other commands below then run znvm. `eval "$(znvm env)"` also defines an `nvm` function.
+
 ## ✨ Core Features
 
 - ⚡ **Instant Performance**: Core logic written in Zig for lightning-fast resolution.
@@ -43,24 +55,49 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install.sh | b
 ## 🛠 Usage
 
 ```bash
-# Install a version
-znvm install 22          # Match latest v22.x.x
-# Re-running this later updates the v22 line to its newest release
+# Install a version. `node` is the newest release, `lts/*` the newest LTS.
+znvm install 22
+znvm install --lts
+znvm install          # version from .nvmrc, then switch to it
 
-# Switch version
-znvm use 20              # Use Node 20
-znvm use                 # Automatically use version from .nvmrc
+# Switch version. `use` with no version reads .nvmrc from this directory or a parent.
+znvm use 20
+znvm use
+znvm use --lts
 
-# List installed versions
-znvm ls                  # Shows [*] for current, [->] for default
+# What is active, and where is its node binary?
+znvm current
+znvm which 20
 
-# Set default version
-znvm default 20          # Set v20 as default
-znvm default             # Show current default
+# List installed versions (`->` marks the active one) and aliases
+znvm ls
+znvm ls 20
+znvm ls-remote --lts
 
-# Uninstall
+# Default and other aliases. `default` is the same as `alias default`.
+znvm alias default 20
+znvm alias
+znvm unalias work
+
+# Run one command without changing the shell
+znvm run 20 --version
+znvm exec 20 npm test
+
+# Remove a version, or drop it from PATH
 znvm uninstall 20
+znvm deactivate
 ```
+
+`nvm <command>` accepts the same commands after `install-as-nvm.sh` (or after `eval "$(znvm env)"`).
+
+### Differences from nvm
+
+- Node versions installed by znvm live in `~/.znvm`, not `~/.nvm`. `install-as-nvm.sh` does not migrate or delete an existing nvm install.
+- The download mirror defaults to `https://npmmirror.com/mirrors/node`. Override it with `ZNVM_NODE_MIRROR` or `NVM_NODEJS_ORG_MIRROR`.
+- `znvm version` with no arguments prints the znvm version. `nvm version` prints the active Node version (`none` or `system` when znvm is not providing it). `nvm --version` and `znvm --version` both print the znvm version.
+- Shell setup switches versions when you enter a directory with `.nvmrc`, and falls back to the default alias. It does not install a missing version; run `install` for that.
+- Only `.nvmrc` is read. The search walks parent directories, `#` comments are ignored, and `.node-version` is not consulted.
+- Global npm packages are shared across Node versions. Source builds (`-s`), io.js, and `reinstall-packages` are not supported.
 
 ## ⚙️ Shell Setup
 

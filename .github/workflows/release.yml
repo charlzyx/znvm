@@ -33,9 +33,9 @@ jobs:
       - name: Update install.sh version
         run: |
           # 在 build 阶段修改 install.sh，不提交
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
-          echo "✅ install.sh updated to ${{ github.ref_name }}"
+          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
+          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
+          echo "✅ install scripts updated to ${{ github.ref_name }}"
 
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
@@ -65,16 +65,16 @@ jobs:
       - name: Update install.sh version
         run: |
           # 修改版本号（匹配任意当前版本）
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh
+          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
+          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
           cp install.sh ./website/public/install.sh
-          echo "✅ install.sh updated to ${{ github.ref_name }}"
+          echo "✅ install scripts updated to ${{ github.ref_name }}"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh ./website/public/install.sh
+          git add install.sh install-as-nvm.sh ./website/public/install.sh
           if git diff --cached --quiet; then
             echo "install scripts already match ${{ github.ref_name }}"
           else

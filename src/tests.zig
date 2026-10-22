@@ -323,3 +323,61 @@ test "edge case: query with letters" {
     // Should not match anything (rc is just a prefix search)
     try testing.expect(result == null or mem.indexOf(u8, result.?, "rc") == null);
 }
+
+test "parseVersionQuery: node, lts, and numeric prefixes" {
+    const node_query = version.parseVersionQuery("node", null);
+    try testing.expect(node_query.special == .latest);
+
+    const lts_query = version.parseVersionQuery("lts/*", null);
+    try testing.expectEqualStrings("*", lts_query.lts.?);
+
+    const named = version.parseVersionQuery("20", "iron");
+    try testing.expectEqualStrings("iron", named.lts.?);
+    try testing.expectEqualStrings("20", named.prefix);
+
+    const current_query = version.parseVersionQuery("current", null);
+    try testing.expect(current_query.special == .current);
+}
+
+test "looksLikeVersion: numbers are versions and filenames are not" {
+    try testing.expect(version.looksLikeVersion("20"));
+    try testing.expect(version.looksLikeVersion("v20.11.0"));
+    try testing.expect(version.looksLikeVersion("20.11.1-rc.1"));
+    try testing.expect(version.looksLikeVersion("node"));
+    try testing.expect(version.looksLikeVersion("lts/iron"));
+    try testing.expect(!version.looksLikeVersion("app.js"));
+    try testing.expect(!version.looksLikeVersion("npm"));
+    try testing.expect(!version.looksLikeVersion("--version"));
+}
+
+test "parseNvmrc: strips comments and ignores key-value lines" {
+    const spec = version.parseNvmrc("\n# comment\nengine=node\n  20.11 # pin\n");
+    try testing.expectEqualStrings("20.11", spec.?);
+    try testing.expect(version.parseNvmrc("# only a comment\n") == null);
+    try testing.expect(version.parseNvmrc("20\n22\n") == null);
+}
+
+test "resolveRemoteEntry: lts star skips non-LTS and current is not latest" {
+    const files = &[_][]const u8{"linux-x64"};
+    const entries = &[_]version.NodeEntry{
+        .{ .version = "v20.11.0", .files = files, .lts = .{ .string = "Iron" } },
+        .{ .version = "v22.14.0", .files = files, .lts = .{ .string = "Jod" } },
+        .{ .version = "v23.1.0", .files = files, .lts = .{ .bool = false } },
+    };
+
+    const latest_lts = version.resolveRemoteEntry(entries, "lts/*", "linux-x64");
+    try testing.expectEqualStrings("v22.14.0", latest_lts.?.version);
+
+    const iron = version.resolveRemoteEntry(entries, "lts/iron", "linux-x64");
+    try testing.expectEqualStrings("v20.11.0", iron.?.version);
+
+    try testing.expect(version.resolveRemoteEntry(entries, "current", "linux-x64") == null);
+}
+
+test "findExactInstalled and latestInstalled" {
+    const installed = &[_][]const u8{ "v20.0.0", "v20.11.1", "v22.0.0" };
+    try testing.expectEqualStrings("v20.11.1", version.findExactInstalled(installed, "20.11.1").?);
+    try testing.expect(version.findExactInstalled(installed, "20") == null);
+    try testing.expectEqualStrings("v22.0.0", version.latestInstalled(installed, "").?);
+    try testing.expectEqualStrings("v20.11.1", version.latestInstalled(installed, "20").?);
+}
