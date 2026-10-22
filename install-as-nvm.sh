@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.4.0"
+ZNVM_VERSION="v2.5.0"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
@@ -25,9 +25,11 @@ case "$NVM_COMPAT_DIR" in
         ;;
 esac
 
-echo "nvm"
-echo "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node."
-echo ""
+if [ "${1:-}" != "--uninstall" ]; then
+    echo "nvm"
+    echo "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node."
+    echo ""
+fi
 
 shell_quote() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
@@ -191,11 +193,17 @@ if [ ! -x "$NVM_BIN" ]; then
     return 1 2>/dev/null || exit 1
 fi
 __nvm_bin_dir=$(dirname "$NVM_BIN")
-case ":${PATH:-}:" in
-    *":$__nvm_bin_dir:"*) ;;
-    *) PATH="$__nvm_bin_dir:${PATH:-}" ;;
-esac
+__nvm_path=":${PATH:-}:"
+__nvm_path="${__nvm_path//:$__nvm_bin_dir:/:}"
+__nvm_path="${__nvm_path#:}"
+__nvm_path="${__nvm_path%:}"
+if [ -n "$__nvm_path" ]; then
+    PATH="$__nvm_bin_dir:$__nvm_path"
+else
+    PATH="$__nvm_bin_dir"
+fi
 export PATH
+unset __nvm_path
 eval "$("$NVM_BIN" env)"
 EOF
     } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.bak"
@@ -203,27 +211,8 @@ EOF
 }
 
 configure_profile() {
-    local profile shell_name
-    if [ -n "${ZNVM_PROFILE:-}" ]; then
-        profile="$ZNVM_PROFILE"
-    else
-        shell_name="$(basename "${SHELL:-bash}")"
-        case "$shell_name" in
-            bash)
-                if [ -f "$HOME/.bashrc" ]; then
-                    profile="$HOME/.bashrc"
-                else
-                    profile="$HOME/.bash_profile"
-                fi
-                ;;
-            zsh)
-                profile="$HOME/.zshrc"
-                ;;
-            *)
-                profile="$HOME/.profile"
-                ;;
-        esac
-    fi
+    local profile
+    profile="$(profile_path)"
 
     if [ -d "$profile" ]; then
         echo "Refusing to write shell config into directory $profile" >&2
@@ -248,8 +237,167 @@ EOF
     printf '%s\n' "$profile"
 }
 
+link_nrm() {
+    local exe="$1"
+    local dir base link target
+    dir="$(dirname "$exe")"
+    base="$(basename "$exe")"
+    link="$dir/nrm"
+
+    if [ -L "$link" ]; then
+        target="$(readlink "$link")"
+        if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
+            echo "ok nrm already linked at $link"
+        else
+            echo "note: $link already exists and was not changed."
+            echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+        fi
+    elif [ -e "$link" ]; then
+        echo "note: $link already exists and was not changed."
+        echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+    else
+        ln -s "$base" "$link"
+        echo "ok Linked $link -> $base"
+    fi
+    note_other_nrm "$link"
+}
+
+note_other_nrm() {
+    local ours="$1"
+    local dir cand target
+    local IFS=':'
+    for dir in ${PATH:-}; do
+        [ -n "$dir" ] || continue
+        cand="$dir/nrm"
+        if [ ! -e "$cand" ] && [ ! -L "$cand" ]; then
+            continue
+        fi
+        if [ "$cand" = "$ours" ]; then
+            continue
+        fi
+        echo "note: another nrm is at $cand and was not removed."
+        if [ -L "$ours" ]; then
+            target="$(readlink "$ours")"
+            if [ "$target" = "nvm" ] || [ "$target" = "$(dirname "$ours")/nvm" ]; then
+                echo "note: a new shell puts $(dirname "$ours") first on PATH, so $ours runs as nrm."
+            fi
+        fi
+        return
+    done
+}
+
+remove_nrm_link() {
+    local exe="$1"
+    local link target base
+    link="$(dirname "$exe")/nrm"
+    base="$(basename "$exe")"
+    if [ -L "$link" ]; then
+        target="$(readlink "$link")"
+        if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
+            rm -f "$link"
+            echo "ok Removed $link"
+        else
+            echo "note: $link does not point at $base and was left in place."
+        fi
+    elif [ -e "$link" ]; then
+        echo "note: $link is not the nvm link and was left in place."
+    fi
+}
+
+profile_path() {
+    local shell_name
+    if [ -n "${ZNVM_PROFILE:-}" ]; then
+        printf '%s\n' "$ZNVM_PROFILE"
+        return
+    fi
+    shell_name="$(basename "${SHELL:-bash}")"
+    case "$shell_name" in
+        bash)
+            if [ -f "$HOME/.bashrc" ]; then
+                printf '%s\n' "$HOME/.bashrc"
+            else
+                printf '%s\n' "$HOME/.bash_profile"
+            fi
+            ;;
+        zsh)
+            printf '%s\n' "$HOME/.zshrc"
+            ;;
+        *)
+            printf '%s\n' "$HOME/.profile"
+            ;;
+    esac
+}
+
+remove_shell_block() {
+    local profile="$1"
+    local tmp
+    [ -f "$profile" ] || return 0
+    if ! grep -q "$MARKER" "$profile"; then
+        return 0
+    fi
+    tmp="$(mktemp)"
+    awk -v marker="$MARKER" '
+        index($0, marker) { skipping = 1; next }
+        skipping && index($0, "NVM_DIR/nvm.sh") { skipping = 0; next }
+        skipping { next }
+        { print }
+    ' "$profile" > "$tmp"
+    mv "$tmp" "$profile"
+    echo "ok Removed nvm startup from $profile"
+}
+
+resolve_nvm_path() {
+    local dir
+    if [ -n "${ZNVM_BIN_SRC:-}" ]; then
+        printf '%s\n' "${ZNVM_INSTALL_BIN_DIR:-$NVM_COMPAT_DIR}/nvm"
+        return
+    fi
+    if [ -n "${ZNVM_INSTALL_BIN_DIR:-}" ]; then
+        printf '%s\n' "$ZNVM_INSTALL_BIN_DIR/nvm"
+        return
+    fi
+    dir="$(choose_bin_dir)"
+    if [ -x "$dir/nvm" ]; then
+        printf '%s\n' "$dir/nvm"
+        return
+    fi
+    if [ -x "$NVM_COMPAT_DIR/nvm" ]; then
+        printf '%s\n' "$NVM_COMPAT_DIR/nvm"
+        return
+    fi
+    printf '%s\n' "$dir/nvm"
+}
+
+uninstall_nvm() {
+    local dest profile
+    dest="$(resolve_nvm_path)"
+    remove_nrm_link "$dest"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        rm -f "$dest"
+        echo "ok Removed $dest"
+    fi
+    if [ -f "$NVM_COMPAT_DIR/nvm.sh" ] && grep -q "$MARKER" "$NVM_COMPAT_DIR/nvm.sh"; then
+        if [ -f "$NVM_COMPAT_DIR/nvm.sh.bak" ]; then
+            mv "$NVM_COMPAT_DIR/nvm.sh.bak" "$NVM_COMPAT_DIR/nvm.sh"
+            echo "ok Restored $NVM_COMPAT_DIR/nvm.sh"
+        else
+            rm -f "$NVM_COMPAT_DIR/nvm.sh"
+            echo "ok Removed $NVM_COMPAT_DIR/nvm.sh"
+        fi
+    fi
+    profile="$(profile_path)"
+    remove_shell_block "$profile"
+    echo "ok Uninstalled nvm. Node versions in $NVM_COMPAT_DIR were kept."
+}
+
+if [ "${1:-}" = "--uninstall" ]; then
+    uninstall_nvm
+    exit 0
+fi
+
 ZNVM_VERSION_ARG="${1:-}"
 NVM_EXE="$(install_binary)"
+link_nrm "$NVM_EXE"
 if [ ! -x "$NVM_EXE" ]; then
     echo "nvm was not installed." >&2
     exit 1
@@ -267,6 +415,7 @@ echo "export NVM_DIR=\"$NVM_COMPAT_DIR\""
 echo "nvm install 22"
 echo "nvm use 22"
 echo "nvm ls"
+echo "nrm ls"
 echo ""
 echo "Node versions are stored in \$NVM_DIR/versions/node."
 echo "Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set."

@@ -2,7 +2,7 @@
 
 **znvm** — **Zero-overhead Node Version Manager**
 
-A **Node.js version manager** built with Zig. After install, the command is `nvm`. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
+A **Node.js version manager** built with Zig. After install, the commands are `nvm` and `nrm`. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
 
 In a terminal, `nvm` with no arguments opens an interactive guide (`nvm guide` does the same). Without a terminal, it prints a short notice and exits.
 
@@ -20,7 +20,8 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.4.0 (x86_64-linux)...
+> Downloading nvm v2.5.0 (x86_64-linux)...
+ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
 
@@ -33,6 +34,7 @@ export NVM_DIR="/home/user/.nvm"
 nvm install 22
 nvm use 22
 nvm ls
+nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
@@ -43,9 +45,11 @@ The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.z
 ### What the installer does
 
 1. Detects your platform (macOS/Linux) and architecture (x64/arm64)
-2. Installs the `nvm` command and writes `~/.nvm/nvm.sh`
+2. Installs the `nvm` command, links `nrm` to it, and writes `~/.nvm/nvm.sh`
 3. Appends the `NVM_DIR` startup lines to your shell profile
 4. Leaves existing Node versions in `$NVM_DIR/versions/node` in place
+
+The `nrm` link is a relative symlink in the same directory as `nvm`. If that path already exists, the installer leaves it unchanged and says so. If another `nrm` is on `PATH`, the installer prints that path and does not delete it. A new shell moves the `nvm` directory to the front of `PATH`, so this `nrm` runs first. `install-as-nvm.sh --uninstall` removes the `nvm` binary and the `nrm` link when the link points at it, restores or removes the shell block, and does not delete Node versions or a foreign `nrm`.
 
 ### Shell setup
 
@@ -57,7 +61,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-Open a new terminal, or `source` that profile. The command after that is `nvm`.
+Open a new terminal, or `source` that profile. The commands after that are `nvm` and `nrm`.
 
 ## Interactive guide
 
@@ -82,6 +86,25 @@ nvm registry sync
 ```
 
 `china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Electron and other binary mirrors are not changed.
+
+## nrm
+
+`nrm` is the same binary. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help.
+
+```bash
+nrm ls
+nrm use taobao
+nrm current
+nrm current -u
+nrm add local http://127.0.0.1:4873
+nrm del local
+nrm test taobao
+nrm scope add @company https://npm.company.example
+nrm scope ls
+nrm scope del @company
+```
+
+Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use taobao` and `nvm registry china` select the same npmmirror URL. A single trailing slash does not change the match. `nrm del` refuses a built-in name. `nvm registry` remains available.
 
 ## Usage
 

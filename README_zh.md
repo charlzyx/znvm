@@ -23,7 +23,9 @@
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-脚本会安装 `nvm` 命令并写入 `~/.nvm/nvm.sh`。可以重复执行：不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
+脚本会安装 `nvm` 命令，把 `nrm` 链接到同一个二进制，并写入 `~/.nvm/nvm.sh`。可以重复执行：不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
+
+`nrm` 是 `nvm` 旁边的相对符号链接。安装脚本不会覆盖已经存在的 `nrm`。如果那个路径上已有文件，会打印说明并保留它。如果 `PATH` 上还有另一个 `nrm`，会打印那个路径，不会删除它。新的 shell 会把 `nvm` 所在目录移到 `PATH` 最前面，因此链接的 `nrm` 先被找到。`--uninstall` 会删除这次安装的 `nvm` 二进制，以及指向它的 `nrm` 链接；如果有 `nvm.sh.bak` 就恢复 `nvm.sh`；去掉 `nvm: shell setup` 那段配置。不会删除 Node 版本，也不会删除别人的 `nrm`。
 
 结束后会打印：
 
@@ -37,6 +39,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm install 22
 nvm use 22
 nvm ls
+nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
@@ -92,6 +95,23 @@ nvm registry show
 ```
 
 映射保存在 `$NVM_DIR/registries.json`。同步会改写 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc（Linux 是 `~/.config/pnpm/rc`，macOS 是 `~/Library/Preferences/pnpm/rc`）和 `~/.bunfig.toml` 里的默认源和 `@scope` 源。这些文件里的其他行会留下。`~/.yarnrc.yml` 里的 `npmScopes` 段会按已保存的 scope 重写。Electron 和其他二进制镜像不在这个命令里。
+
+同一次安装也提供 `nrm`。命令名是 `nrm` 时，运行的是同一个二进制。`nvm registry` 改的是同一张表。
+
+```bash
+nrm ls
+nrm use taobao
+nrm current
+nrm current -u
+nrm add local http://127.0.0.1:4873
+nrm del local
+nrm test taobao
+nrm scope add @company https://npm.company.example
+nrm scope ls
+nrm scope del @company
+```
+
+内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use` 以及 `nvm registry china` / `official` 会在地址匹配时选中内置名字，末尾一个斜杠忽略。`nrm del` 不能删除内置名字。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nrm add` 可以多带一个 home 参数，会被忽略。
 
 版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已经装好的版本可以直接用。0.12 之前的 Node 从 `$NVM_DIR/vX.Y.Z` 读取。
 

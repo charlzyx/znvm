@@ -6,6 +6,7 @@ const process = std.process;
 
 const util = @import("util.zig");
 
+const stdout = util.stdout;
 const stderr = util.stderr;
 
 pub const china_registry = "https://registry.npmmirror.com";
@@ -16,12 +17,40 @@ pub const Scope = struct {
     url: []u8,
 };
 
+const Named = struct {
+    name: []u8,
+    url: []u8,
+};
+
+const Builtin = struct {
+    name: []const u8,
+    url: []const u8,
+};
+
+const builtin_registries = [_]Builtin{
+    .{ .name = "npm", .url = "https://registry.npmjs.org/" },
+    .{ .name = "yarn", .url = "https://registry.yarnpkg.com/" },
+    .{ .name = "tencent", .url = "https://mirrors.tencent.com/npm/" },
+    .{ .name = "cnpm", .url = "https://r.cnpmjs.org/" },
+    .{ .name = "taobao", .url = "https://registry.npmmirror.com/" },
+    .{ .name = "npmMirror", .url = "https://skimdb.npmjs.com/registry/" },
+    .{ .name = "huawei", .url = "https://repo.huaweicloud.com/repository/npm/" },
+};
+
 pub const Map = struct {
     default_url: ?[]u8 = null,
+    current_name: ?[]u8 = null,
+    names: std.ArrayList(Named) = .{},
     scopes: std.ArrayList(Scope) = .{},
 
     pub fn deinit(self: *Map, allocator: mem.Allocator) void {
         if (self.default_url) |url| allocator.free(url);
+        if (self.current_name) |name| allocator.free(name);
+        for (self.names.items) |named| {
+            allocator.free(named.name);
+            allocator.free(named.url);
+        }
+        self.names.deinit(allocator);
         for (self.scopes.items) |scope| {
             allocator.free(scope.name);
             allocator.free(scope.url);
@@ -63,8 +92,73 @@ pub const Map = struct {
 
     fn setDefault(self: *Map, allocator: mem.Allocator, url: []const u8) !void {
         const next = try allocator.dupe(u8, url);
+        errdefer allocator.free(next);
         if (self.default_url) |old| allocator.free(old);
         self.default_url = next;
+        try self.assignCurrent(allocator, self.lookupName(url));
+    }
+
+    fn assignCurrent(self: *Map, allocator: mem.Allocator, name: ?[]const u8) !void {
+        const next = if (name) |value| try allocator.dupe(u8, value) else null;
+        errdefer if (next) |value| allocator.free(value);
+        if (self.current_name) |old| allocator.free(old);
+        self.current_name = next;
+    }
+
+    fn lookupName(self: *const Map, url: []const u8) ?[]const u8 {
+        for (builtin_registries) |item| {
+            if (sameUrl(item.url, url)) return item.name;
+        }
+        for (self.names.items) |item| {
+            if (sameUrl(item.url, url)) return item.name;
+        }
+        return null;
+    }
+
+    fn urlForName(self: *const Map, name: []const u8) ?[]const u8 {
+        if (findBuiltin(name)) |item| return item.url;
+        for (self.names.items) |item| {
+            if (mem.eql(u8, item.name, name)) return item.url;
+        }
+        return null;
+    }
+
+    fn upsertName(self: *Map, allocator: mem.Allocator, name: []const u8, url: []const u8) !void {
+        for (self.names.items) |*named| {
+            if (mem.eql(u8, named.name, name)) {
+                const next = try allocator.dupe(u8, url);
+                allocator.free(named.url);
+                named.url = next;
+                return;
+            }
+        }
+        const owned_name = try allocator.dupe(u8, name);
+        errdefer allocator.free(owned_name);
+        const owned_url = try allocator.dupe(u8, url);
+        errdefer allocator.free(owned_url);
+        try self.names.append(allocator, .{ .name = owned_name, .url = owned_url });
+        self.sortNames();
+    }
+
+    fn removeName(self: *Map, allocator: mem.Allocator, name: []const u8) bool {
+        for (self.names.items, 0..) |named, i| {
+            if (!mem.eql(u8, named.name, name)) continue;
+            allocator.free(named.name);
+            allocator.free(named.url);
+            _ = self.names.orderedRemove(i);
+            return true;
+        }
+        return false;
+    }
+
+    fn sortNames(self: *Map) void {
+        mem.sort(Named, self.names.items, {}, nameLess);
+    }
+
+    fn isCurrent(self: *const Map, name: []const u8, url: []const u8) bool {
+        if (self.current_name) |active| return mem.eql(u8, active, name);
+        if (self.default_url) |default| return sameUrl(default, url);
+        return false;
     }
 };
 
@@ -75,6 +169,9 @@ pub fn printError(err: anyerror) !void {
         error.ScopeMissing => try stderr("error: That scope is not in the map.\n", .{}),
         error.NoHome => try stderr("error: HOME is not set.\n", .{}),
         error.NoMap => try stderr("error: No registry map yet. Set a default or a scope first.\n", .{}),
+        error.InvalidName => try stderr("error: registry name must be letters, digits, '-', '_', or '.'.\n", .{}),
+        error.CurlMissing => try stderr("error: curl is required for nrm test.\n", .{}),
+        error.Explained => {},
         else => try stderr("error: registry failed: {s}\n", .{@errorName(err)}),
     }
 }
@@ -140,6 +237,173 @@ pub fn sync(allocator: mem.Allocator, root: []const u8) !void {
     var map = try load(allocator, root);
     defer map.deinit(allocator);
     try syncMap(allocator, root, &map);
+}
+
+pub fn listNames(allocator: mem.Allocator, root: []const u8) !void {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    for (builtin_registries) |item| try printNameLine(&map, item.name, item.url);
+    for (map.names.items) |item| try printNameLine(&map, item.name, item.url);
+}
+
+pub fn current(allocator: mem.Allocator, root: []const u8, show_url: bool) !void {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    if (show_url) {
+        if (map.default_url) |url| try stdout("{s}\n", .{url}) else try stdout("none\n", .{});
+        return;
+    }
+    if (map.current_name) |name| {
+        try stdout("{s}\n", .{name});
+        return;
+    }
+    if (map.default_url) |url| {
+        if (map.lookupName(url)) |name| try stdout("{s}\n", .{name}) else try stdout("{s}\n", .{url});
+        return;
+    }
+    try stdout("none\n", .{});
+}
+
+pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    var map = try loadOrEmpty(allocator, root);
+    errdefer map.deinit(allocator);
+    const found = map.urlForName(name) orelse {
+        try stderr("error: {s} is not a registry.\n", .{name});
+        return error.Explained;
+    };
+    const url = try allocator.dupe(u8, found);
+    defer allocator.free(url);
+    try map.setDefault(allocator, url);
+    try map.assignCurrent(allocator, name);
+    try save(allocator, root, &map);
+    try stdout("The registry has been changed to '{s}'.\n", .{name});
+    try syncMap(allocator, root, &map);
+    map.deinit(allocator);
+}
+
+pub fn addName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    if (findBuiltin(name) != null) {
+        try stderr("error: {s} is a built-in registry.\n", .{name});
+        return error.Explained;
+    }
+    const url = try normalizeUrl(raw_url);
+    var map = try loadOrEmpty(allocator, root);
+    errdefer map.deinit(allocator);
+    try map.upsertName(allocator, name, url);
+    try save(allocator, root, &map);
+    try stdout("added {s}\n", .{name});
+    map.deinit(allocator);
+}
+
+pub fn delName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    if (findBuiltin(name) != null) {
+        try stderr("error: {s} is a built-in registry.\n", .{name});
+        return error.Explained;
+    }
+    var map = try load(allocator, root);
+    errdefer map.deinit(allocator);
+    if (!map.removeName(allocator, name)) {
+        try stderr("error: {s} is not a registry.\n", .{name});
+        return error.Explained;
+    }
+    if (map.current_name) |active| {
+        if (mem.eql(u8, active, name)) {
+            const inferred = if (map.default_url) |url| map.lookupName(url) else null;
+            try map.assignCurrent(allocator, inferred);
+        }
+    }
+    try save(allocator, root, &map);
+    try stdout("deleted {s}\n", .{name});
+    map.deinit(allocator);
+}
+
+pub fn listScopes(allocator: mem.Allocator, root: []const u8) !void {
+    var loaded = load(allocator, root) catch |err| switch (err) {
+        error.NoMap => null,
+        else => return err,
+    };
+    if (loaded) |*map| {
+        defer map.deinit(allocator);
+        if (map.scopes.items.len == 0) {
+            try stdout("No scopes.\n", .{});
+            return;
+        }
+        for (map.scopes.items) |scope| try stdout("{s} {s}\n", .{ scope.name, scope.url });
+        return;
+    }
+    try stdout("No scopes.\n", .{});
+}
+
+pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    var entries: std.ArrayList(Named) = .{};
+    defer {
+        for (entries.items) |item| {
+            allocator.free(item.name);
+            allocator.free(item.url);
+        }
+        entries.deinit(allocator);
+    }
+    if (only) |raw| {
+        const name = try normalizeName(raw);
+        const found = map.urlForName(name) orelse {
+            try stderr("error: {s} is not a registry.\n", .{name});
+            return error.Explained;
+        };
+        try entries.append(allocator, .{
+            .name = try allocator.dupe(u8, name),
+            .url = try allocator.dupe(u8, found),
+        });
+    } else {
+        for (builtin_registries) |item| {
+            try entries.append(allocator, .{
+                .name = try allocator.dupe(u8, item.name),
+                .url = try allocator.dupe(u8, item.url),
+            });
+        }
+        for (map.names.items) |item| {
+            try entries.append(allocator, .{
+                .name = try allocator.dupe(u8, item.name),
+                .url = try allocator.dupe(u8, item.url),
+            });
+        }
+    }
+    for (entries.items) |item| try probeRegistry(allocator, item.name, item.url);
+}
+
+fn printNameLine(map: *const Map, name: []const u8, url: []const u8) !void {
+    if (map.isCurrent(name, url)) {
+        try stdout("* {s} {s}\n", .{ name, url });
+    } else {
+        try stdout("  {s} {s}\n", .{ name, url });
+    }
+}
+
+fn probeRegistry(allocator: mem.Allocator, name: []const u8, url: []const u8) !void {
+    const argv = [_][]const u8{ "curl", "-o", "/dev/null", "-s", "-w", "%{time_total}", "--max-time", "8", url };
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &argv,
+        .max_output_bytes = 128,
+    }) catch |err| switch (err) {
+        error.FileNotFound => return error.CurlMissing,
+        else => return err,
+    };
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    const ok = switch (result.term) {
+        .Exited => |code| code == 0 and mem.trim(u8, result.stdout, " \t\r\n").len > 0,
+        else => false,
+    };
+    if (!ok) {
+        try stdout("{s} error\n", .{name});
+        return;
+    }
+    try stdout("{s} {s}s\n", .{ name, mem.trim(u8, result.stdout, " \t\r\n") });
 }
 
 pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
@@ -416,8 +680,11 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
     defer allocator.free(body);
     if (body.len == 0) return error.NoMap;
     const StoredScope = struct { name: []const u8, registry: []const u8 };
+    const StoredName = struct { name: []const u8, registry: []const u8 };
     const Stored = struct {
         default: ?[]const u8 = null,
+        current: ?[]const u8 = null,
+        names: []const StoredName = &.{},
         scopes: []const StoredScope = &.{},
     };
     const parsed = try std.json.parseFromSlice(Stored, allocator, body, .{
@@ -431,10 +698,23 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
         _ = try normalizeUrl(url);
         map.default_url = try allocator.dupe(u8, url);
     }
+    for (parsed.value.names) |named| {
+        const name = normalizeName(named.name) catch continue;
+        if (findBuiltin(name) != null) continue;
+        const url = try normalizeUrl(named.registry);
+        try map.upsertName(allocator, name, url);
+    }
     for (parsed.value.scopes) |scope| {
         const name = try normalizeScope(scope.name);
         const url = try normalizeUrl(scope.registry);
         try map.upsert(allocator, name, url);
+    }
+    if (parsed.value.current) |name| {
+        if (normalizeName(name)) |ok| {
+            if (map.urlForName(ok) != null) try map.assignCurrent(allocator, ok);
+        } else |_| {}
+    } else if (map.default_url) |url| {
+        try map.assignCurrent(allocator, map.lookupName(url));
     }
     return map;
 }
@@ -446,6 +726,7 @@ fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     const rel_root = if (root.len > 0 and root[0] == '/') root[1..] else root;
     try root_dir.makePath(rel_root);
     map.sort();
+    map.sortNames();
     var body: std.ArrayList(u8) = .{};
     defer body.deinit(allocator);
     try body.appendSlice(allocator, "{\n  \"default\": ");
@@ -456,7 +737,26 @@ fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     } else {
         try body.appendSlice(allocator, "null");
     }
-    try body.appendSlice(allocator, ",\n  \"scopes\": [\n");
+    try body.appendSlice(allocator, ",\n  \"current\": ");
+    if (map.current_name) |name| {
+        const quoted = try quote(allocator, name);
+        defer allocator.free(quoted);
+        try body.appendSlice(allocator, quoted);
+    } else {
+        try body.appendSlice(allocator, "null");
+    }
+    try body.appendSlice(allocator, ",\n  \"names\": [\n");
+    for (map.names.items, 0..) |named, i| {
+        const name = try quote(allocator, named.name);
+        defer allocator.free(name);
+        const url = try quote(allocator, named.url);
+        defer allocator.free(url);
+        const comma: []const u8 = if (i + 1 == map.names.items.len) "" else ",";
+        const line = try std.fmt.allocPrint(allocator, "    {{\"name\": {s}, \"registry\": {s}}}{s}\n", .{ name, url, comma });
+        defer allocator.free(line);
+        try body.appendSlice(allocator, line);
+    }
+    try body.appendSlice(allocator, "  ],\n  \"scopes\": [\n");
     for (map.scopes.items, 0..) |scope, i| {
         const name = try quote(allocator, scope.name);
         defer allocator.free(name);
@@ -603,6 +903,10 @@ fn scopeLess(_: void, a: Scope, b: Scope) bool {
     return mem.lessThan(u8, a.name, b.name);
 }
 
+fn nameLess(_: void, a: Named, b: Named) bool {
+    return mem.lessThan(u8, a.name, b.name);
+}
+
 pub fn normalizeScope(raw: []const u8) ![]const u8 {
     const name = mem.trim(u8, raw, " \t");
     if (name.len < 2 or name.len > 128 or name[0] != '@') return error.InvalidScope;
@@ -612,6 +916,33 @@ pub fn normalizeScope(raw: []const u8) ![]const u8 {
         if (!ok) return error.InvalidScope;
     }
     return name;
+}
+
+fn normalizeName(raw: []const u8) ![]const u8 {
+    const name = mem.trim(u8, raw, " \t");
+    if (name.len < 1 or name.len > 64) return error.InvalidName;
+    if (name[0] == '@' or mem.indexOfScalar(u8, name, '/') != null) return error.InvalidName;
+    for (name) |char| {
+        const ok = std.ascii.isAlphanumeric(char) or char == '-' or char == '_' or char == '.';
+        if (!ok) return error.InvalidName;
+    }
+    return name;
+}
+
+fn findBuiltin(name: []const u8) ?Builtin {
+    for (builtin_registries) |item| {
+        if (mem.eql(u8, item.name, name)) return item;
+    }
+    return null;
+}
+
+fn sameUrl(a: []const u8, b: []const u8) bool {
+    return mem.eql(u8, stripOneSlash(a), stripOneSlash(b));
+}
+
+fn stripOneSlash(url: []const u8) []const u8 {
+    if (url.len > 1 and url[url.len - 1] == '/') return url[0 .. url.len - 1];
+    return url;
 }
 
 pub fn normalizeUrl(raw: []const u8) ![]const u8 {
@@ -711,4 +1042,11 @@ test "registry files keep unrelated lines and scope routes" {
     try std.testing.expectError(error.InvalidScope, normalizeScope("company"));
     try std.testing.expectError(error.InvalidScope, normalizeScope("@a/b"));
     try std.testing.expectError(error.InvalidUrl, normalizeUrl("ftp://example.com"));
+    try std.testing.expect(sameUrl(china_registry, "https://registry.npmmirror.com/"));
+    try std.testing.expect(sameUrl(official_registry, "https://registry.npmjs.org/"));
+    try std.testing.expect(!sameUrl(china_registry, official_registry));
+    try std.testing.expect(findBuiltin("taobao") != null);
+    try std.testing.expect(findBuiltin("local") == null);
+    try std.testing.expectError(error.InvalidName, normalizeName("@company"));
+    try std.testing.expectError(error.InvalidName, normalizeName("a/b"));
 }

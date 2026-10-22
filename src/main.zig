@@ -11,7 +11,7 @@ const guide = @import("guide.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.4.0";
+const ZNVM_VERSION = "v2.5.0";
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
@@ -21,11 +21,31 @@ pub fn main() !void {
     const args = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args);
 
-    const invoked_as_nvm = mem.eql(u8, std.fs.path.basename(args[0]), "nvm");
-    commands.program_name = if (invoked_as_nvm) "nvm" else "znvm";
+    const base_name = std.fs.path.basename(args[0]);
+    const invoked_as_nvm = mem.eql(u8, base_name, "nvm");
+    const invoked_as_nrm = mem.eql(u8, base_name, "nrm");
+    commands.program_name = if (invoked_as_nrm) "nrm" else if (invoked_as_nvm) "nvm" else "znvm";
 
     const config = try config_mod.getConfig(allocator);
     defer config.deinit();
+
+    if (invoked_as_nrm) {
+        if (args.len < 2) {
+            if (std.posix.isatty(std.posix.STDIN_FILENO)) {
+                try guide.runRegistry(allocator, config);
+            } else {
+                try commands.printNrmHelp();
+            }
+            return;
+        }
+        const nrm_cmd = args[1];
+        if ((mem.eql(u8, nrm_cmd, "--version") or mem.eql(u8, nrm_cmd, "-v")) and args.len == 2) {
+            try stdout("{s}\n", .{ZNVM_VERSION});
+            return;
+        }
+        try commands.cmdNrm(allocator, args, config);
+        return;
+    }
 
     if (args.len < 2) {
         try guide.run(allocator, config, .session);
