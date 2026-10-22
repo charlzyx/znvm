@@ -138,34 +138,37 @@ ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
 ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" ls)
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
-set +e
-env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/alias.out" 2>"$NVM_ALIGN_TMP/alias.err"
-ALIAS_STATUS=$?
-set -e
-echo "alias status=$ALIAS_STATUS stdout=[$(cat "$NVM_ALIGN_TMP/alias.out")] stderr=[$(cat "$NVM_ALIGN_TMP/alias.err")]" >&2
-if [[ "$ALIAS_STATUS" -ne 0 ]]; then
-    exit 1
-fi
-set +e
-DEFAULT_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default 2>"$NVM_ALIGN_TMP/default.err")
-DEFAULT_STATUS=$?
-set -e
-if [[ "$DEFAULT_STATUS" -ne 0 || "$DEFAULT_OUT" != "18" ]]; then
-    echo "default status=$DEFAULT_STATUS stdout=[$DEFAULT_OUT] stderr=[$(cat "$NVM_ALIGN_TMP/default.err")]" >&2
-    echo "alias file=[$([ -f "$ALIGN_ROOT/alias/default" ] && cat "$ALIGN_ROOT/alias/default")] legacy=[$([ -f "$ALIGN_ROOT/default" ] && cat "$ALIGN_ROOT/default")]" >&2
-    exit 1
-fi
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default)" = "v18.0.0"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current)" = "none"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version)" = "none"
-test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.4.0"
-set +e
-env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >/dev/null
-ALIGN_STATUS=$?
-set -e
-test "$ALIGN_STATUS" -eq 3
+# bash 3.2 (macOS CI) still aborts the script when a failing command is inside
+# $(...) under set -e, and a failing `test` prints nothing. Capture via files.
+align_expect() {
+    align_label=$1
+    align_want_status=$2
+    align_want_out=$3
+    shift 3
+    set +e
+    "$@" >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+    align_status=$?
+    set -e
+    align_out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+    align_err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+    if [[ "$align_status" -ne "$align_want_status" || "$align_out" != "$align_want_out" ]]; then
+        echo "FAIL $align_label status=$align_status want_status=$align_want_status stdout=$(printf %q "$align_out") want_out=$(printf %q "$align_want_out") stderr=$(printf %q "$align_err")" >&2
+        echo "alias file=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
+        exit 1
+    fi
+}
+align_env() {
+    env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$@"
+}
+align_expect alias 0 "" align_env "$ALIGN_BIN" alias default 18
+align_expect default 0 "18" align_env "$ALIGN_BIN" default
+align_expect version-default 0 "v18.0.0" align_env "$ALIGN_BIN" version default
+align_expect which-20 0 "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" align_env "$ALIGN_BIN" which 20
+align_expect which-18 0 "$ALIGN_ROOT/versions/v18.0.0/bin/node" align_env "$ALIGN_BIN" which 18
+align_expect current 0 "none" align_env "$ALIGN_BIN" current
+align_expect nvm-version 0 "none" align_env "$ALIGN_ROOT/bin/nvm" version
+align_expect nvm-tool-version 0 "v2.4.0" env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version
+align_expect version-missing 3 "N/A" align_env "$ALIGN_BIN" version 99
 USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
 printf '%s\n' "$USE_OUT" | grep -q "v20.11.0"
 printf '%s\n' "$USE_OUT" | grep -q "Found '$ALIGN_ROOT/proj/.nvmrc'"
