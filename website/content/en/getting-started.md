@@ -17,12 +17,19 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 When it finishes, it prints:
 
 ```text
+nvm
+Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
+
+> Downloading nvm v2.4.0 (x86_64-linux)...
+ok Wrote /home/user/.nvm/nvm.sh
+> Added nvm startup to /home/user/.bashrc
+
 nvm is ready.
 
 Open a new terminal, or run:
-  source "~/.bashrc"
+  source "/home/user/.bashrc"
 
-export NVM_DIR="$HOME/.nvm"
+export NVM_DIR="/home/user/.nvm"
 nvm install 22
 nvm use 22
 nvm ls

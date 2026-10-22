@@ -6,13 +6,24 @@ type Line = { kind: "in" | "out"; text: string };
 
 const script: Line[] = [
   { kind: "in", text: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash" },
+  { kind: "out", text: "nvm" },
+  { kind: "out", text: "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node." },
+  { kind: "out", text: "> Downloading nvm v2.4.0 (x86_64-linux)..." },
+  { kind: "out", text: "ok Wrote /home/user/.nvm/nvm.sh" },
+  { kind: "out", text: "> Added nvm startup to /home/user/.bashrc" },
   { kind: "out", text: "nvm is ready." },
+  { kind: "out", text: "Open a new terminal, or run:" },
+  { kind: "out", text: "  source \"/home/user/.bashrc\"" },
   { kind: "in", text: "nvm install 22" },
-  { kind: "out", text: "Installed v22" },
+  { kind: "out", text: "Installing v22.23.4 (x64)..." },
+  { kind: "out", text: "Extracting..." },
+  { kind: "out", text: "Installed v22.23.4" },
+  { kind: "out", text: "default -> v22.23.4" },
+  { kind: "out", text: "Using v22.23.4" },
   { kind: "in", text: "nvm use 22" },
-  { kind: "out", text: "Using v22" },
+  { kind: "out", text: "Using v22.23.4" },
   { kind: "in", text: "nvm current" },
-  { kind: "out", text: "v22" },
+  { kind: "out", text: "v22.23.4" },
 ];
 
 function useReducedMotion() {

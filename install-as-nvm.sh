@@ -7,14 +7,6 @@
 
 set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
-
 ZNVM_VERSION="v2.4.0"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
@@ -33,8 +25,8 @@ case "$NVM_COMPAT_DIR" in
         ;;
 esac
 
-echo -e "${CYAN}${BOLD}nvm${NC}"
-echo -e "${BLUE}Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.${NC}"
+echo "nvm"
+echo "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node."
 echo ""
 
 shell_quote() {
@@ -85,7 +77,7 @@ download_binary() {
     fi
 
     if [ -z "$target" ]; then
-        echo -e "${RED}No pre-compiled nvm binary for ${os}/${arch}.${NC}" >&2
+        echo "error: No pre-compiled nvm binary for ${os}/${arch}." >&2
         exit 1
     fi
 
@@ -98,15 +90,15 @@ download_binary() {
     fi
 
     if [ -z "$version" ]; then
-        echo -e "${RED}Could not determine which nvm version to download.${NC}" >&2
+        echo "error: Could not determine which nvm version to download." >&2
         exit 1
     fi
 
     url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
-    echo -e "${CYAN}=> Downloading nvm $version ($target)...${NC}" >&2
+    echo "> Downloading nvm $version ($target)..." >&2
     if ! curl -fL --retry 3 -o "$dest" "$url"; then
         rm -f "$dest"
-        echo -e "${RED}Download failed: $url${NC}" >&2
+        echo "error: Download failed: $url" >&2
         exit 1
     fi
     chmod +x "$dest"
@@ -138,7 +130,7 @@ install_binary() {
     mkdir -p "$dest_dir"
     dest="$dest_dir/nvm"
     if [ -x "$dest" ]; then
-        echo -e "${GREEN}✔ nvm is already installed at $dest${NC}" >&2
+        echo "ok nvm is already installed at $dest" >&2
         printf '%s\n' "$dest"
         return
     fi
@@ -170,9 +162,9 @@ safe_replace() {
                 else
                     cp -p "$dest" "$backup"
                 fi
-                echo -e "${YELLOW}=> Saved the previous $dest as $backup${NC}"
+                echo "> Saved the previous $dest as $backup"
             else
-                echo -e "${GREEN}✔ Previous copy already exists at $backup${NC}"
+                echo "ok Previous copy already exists at $backup"
             fi
             rm -f "$dest"
         fi
@@ -207,7 +199,7 @@ export PATH
 eval "$("$NVM_BIN" env)"
 EOF
     } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.bak"
-    echo -e "${GREEN}✔ Wrote $NVM_COMPAT_DIR/nvm.sh${NC}"
+    echo "ok Wrote $NVM_COMPAT_DIR/nvm.sh"
 }
 
 configure_profile() {
@@ -239,7 +231,7 @@ configure_profile() {
     fi
 
     if [ -f "$profile" ] && grep -q 'NVM_DIR/nvm.sh' "$profile"; then
-        echo -e "${GREEN}✔ Shell config already loads nvm ($profile)${NC}" >&2
+        echo "ok Shell config already loads nvm ($profile)" >&2
         printf '%s\n' "$profile"
         return
     fi
@@ -252,7 +244,7 @@ configure_profile() {
 export NVM_DIR="$NVM_COMPAT_DIR"
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 EOF
-    echo -e "${CYAN}=> Added nvm startup to $profile${NC}" >&2
+    echo "> Added nvm startup to $profile" >&2
     printf '%s\n' "$profile"
 }
 
@@ -267,14 +259,14 @@ write_nvm_sh "$NVM_EXE"
 PROFILE_PATH="$(configure_profile)"
 
 echo ""
-echo -e "${GREEN}${BOLD}nvm is ready.${NC}"
-echo -e "${CYAN}Open a new terminal, or run:${NC}"
-echo -e "  ${BOLD}source \"$PROFILE_PATH\"${NC}"
+echo "nvm is ready."
+echo "Open a new terminal, or run:"
+echo "  source \"$PROFILE_PATH\""
 echo ""
-echo -e "${BOLD}export NVM_DIR=\"$NVM_COMPAT_DIR\"${NC}"
-echo -e "${BOLD}nvm install 22${NC}"
-echo -e "${BOLD}nvm use 22${NC}"
-echo -e "${BOLD}nvm ls${NC}"
+echo "export NVM_DIR=\"$NVM_COMPAT_DIR\""
+echo "nvm install 22"
+echo "nvm use 22"
+echo "nvm ls"
 echo ""
-echo -e "${YELLOW}Node versions are stored in \$NVM_DIR/versions/node.${NC}"
-echo -e "${YELLOW}Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.${NC}"
+echo "Node versions are stored in \$NVM_DIR/versions/node."
+echo "Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set."
