@@ -35,7 +35,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center">
         {/* Logo */}
         <Link href={homeHref} className="mr-6 flex items-center space-x-2 flex-shrink-0">
-          <Zap className="h-6 w-6 text-orange-500" />
+          <Zap className="h-6 w-6 text-node" />
           <span className="font-bold text-xl">znvm</span>
         </Link>
 
@@ -95,7 +95,7 @@ function MobileNav({ isZh }: { isZh: boolean }) {
     <div className="flex flex-col space-y-4 p-4">
       {/* Logo */}
       <Link href={homeHref} className="flex items-center space-x-2">
-        <Zap className="h-5 w-5 text-orange-500" />
+        <Zap className="h-5 w-5 text-node" />
         <span className="font-bold">znvm</span>
       </Link>
 

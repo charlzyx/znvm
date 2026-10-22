@@ -40,7 +40,7 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
           </p>
           <div className="mt-8 overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full min-w-[36rem] text-left text-sm">
-              <thead className="bg-white/5 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-white/5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
                   {headers.map((header) => (
                     <th key={header || "capability"} scope="col" className="px-4 py-3 font-medium">
@@ -57,7 +57,7 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
                     </th>
                     <td className="px-4 py-3 text-muted-foreground">{row[1]}</td>
                     <td className="px-4 py-3 text-muted-foreground">{row[2]}</td>
-                    <td className="px-4 py-3 font-medium text-orange-200">{row[3]}</td>
+                    <td className="px-4 py-3 font-medium text-node-bright">{row[3]}</td>
                   </tr>
                 ))}
               </tbody>

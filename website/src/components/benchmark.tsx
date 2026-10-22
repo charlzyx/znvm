@@ -30,7 +30,7 @@ const commands = [
 function NameCell({ name, highlight }: { name: string; highlight?: boolean }) {
   return (
     <TableCell className="font-medium">
-      {highlight ? <Badge className="bg-orange-500">{name}</Badge> : name}
+      {highlight ? <Badge className="bg-node text-[#041208]">{name}</Badge> : name}
     </TableCell>
   );
 }
@@ -71,12 +71,12 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
                 </TableHeader>
                 <TableBody>
                   {startup.map((row) => (
-                    <TableRow key={row.name} className={row.highlight ? "bg-orange-500/5" : ""}>
+                    <TableRow key={row.name} className={row.highlight ? "bg-node/10" : ""}>
                       <NameCell name={row.name} highlight={row.highlight} />
-                      <TableCell className="text-right font-mono">{row.warm}</TableCell>
-                      <TableCell className="text-right font-mono">{row.warmP95}</TableCell>
-                      <TableCell className="text-right font-mono">{row.cold}</TableCell>
-                      <TableCell className="text-right font-mono">{row.coldP95}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.warm}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.warmP95}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.cold}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.coldP95}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -103,14 +103,14 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
                 </TableHeader>
                 <TableBody>
                   {commands.map((row) => (
-                    <TableRow key={row.name} className={row.highlight ? "bg-orange-500/5" : ""}>
+                    <TableRow key={row.name} className={row.highlight ? "bg-node/10" : ""}>
                       <NameCell name={row.name} highlight={row.highlight} />
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.listWarm}</strong> : row.listWarm}</TableCell>
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.listCold}</strong> : row.listCold}</TableCell>
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.useWarm}</strong> : row.useWarm}</TableCell>
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.useCold}</strong> : row.useCold}</TableCell>
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.nvmrcWarm}</strong> : row.nvmrcWarm}</TableCell>
-                      <TableCell className="text-right font-mono">{row.highlight ? <strong>{row.nvmrcCold}</strong> : row.nvmrcCold}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.listWarm}</strong> : row.listWarm}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.listCold}</strong> : row.listCold}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.useWarm}</strong> : row.useWarm}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.useCold}</strong> : row.useCold}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.nvmrcWarm}</strong> : row.nvmrcWarm}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.highlight ? <strong>{row.nvmrcCold}</strong> : row.nvmrcCold}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
