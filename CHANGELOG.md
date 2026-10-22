@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.3.0] - 2026-10-22
+
+### Added
+
+- Everyday commands follow nvm: `install`, `use`, `ls`, `current`, alias/`default`, `.nvmrc`, and `uninstall`.
+- `install-as-nvm.sh` installs a command named `nvm`. Shell startup exports `NVM_DIR` (default `~/.nvm`) and sources `nvm.sh`.
+- Node versions are stored in `$NVM_DIR/versions/node`. The default download mirror remains npmmirror.
+
+### Changed
+
+- `nvm version` prints the active Node version. `nvm --version` prints the tool version.
+- There is no `nvm completion` command, and the installer does not add shell completion.
+
 ## [v2.2.2] - 2026-07-15
 
 ### Fixed
@@ -235,6 +248,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.3.0]: https://github.com/charlzyx/znvm/compare/v2.2.2...v2.3.0
 [v2.2.2]: https://github.com/charlzyx/znvm/compare/v2.2.1...v2.2.2
 [v2.2.1]: https://github.com/charlzyx/znvm/compare/v2.2.0...v2.2.1
 [v2.2.0]: https://github.com/charlzyx/znvm/compare/v2.1.2...v2.2.0

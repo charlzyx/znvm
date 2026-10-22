@@ -47,7 +47,7 @@ Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is
 ### 安装指定版本
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm.sh | bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.3.0/install-as-nvm.sh | bash
 ```
 
 ## ✨ 核心特性

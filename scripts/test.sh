@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.2.2 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.3.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.2.2" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.3.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.2.2, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.3.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -145,7 +145,7 @@ test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current)" = "none"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version)" = "none"
-test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
+test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.3.0"
 set +e
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >/dev/null
 ALIGN_STATUS=$?
@@ -182,7 +182,7 @@ bash -c '
         "v20 "*) ;;
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
-    test "$(nvm --version)" = "v2.2.2"
+    test "$(nvm --version)" = "v2.3.0"
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -244,7 +244,7 @@ bash -c '
     export PATH="$1/.nvm:/usr/bin:/bin"
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
-    test "$(nvm --version)" = "v2.2.2"
+    test "$(nvm --version)" = "v2.3.0"
     test "$(nvm version)" = "none"
     test "$(nvm current)" = "none"
     test -z "$(type znvm 2>/dev/null || true)"

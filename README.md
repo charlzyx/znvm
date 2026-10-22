@@ -49,7 +49,7 @@ The profile path in the `source` line is the file the script actually updated.
 ### Install a specific version
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm.sh | bash
+curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.3.0/install-as-nvm.sh | bash
 ```
 
 ## ✨ Core Features
