@@ -10,19 +10,21 @@ curl -fsSL https://znvm.dev/install.sh | bash
 
 厌倦了缓慢的 **node version manager** 工具？**znvm** 专为追求速度与简洁的开发者设计：
 
-- **⚡️ 瞬时响应**: 启动 < 5ms (对比 nvm 的 150ms+ 或 fnm 的 20ms)
+- **⚡️ 实测启动**: 2026-10-22 的 shell 开销 3.55 ms（nvm 118 ms，fnm 文档化 init 1.58 ms）
 - **🎯 Unix 优先**: 精简专注，无跨平台臃肿代码
 - **🛠 零配置**: 直接使用现有的 `.nvmrc`
 
 ## 性能对比
 
-**在 Apple M4 (16GB 内存, macOS 25.3) 上的真实基准**：
+**2026-10-22 暖机中位数。4 核 KVM 虚拟机（Intel Xeon，Ubuntu 24.04），`benchmarks/measure.py`，znvm 为 ReleaseSafe。** shell 内命令预热 10 次、采样 40 次。shell 启动预热 5 次、采样 20 次。fnm 的文档化 init 当时已经激活 Node v22.14.0。完整样本：`benchmarks/results/2026-10-22.json`。
 
-| 管理器 | `list` | `use` | `.nvmrc` |
-| :--- | :--- | :--- | :--- |
-| `nvm` | 708ms | 192ms | 189ms |
-| `fnm` | 6ms | 4ms | 10ms |
-| **`znvm`** | **4ms** | **3ms** | **2ms** |
+| 管理器 | shell 启动 | `list` | `use` | `.nvmrc` | 体积 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB 脚本 |
+| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
+| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+
+从 nodejs.org 安装 Node 22.13.1（清缓存，含下载，3 次）：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms。差距主要来自网络。冷启动单次样本只在 JSON 里。这次 znvm 的 shell 启动低于 nvm、高于 fnm。
 
 ## 是什么让 znvm 与众不同？
 

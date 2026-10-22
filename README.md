@@ -2,7 +2,7 @@
 
 [简体中文](./README_zh.md)
 
-**The blazingly fast, zero-config Node.js version manager. Built with Zig for performance. Optimized for Unix.**
+**A Node.js version manager built with Zig. Everyday commands follow nvm, versions live in `~/.nvm`, and downloads default to npmmirror.**
 
 [![GitHub stars](https://img.shields.io/github/stars/charlzyx/znvm.svg?style=social)](https://github.com/charlzyx/znvm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -12,9 +12,9 @@
 
 ## 🚀 Why znvm?
 
-Traditional Node.js version managers are either slow (written in Shell) or feature-bloated (written in Rust/Go). **znvm** leverages **Zig** to achieve extreme performance with zero overhead.
+**znvm** is a Zig Node.js version manager for everyday nvm use. The default download mirror is npmmirror. The Benchmarks section is a measured comparison, not a slogan.
 
-- **Instant Speed**: Startup latency **< 5ms**. Faster than `nvm` and even `fnm`.
+- **Measured startup**: On 2026-10-22, a fresh bash running `eval "$(znvm env)"` added **3.55 ms** over `bash -c true`. The same setup was **118 ms** for nvm 0.40.3 and **1.58 ms** for fnm 1.39.0's documented init (Node was already active). In-shell `list` / `use` / `.nvmrc` medians were **0.62 / 0.89 / 0.97 ms**.
 - **Zero Configuration**: Perfect support for `.nvmrc`. Just `cd` and you're ready.
 - **Minimal & Focused**: No bloated dependencies, no Windows overhead. Just pure Unix performance.
 - **Smart Architecture**: Zig handles complex SemVer parsing; Shell handles env switching.
@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install.sh | b
 
 ### Use it as `nvm`
 
-`install-as-nvm.sh` installs znvm and makes the `nvm` command run it, including the `~/.nvm/nvm.sh` file existing shell configs already source. Running it again is safe: it will not duplicate shell config, and it will not delete Node versions already installed by nvm. Those stay in `~/.nvm`. znvm keeps its own copies in `~/.znvm`.
+`install-as-nvm.sh` installs znvm and makes the `nvm` command run it, including the `~/.nvm/nvm.sh` file existing shell configs already source. Running it again is safe: it will not duplicate shell config, and it will not delete Node versions already installed under `~/.nvm/versions/node`. znvm uses that same tree.
 
 The previous `nvm.sh` and `bash_completion`, if they were not already znvm shims, are copied once to `nvm.sh.pre-znvm` and `bash_completion.pre-znvm`.
 
@@ -49,7 +49,7 @@ Open a new terminal, or `source` the printed profile. `nvm install`, `nvm use`, 
 - 🍎 **Apple Silicon Friendly**: Automatic architecture detection and Rosetta fallback.
 - 🐧 **Unix-First**: Native support for macOS and Linux.
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
-- 📦 **Shared Global Packages**: Global npm packages remain available when switching Node.js versions.
+- 📦 **Per-version globals**: Global npm packages stay inside each Node version, as they do with nvm. Set `ZNVM_NPM_PREFIX` to an absolute path for one shared prefix.
 - ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.
 
 ## 🛠 Usage
@@ -92,12 +92,21 @@ znvm deactivate
 
 ### Differences from nvm
 
-- Node versions installed by znvm live in `~/.znvm`, not `~/.nvm`. `install-as-nvm.sh` does not migrate or delete an existing nvm install.
-- The download mirror defaults to `https://npmmirror.com/mirrors/node`. Override it with `ZNVM_NODE_MIRROR` or `NVM_NODEJS_ORG_MIRROR`.
-- `znvm version` with no arguments prints the znvm version. `nvm version` prints the active Node version (`none` or `system` when znvm is not providing it). `nvm --version` and `znvm --version` both print the znvm version.
-- Shell setup switches versions when you enter a directory with `.nvmrc`, and falls back to the default alias. It does not install a missing version; run `install` for that.
-- Only `.nvmrc` is read. The search walks parent directories, `#` comments are ignored, and `.node-version` is not consulted.
-- Global npm packages are shared across Node versions. Source builds (`-s`), io.js, and `reinstall-packages` are not supported.
+Node versions live in `$NVM_DIR/versions/node` (default `~/.nvm`), including versions nvm already installed. `ZNVM_DIR` is only used when `NVM_DIR` is unset. A previous znvm tree at `~/.znvm/versions/vX.Y.Z` is still detected. Node older than 0.12 is read from `$NVM_DIR/vX.Y.Z`, matching nvm.
+
+The download mirror defaults to `https://npmmirror.com/mirrors/node`. Override it with `ZNVM_NODE_MIRROR` or `NVM_NODEJS_ORG_MIRROR`.
+
+`znvm version` with no arguments prints the znvm version. `nvm version` prints the active Node version (`none` or `system` when znvm is not providing it). `nvm --version` and `znvm --version` both print the znvm version.
+
+Shell setup switches to `.nvmrc` when you enter a directory, then the default alias. It does not download a missing version. `.node-version` is used only when no `.nvmrc` exists anywhere above the current directory (nvm 0.40 reads `.nvmrc` only). `#` comments are ignored.
+
+Global npm packages stay inside each Node version, as they do with nvm. `reinstall-packages` and `--reinstall-packages-from` copy them to the version you are switching to. Set `ZNVM_NPM_PREFIX` to an absolute path when you want one shared global prefix instead.
+
+Not implemented, because they are not just a different default:
+
+- `-s` compiles Node from source. znvm installs official binaries only.
+- io.js and the `unstable` alias are retired and are not on the Node mirror.
+- `set-colors` only changes nvm.sh's terminal colors. znvm prints plain text.
 
 ## ⚙️ Shell Setup
 
@@ -112,11 +121,23 @@ eval "$(znvm env)"
 
 ## 📊 Benchmarks
 
-| Manager | Language | Startup Latency |
-| :--- | :--- | :--- |
-| `nvm` | Bash | ~150ms+ |
-| `fnm` | Rust | ~20ms |
-| **`znvm`** | **Zig** | **< 5ms** |
+Warm medians from [`benchmarks/measure.py`](benchmarks/measure.py) on **2026-10-22**. Hardware: 4-vCPU KVM guest, Intel Xeon (lscpu model name `Intel(R) Xeon(R) Processor`), Ubuntu 24.04.5. The timed znvm binary was ReleaseSafe, 3,908,768 bytes (3.73 MiB, not stripped). Adding `--copy-packages-from` afterward rebuilds to 3,910,296 bytes, which is still 3.73 MiB at this precision. Those timings were not re-run. Compared with nvm v0.40.3 (`nvm.sh` 150,227 bytes) and fnm 1.39.0 (7,374,576 bytes). Installed versions: v22.14.0 (default) and v20.19.0. PATH was the tool directory plus `/usr/bin:/bin`. Raw samples: [`benchmarks/results/2026-10-22.json`](benchmarks/results/2026-10-22.json).
+
+| Manager | Shell startup | `list` | `use` | `.nvmrc` | Size |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB script |
+| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
+| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+
+Shell startup is a fresh `bash --noprofile --norc` running the documented init, minus `bash -c true` (5 warmup, 20 samples). fnm's `eval "$(fnm env --use-on-cd)"` already resolved to Node v22.14.0 (`latency.fnm.node_after_documented_init` in the JSON), so 1.58 ms is the figure to compare. The JSON method text still says that init does not select a default; that sentence is stale. An extra `fnm use 22.14.0` after init was 2.43 ms and is not the headline.
+
+`list` / `use` / `.nvmrc` are inside an already-initialized shell, minus an in-shell `true` (10 warmup, 40 samples). `use` alternates v20.19.0 and v22.14.0. `.nvmrc` contains `20.19.0`.
+
+Installing Node v22.13.1 from `https://nodejs.org/dist` (tarball `node-v22.13.1-linux-x64.tar.xz`, 29,885,824 bytes, cache cleared each sample, 3 samples, download included). Raw medians: znvm 1241 ms, fnm 2317 ms, nvm 2327 ms. Network time dominates, so this is not a stable multiplier.
+
+One sample after dropping the page cache is in the JSON under `cold`. It is not a median and is not the table above. The fnm cold startup command also ran `fnm use 22.14.0`.
+
+`benchmarks/benchmark_key_operations.sh` is retired. It took one `time` sample, included `source nvm.sh` only in the nvm timings, and called `znvm resolve`, which is not a command.
 
 ## 📖 Documentation
 

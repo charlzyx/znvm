@@ -193,26 +193,62 @@ test "version list: sorting by semantic version" {
     try testing.expectEqualSlices(u8, "v22.0.0", versions.items[2]);
 }
 
-test "npm prefix: empty value uses shared default" {
-    const allocator = std.testing.allocator;
-    const prefix = try config.resolveNpmPrefix(allocator, "", "/tmp/znvm");
-    defer allocator.free(prefix);
-
-    try testing.expectEqualSlices(u8, "/tmp/znvm/npm", prefix);
+test "npm prefix: empty value keeps nvm's per-version prefix" {
+    const prefix = try config.resolveNpmPrefix(std.testing.allocator, "");
+    try testing.expect(prefix == null);
 }
 
 test "npm prefix: accepts absolute path" {
     const allocator = std.testing.allocator;
-    const prefix = try config.resolveNpmPrefix(allocator, "/tmp/shared npm", "/tmp/znvm");
-    defer allocator.free(prefix);
+    const prefix = try config.resolveNpmPrefix(allocator, "/tmp/shared npm");
+    defer allocator.free(prefix.?);
 
-    try testing.expectEqualSlices(u8, "/tmp/shared npm", prefix);
+    try testing.expectEqualSlices(u8, "/tmp/shared npm", prefix.?);
 }
 
 test "npm prefix: rejects relative and PATH-separated values" {
     const allocator = std.testing.allocator;
-    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "relative", "/tmp/znvm"));
-    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "/tmp/one:/tmp/two", "/tmp/znvm"));
+    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "relative"));
+    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "/tmp/one:/tmp/two"));
+}
+
+test "data root: NVM_DIR wins over ZNVM_DIR and the default is ~/.nvm" {
+    const allocator = std.testing.allocator;
+    const from_nvm = try config.resolveDataRoot(allocator, "/tmp/nvm", "/tmp/znvm", "/home/user");
+    defer allocator.free(from_nvm);
+    try testing.expectEqualSlices(u8, "/tmp/nvm", from_nvm);
+
+    const from_znvm = try config.resolveDataRoot(allocator, null, "/tmp/znvm", "/home/user");
+    defer allocator.free(from_znvm);
+    try testing.expectEqualSlices(u8, "/tmp/znvm", from_znvm);
+
+    const from_home = try config.resolveDataRoot(allocator, "", null, "/home/user");
+    defer allocator.free(from_home);
+    try testing.expectEqualSlices(u8, "/home/user/.nvm", from_home);
+}
+
+test "old node layout: versions before 0.12 live directly in NVM_DIR" {
+    try testing.expect(version.isOldNodeLayout("v0.10.48"));
+    try testing.expect(!version.isOldNodeLayout("v0.12.0"));
+    try testing.expect(!version.isOldNodeLayout("v22.14.0"));
+}
+
+test "parseIndex: version strings stay valid after the response buffer is reused" {
+    const allocator = testing.allocator;
+    const raw =
+        \\[{"version":"v22.14.0","files":["linux-x64"],"lts":false},{"version":"v20.19.0","files":["linux-x64"],"lts":"Iron"}]
+    ;
+    const body = try allocator.dupe(u8, raw);
+    defer allocator.free(body);
+
+    const parsed = try version.parseIndex(allocator, body);
+    defer parsed.deinit();
+    @memset(body, 0);
+
+    const result = version.resolveRemoteEntry(parsed.value, "22.14.0", "linux-x64");
+    try testing.expect(result != null);
+    try testing.expectEqualSlices(u8, "v22.14.0", result.?.version);
+    try testing.expectEqualSlices(u8, "linux-x64", result.?.files[0]);
 }
 
 test "resolveRemoteEntry: short version selects latest release line" {

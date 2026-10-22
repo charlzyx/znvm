@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Install znvm and present it as nvm.
 #
-# Safe to run more than once. Existing Node installations under ~/.nvm/versions
-# are not deleted or migrated. The previous nvm.sh and bash_completion are
-# copied aside once, as *.pre-znvm, before znvm's shims replace them.
+# Safe to run more than once. Node versions stay in ~/.nvm/versions/node, the
+# same tree nvm uses, and are not deleted. The previous nvm.sh and
+# bash_completion are copied aside once, as *.pre-znvm, before znvm's shims
+# replace them.
 
 set -euo pipefail
 
@@ -34,7 +35,7 @@ case "$NVM_COMPAT_DIR" in
 esac
 
 echo -e "${CYAN}${BOLD}znvm: install as nvm${NC}"
-echo -e "${BLUE}The nvm command will run znvm. Existing ~/.nvm Node versions are left untouched.${NC}"
+echo -e "${BLUE}The nvm command will run znvm. Node versions stay in ~/.nvm/versions/node.${NC}"
 echo ""
 
 shell_quote() {
@@ -333,6 +334,6 @@ echo -e "${GREEN}${BOLD}nvm now runs znvm.${NC}"
 echo -e "${CYAN}Open a new terminal, or run:${NC}"
 echo -e "  ${BOLD}source \"$PROFILE_PATH\"${NC}"
 echo ""
-echo -e "${YELLOW}Node versions already installed by nvm stay in $NVM_COMPAT_DIR.${NC}"
-echo -e "${YELLOW}znvm installs its own Node versions under ~/.znvm.${NC}"
+echo -e "${YELLOW}Node versions stay in $NVM_COMPAT_DIR/versions/node, the same tree nvm uses.${NC}"
+echo -e "${YELLOW}Existing installs there are kept. The znvm binary itself lives next to the nvm command.${NC}"
 echo -e "${YELLOW}Restore the previous nvm startup files from *.pre-znvm in $NVM_COMPAT_DIR if you need them.${NC}"

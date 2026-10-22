@@ -52,8 +52,8 @@ export function Hero({ lang = "en" }: HeroProps) {
           {/* Description */}
           <p className="mt-6 max-w-[700px] text-lg text-muted-foreground sm:text-xl">
             {isZh
-              ? "零负担 Node 版本管理器。终极 nvm 替代品，解决 nvm 卡顿问题。< 5ms 启动，Unix 优先，零配置。"
-              : "Zero-overhead Node Version Manager. The ultimate nvm alternative that solves the nvm-slow problem. < 5ms startup, Unix-first, zero config."
+              ? "按 nvm 的目录存放 Node 版本，默认从 npmmirror 下载。2026-10-22 在一台 Linux 虚拟机上测得 shell 启动开销 3.55 ms（nvm 118 ms，fnm 1.58 ms）。"
+              : "Stores Node versions the way nvm does, and downloads from npmmirror by default. Measured shell startup was 3.55 ms on a Linux VM (2026-10-22); nvm was 118 ms and fnm was 1.58 ms."
             }
           </p>
 

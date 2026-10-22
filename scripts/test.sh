@@ -58,23 +58,29 @@ else
     exit 1
 fi
 
-# Test shell quoting, shared prefix, PATH idempotence, and large output
+# Test shell quoting, PATH idempotence, and opt-in shared prefix
 echo "  Testing shell environment behavior..."
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT
 SPECIAL_ROOT="$TEST_ROOT/znvm space ';touch injected"
-SPECIAL_ENV=$(ZNVM_DIR="$SPECIAL_ROOT" PATH="/usr/bin:/bin" "$ZNVM_BIN" env)
-ZNVM_DIR="$SPECIAL_ROOT" bash -c '
+SPECIAL_ENV=$(env -u NVM_DIR ZNVM_DIR="$SPECIAL_ROOT" PATH="/usr/bin:/bin" "$ZNVM_BIN" env)
+env -u NVM_DIR ZNVM_DIR="$SPECIAL_ROOT" bash -c '
     eval "$1"
     first_path=$PATH
     eval "$1"
     test "$PATH" = "$first_path"
-    test "$NPM_CONFIG_PREFIX" = "$ZNVM_DIR/npm"
+    test "$NVM_DIR" = "$ZNVM_DIR"
+    test -z "${NPM_CONFIG_PREFIX-}"
+' _ "$SPECIAL_ENV"
+SHARED_ENV=$(env -u NVM_DIR ZNVM_DIR="$SPECIAL_ROOT" ZNVM_NPM_PREFIX="$SPECIAL_ROOT/npm" PATH="/usr/bin:/bin" "$ZNVM_BIN" env)
+env -u NVM_DIR ZNVM_DIR="$SPECIAL_ROOT" ZNVM_NPM_PREFIX="$SPECIAL_ROOT/npm" bash -c '
+    eval "$1"
+    test "$NPM_CONFIG_PREFIX" = "$ZNVM_NPM_PREFIX"
     case "$PATH" in
         "$NPM_CONFIG_PREFIX/bin:"*) ;;
         *) exit 1 ;;
     esac
-' _ "$SPECIAL_ENV"
+' _ "$SHARED_ENV"
 if [[ -e "$TEST_ROOT/injected" ]]; then
     echo -e "    ${RED}✗${NC} shell environment executed injected content"
     exit 1
@@ -84,14 +90,15 @@ LONG_PATH="/usr/bin:/bin"
 for i in $(seq 1 1000); do
     LONG_PATH="$LONG_PATH:/tmp/znvm-path-$i"
 done
-LONG_ENV=$(ZNVM_DIR="$TEST_ROOT/long" PATH="$LONG_PATH" "$ZNVM_BIN" env)
+LONG_ENV=$(env -u NVM_DIR ZNVM_DIR="$TEST_ROOT/long" ZNVM_NPM_PREFIX="$TEST_ROOT/long/npm" PATH="$LONG_PATH" "$ZNVM_BIN" env)
 EXPECTED_PATH="$TEST_ROOT/long/npm/bin:$LONG_PATH"
 bash -c 'eval "$1"; test "$PATH" = "$2"' _ "$LONG_ENV" "$EXPECTED_PATH"
 echo -e "    ${GREEN}✓${NC} shell environment behavior OK"
 
 # Test ls command (should show no versions installed)
 echo "  Testing ls command..."
-LS_OUTPUT=$("$ZNVM_BIN" ls 2>&1 || true)
+EMPTY_ROOT=$(mktemp -d)
+LS_OUTPUT=$(env -u ZNVM_DIR NVM_DIR="$EMPTY_ROOT" HOME="$EMPTY_ROOT/home" "$ZNVM_BIN" ls 2>&1 || true)
 if [[ "$LS_OUTPUT" == *"No versions installed"* ]]; then
     echo -e "    ${GREEN}✓${NC} ls command OK"
 else
@@ -101,7 +108,7 @@ fi
 
 # Test default command (should show no default set)
 echo "  Testing default command..."
-DEFAULT_OUTPUT=$("$ZNVM_BIN" default 2>&1 || true)
+DEFAULT_OUTPUT=$(env -u ZNVM_DIR NVM_DIR="$EMPTY_ROOT" HOME="$EMPTY_ROOT/home" "$ZNVM_BIN" default 2>&1 || true)
 if [[ "$DEFAULT_OUTPUT" == *"No default version set"* ]]; then
     echo -e "    ${GREEN}✓${NC} default command OK"
 else
@@ -111,41 +118,62 @@ fi
 
 echo "  Testing nvm-compatible commands..."
 NVM_ALIGN_TMP=$(mktemp -d)
-trap 'rm -rf "$TEST_ROOT" "$NVM_ALIGN_TMP"' EXIT
+trap 'rm -rf "$TEST_ROOT" "$EMPTY_ROOT" "$NVM_ALIGN_TMP"' EXIT
 ALIGN_ROOT="$NVM_ALIGN_TMP/root"
-mkdir -p "$ALIGN_ROOT/versions/v18.0.0/bin" "$ALIGN_ROOT/versions/v20.11.0/bin" "$ALIGN_ROOT/proj/sub" "$ALIGN_ROOT/bin"
+mkdir -p "$ALIGN_ROOT/versions/node/v20.11.0/bin" "$ALIGN_ROOT/versions/v18.0.0/bin" \
+    "$ALIGN_ROOT/versions/node/v20.11.0/lib/node_modules/cowsay" \
+    "$ALIGN_ROOT/proj/sub" "$ALIGN_ROOT/nodever" "$ALIGN_ROOT/bin" "$ALIGN_ROOT/save"
 printf '#!/bin/sh\nprintf "v18 %%s\\n" "$*"\n' > "$ALIGN_ROOT/versions/v18.0.0/bin/node"
-printf '#!/bin/sh\nprintf "v20 %%s\\n" "$*"\n' > "$ALIGN_ROOT/versions/v20.11.0/bin/node"
-chmod +x "$ALIGN_ROOT/versions/v18.0.0/bin/node" "$ALIGN_ROOT/versions/v20.11.0/bin/node"
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/npm-log"\n' "$ALIGN_ROOT" > "$ALIGN_ROOT/versions/v18.0.0/bin/npm"
+printf '#!/bin/sh\nprintf "v20 %%s\\n" "$*"\n' > "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
+printf '%s\n' '{"name":"cowsay","version":"1.5.0"}' > "$ALIGN_ROOT/versions/node/v20.11.0/lib/node_modules/cowsay/package.json"
+chmod +x "$ALIGN_ROOT/versions/v18.0.0/bin/node" "$ALIGN_ROOT/versions/v18.0.0/bin/npm" \
+    "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
 printf '20 # pin\n' > "$ALIGN_ROOT/proj/.nvmrc"
+printf '18\n' > "$ALIGN_ROOT/nodever/.node-version"
 cp "$ZNVM_BIN" "$ALIGN_ROOT/bin/znvm"
 ln -s znvm "$ALIGN_ROOT/bin/nvm"
 ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
 
-ALIGN_LS=$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" ls)
+ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" ls)
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
-PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" alias default 18 >/dev/null
-test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" default)" = "18"
-test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" version default)" = "v18.0.0"
-test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/v20.11.0/bin/node"
-test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" current)" = "none"
-test "$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" version)" = "none"
-test "$(ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >/dev/null
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default)" = "18"
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default)" = "v18.0.0"
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current)" = "none"
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version)" = "none"
+test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
 set +e
-PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" version 99 >/dev/null
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >/dev/null
 ALIGN_STATUS=$?
 set -e
 test "$ALIGN_STATUS" -eq 3
-USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" use 2>&1)
+USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
 printf '%s\n' "$USE_OUT" | grep -q "v20.11.0"
 printf '%s\n' "$USE_OUT" | grep -q "Found '$ALIGN_ROOT/proj/.nvmrc'"
-RUN_OUT=$(cd "$ALIGN_ROOT/proj" && PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" run --version)
+NODEVER_OUT=$(cd "$ALIGN_ROOT/nodever" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
+printf '%s\n' "$NODEVER_OUT" | grep -q "Found '$ALIGN_ROOT/nodever/.node-version'"
+printf '%s\n' "$NODEVER_OUT" | grep -q "v18.0.0"
+( cd "$ALIGN_ROOT/save" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 20 --save >/dev/null )
+test "$(cat "$ALIGN_ROOT/save/.nvmrc")" = "v20.11.0"
+PATH="$ALIGN_ROOT/versions/v18.0.0/bin:/usr/bin:/bin" env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" reinstall-packages 20 >/dev/null
+grep -q "install -g cowsay" "$ALIGN_ROOT/npm-log"
+set +e
+COPY_FROM_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --copy-packages-from=9.9.9 20 2>&1)
+COPY_FROM_STATUS=$?
+set -e
+test "$COPY_FROM_STATUS" -ne 0
+printf '%s\n' "$COPY_FROM_OUT" | grep -q "installed version of node"
+RUN_OUT=$(cd "$ALIGN_ROOT/proj" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" run --version)
 printf '%s\n' "$RUN_OUT" | grep -q "v20 --version"
-EXEC_OUT=$(PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" exec 18 "$ALIGN_ROOT/versions/v18.0.0/bin/node" hi)
+EXEC_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" exec 18 "$ALIGN_ROOT/versions/v18.0.0/bin/node" hi)
 printf '%s\n' "$EXEC_OUT" | grep -q "v18 hi"
 bash -c '
     set -e
+    unset NVM_DIR
     eval "$(ZNVM_DIR="$1" "$2" env)"
     cd "$1/proj/sub"
     nvm use >/dev/null
@@ -156,13 +184,14 @@ bash -c '
     esac
     test "$(nvm --version)" = "v2.2.2"
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
-PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" uninstall 18 >/dev/null
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
 set +e
-PATH="/usr/bin:/bin" ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_BIN" install --offline 1 >/dev/null 2>&1
+OFFLINE_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --offline 22.14.0 2>&1)
 ALIGN_STATUS=$?
 set -e
-test "$ALIGN_STATUS" -eq 55
+test "$ALIGN_STATUS" -ne 0
+printf '%s\n' "$OFFLINE_OUT" | grep -q "cached tarball"
 echo -e "    ${GREEN}✓${NC} nvm-compatible commands OK"
 
 echo "  Testing install-as-nvm.sh..."

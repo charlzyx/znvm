@@ -29,6 +29,11 @@ const ParsedArgs = struct {
     set_default: bool = false,
     alias_to: ?[]const u8 = null,
     no_alias: bool = false,
+    reinstall_from: ?[]const u8 = null,
+    latest_npm: bool = false,
+    offline: bool = false,
+    save: bool = false,
+    skip_default_packages: bool = false,
     positionals: std.ArrayList([]const u8) = .{},
 
     fn deinit(self: *ParsedArgs, allocator: mem.Allocator) void {
@@ -54,18 +59,75 @@ fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
     return quoted.toOwnedSlice(allocator);
 }
 
-fn versionsPrefix(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
-    return std.fmt.allocPrint(allocator, "{s}/", .{config.versions_dir});
+fn pathEntryIsManaged(config: ZnvmConfig, entry: []const u8) bool {
+    for (config.managed_roots) |root| {
+        if (root.len == 0 or entry.len <= root.len) continue;
+        if (!mem.startsWith(u8, entry, root) or entry[root.len] != '/') continue;
+        const rest = entry[root.len + 1 ..];
+        if (mem.startsWith(u8, rest, "versions/")) return true;
+        if (rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null) return true;
+    }
+    return false;
 }
 
 fn managedVersionFromRealPath(allocator: mem.Allocator, config: ZnvmConfig, real_path: []const u8) !?[]u8 {
-    const prefix = try versionsPrefix(allocator, config);
-    defer allocator.free(prefix);
-    if (!mem.startsWith(u8, real_path, prefix)) return null;
-    const after = real_path[prefix.len..];
-    const end = mem.indexOfScalar(u8, after, '/') orelse return null;
-    if (end == 0) return null;
-    return try allocator.dupe(u8, after[0..end]);
+    if (!pathEntryIsManaged(config, real_path)) return null;
+    const bin_at = mem.lastIndexOf(u8, real_path, "/bin/") orelse return null;
+    const before = real_path[0..bin_at];
+    const slash = mem.lastIndexOfScalar(u8, before, '/') orelse return null;
+    const name = before[slash + 1 ..];
+    if (name.len < 2 or name[0] != 'v') return null;
+    return try allocator.dupe(u8, name);
+}
+
+fn withVPrefix(allocator: mem.Allocator, ver: []const u8) ![]u8 {
+    if (ver.len > 0 and ver[0] == 'v') return allocator.dupe(u8, ver);
+    return std.fmt.allocPrint(allocator, "v{s}", .{ver});
+}
+
+fn newVersionDir(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) ![]u8 {
+    const name = try withVPrefix(allocator, ver);
+    defer allocator.free(name);
+    if (version.isOldNodeLayout(name)) return fs.path.join(allocator, &.{ config.root_dir, name });
+    return fs.path.join(allocator, &.{ config.versions_dir, name });
+}
+
+fn nodeBinaryIn(allocator: mem.Allocator, dir_path: []const u8) !?[]u8 {
+    const node = try fs.path.join(allocator, &.{ dir_path, "bin", "node" });
+    if (fs.accessAbsolute(node, .{})) {
+        return node;
+    } else |_| {
+        allocator.free(node);
+        return null;
+    }
+}
+
+/// Directory of an installed version. nvm's `versions/node/vX` is preferred.
+/// Older znvm trees (`versions/vX`) and Node < 0.12 (`$NVM_DIR/vX`) are still found.
+fn locateVersionDir(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) !?[]u8 {
+    const preferred = try newVersionDir(allocator, config, ver);
+    if (try nodeBinaryIn(allocator, preferred)) |node| {
+        allocator.free(node);
+        return preferred;
+    }
+    allocator.free(preferred);
+
+    const name = try withVPrefix(allocator, ver);
+    defer allocator.free(name);
+    for (config.scan_dirs) |dir_path| {
+        const candidate = try fs.path.join(allocator, &.{ dir_path, name });
+        if (try nodeBinaryIn(allocator, candidate)) |node| {
+            allocator.free(node);
+            return candidate;
+        }
+        allocator.free(candidate);
+    }
+    return null;
+}
+
+fn versionHome(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) ![]u8 {
+    if (try locateVersionDir(allocator, config, ver)) |dir_path| return dir_path;
+    return newVersionDir(allocator, config, ver);
 }
 
 fn pathEntries(allocator: mem.Allocator) !?[]const u8 {
@@ -115,23 +177,25 @@ fn findSystemNode(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
 }
 
 fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, current_path: []const u8) ![]u8 {
-    const bin_path = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin" });
+    const home = try versionHome(allocator, config, ver);
+    defer allocator.free(home);
+    const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
     defer allocator.free(bin_path);
-    const npm_bin_path = try fs.path.join(allocator, &.{ config.npm_prefix, "bin" });
-    defer allocator.free(npm_bin_path);
-    const prefix = try versionsPrefix(allocator, config);
-    defer allocator.free(prefix);
+    const npm_bin_path = if (config.npm_prefix) |prefix| try fs.path.join(allocator, &.{ prefix, "bin" }) else null;
+    defer if (npm_bin_path) |path| allocator.free(path);
 
     var list = std.ArrayList(u8){};
     errdefer list.deinit(allocator);
-    try list.appendSlice(allocator, npm_bin_path);
-    try list.append(allocator, ':');
+    if (npm_bin_path) |path| {
+        try list.appendSlice(allocator, path);
+        try list.append(allocator, ':');
+    }
     try list.appendSlice(allocator, bin_path);
 
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0) continue;
-        if (mem.startsWith(u8, entry, prefix) or mem.eql(u8, entry, npm_bin_path) or mem.eql(u8, entry, bin_path)) continue;
+        if (entry.len == 0 or pathEntryIsManaged(config, entry) or mem.eql(u8, entry, bin_path)) continue;
+        if (npm_bin_path) |path| if (mem.eql(u8, entry, path)) continue;
         try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
     }
@@ -139,14 +203,11 @@ fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8
 }
 
 fn pathWithoutVersions(allocator: mem.Allocator, config: ZnvmConfig, current_path: []const u8) ![]u8 {
-    const prefix = try versionsPrefix(allocator, config);
-    defer allocator.free(prefix);
-
     var list = std.ArrayList(u8){};
     errdefer list.deinit(allocator);
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0 or mem.startsWith(u8, entry, prefix)) continue;
+        if (entry.len == 0 or pathEntryIsManaged(config, entry)) continue;
         if (list.items.len > 0) try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
     }
@@ -160,7 +221,9 @@ fn currentPath(allocator: mem.Allocator) ![]u8 {
 }
 
 fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, silent: bool) !void {
-    const node_bin = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin", "node" });
+    const home = try versionHome(allocator, config, ver);
+    defer allocator.free(home);
+    const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
     defer allocator.free(node_bin);
     fs.accessAbsolute(node_bin, .{}) catch {
         try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
@@ -171,17 +234,15 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     defer allocator.free(path);
     const new_path = try pathWithVersion(allocator, config, ver, path);
     defer allocator.free(new_path);
-    const bin_path = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin" });
+    const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
     defer allocator.free(bin_path);
-    const inc_path = try fs.path.join(allocator, &.{ config.versions_dir, ver, "include", "node" });
+    const inc_path = try fs.path.join(allocator, &.{ home, "include", "node" });
     defer allocator.free(inc_path);
 
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
     const quoted_version = try shellQuote(allocator, ver);
     defer allocator.free(quoted_version);
-    const quoted_prefix = try shellQuote(allocator, config.npm_prefix);
-    defer allocator.free(quoted_prefix);
     const quoted_bin = try shellQuote(allocator, bin_path);
     defer allocator.free(quoted_bin);
     const quoted_inc = try shellQuote(allocator, inc_path);
@@ -189,7 +250,13 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
 
     try stdout("export PATH={s}\n", .{quoted_path});
     try stdout("export ZNVM_CURRENT={s}\n", .{quoted_version});
-    try stdout("export NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
+    if (config.npm_prefix) |prefix| {
+        const quoted_prefix = try shellQuote(allocator, prefix);
+        defer allocator.free(quoted_prefix);
+        try stdout("export NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
+    } else {
+        try stdout("unset NPM_CONFIG_PREFIX\n", .{});
+    }
     try stdout("export NVM_BIN={s}\n", .{quoted_bin});
     try stdout("export NVM_INC={s}\n", .{quoted_inc});
     try stdout("hash -r 2>/dev/null || true\n", .{});
@@ -467,11 +534,11 @@ fn resolveLocalOrExit(allocator: mem.Allocator, config: ZnvmConfig, spec: []cons
     };
 }
 
-fn findNvmrc(allocator: mem.Allocator) !?[]u8 {
+fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
     var dir = try fs.cwd().realpathAlloc(allocator, ".");
     while (true) {
-        const candidate = try fs.path.join(allocator, &.{ dir, ".nvmrc" });
-        if (fs.accessAbsolute(candidate, .{})) |_| {
+        const candidate = try fs.path.join(allocator, &.{ dir, filename });
+        if (fs.accessAbsolute(candidate, .{})) {
             allocator.free(dir);
             return candidate;
         } else |_| {
@@ -492,20 +559,44 @@ fn findNvmrc(allocator: mem.Allocator) !?[]u8 {
     }
 }
 
-fn readNvmrcSpec(allocator: mem.Allocator, silent: bool) !?[]u8 {
-    const path = try findNvmrc(allocator) orelse return null;
-    defer allocator.free(path);
+fn readVersionFile(allocator: mem.Allocator, path: []const u8, silent: bool) !?[]u8 {
     const content = try readSmallFile(allocator, path) orelse {
-        try stderr("invalid .nvmrc: {s}\n", .{path});
+        try stderr("invalid version file: {s}\n", .{path});
         process.exit(1);
     };
     defer allocator.free(content);
     const spec = version.parseNvmrc(content) orelse {
-        try stderr("invalid .nvmrc: {s}\n", .{path});
+        try stderr("invalid version file: {s}\n", .{path});
         process.exit(1);
     };
     if (!silent) try stderr("Found '{s}' with version <{s}>\n", .{ path, spec });
     return try allocator.dupe(u8, spec);
+}
+
+fn readNvmrcSpec(allocator: mem.Allocator, silent: bool) !?[]u8 {
+    if (try findUp(allocator, ".nvmrc")) |path| {
+        defer allocator.free(path);
+        return readVersionFile(allocator, path, silent);
+    }
+    // nvm 0.40 only reads .nvmrc. .node-version is the other file projects
+    // actually ship, so use it when no .nvmrc exists.
+    if (try findUp(allocator, ".node-version")) |path| {
+        defer allocator.free(path);
+        return readVersionFile(allocator, path, silent);
+    }
+    return null;
+}
+
+fn writeCwdNvmrc(allocator: mem.Allocator, ver: []const u8, silent: bool) !void {
+    const cwd = try fs.cwd().realpathAlloc(allocator, ".");
+    defer allocator.free(cwd);
+    const path = try fs.path.join(allocator, &.{ cwd, ".nvmrc" });
+    defer allocator.free(path);
+    const file = try fs.createFileAbsolute(path, .{});
+    defer file.close();
+    try file.writeAll(ver);
+    try file.writeAll("\n");
+    if (!silent) try stderr("Wrote version number ({s}) to .nvmrc\n", .{ver});
 }
 
 fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
@@ -548,8 +639,44 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
         try printHelp();
         process.exit(0);
     }
-    if (mem.eql(u8, arg, "-s") or mem.eql(u8, arg, "-b") or mem.startsWith(u8, arg, "--reinstall-packages-from") or mem.eql(u8, arg, "--latest-npm") or mem.eql(u8, arg, "--offline") or mem.eql(u8, arg, "--save") or mem.eql(u8, arg, "--skip-default-packages") or mem.eql(u8, arg, "--no-progress")) {
-        try stderr("Option \"{s}\" is not supported by {s}.\n", .{ arg, program_name });
+    if (mem.eql(u8, arg, "-s")) {
+        try stderr("{s} installs official Node.js binaries and does not compile from source (-s).\n", .{program_name});
+        process.exit(1);
+    }
+    if (mem.eql(u8, arg, "-b") or mem.eql(u8, arg, "--no-progress")) return true;
+    if (mem.eql(u8, arg, "--latest-npm")) {
+        parsed.latest_npm = true;
+        return true;
+    }
+    if (mem.eql(u8, arg, "--offline")) {
+        parsed.offline = true;
+        return true;
+    }
+    if (mem.eql(u8, arg, "--save")) {
+        parsed.save = true;
+        return true;
+    }
+    if (mem.eql(u8, arg, "--skip-default-packages")) {
+        parsed.skip_default_packages = true;
+        return true;
+    }
+    const reinstall_flag: ?[]const u8 = if (mem.startsWith(u8, arg, "--reinstall-packages-from="))
+        "--reinstall-packages-from="
+    else if (mem.startsWith(u8, arg, "--copy-packages-from="))
+        "--copy-packages-from="
+    else
+        null;
+    if (reinstall_flag) |prefix| {
+        const name = arg[prefix.len..];
+        if (name.len == 0) {
+            try stderr("Option \"{s}\" needs a version.\n", .{prefix});
+            process.exit(55);
+        }
+        parsed.reinstall_from = name;
+        return true;
+    }
+    if (mem.eql(u8, arg, "--reinstall-packages-from") or mem.eql(u8, arg, "--copy-packages-from")) {
+        try stderr("Option \"{s}\" needs =version.\n", .{arg});
         process.exit(55);
     }
     return false;
@@ -566,7 +693,7 @@ fn parseArgs(allocator: mem.Allocator, args: []const []const u8, mode: FlagMode)
             while (index < args.len) : (index += 1) try parsed.positionals.append(allocator, args[index]);
             break;
         }
-        if (mem.startsWith(u8, arg, "-") and parsed.positionals.items.len == 0) {
+        if (mem.startsWith(u8, arg, "-") and (mode == .strict or parsed.positionals.items.len == 0)) {
             if (try consumeFlag(&parsed, arg)) continue;
             if (mode == .command) {
                 while (index < args.len) : (index += 1) try parsed.positionals.append(allocator, args[index]);
@@ -621,11 +748,13 @@ pub fn printHelp() !void {
         \\{s} — fast Node.js version manager
         \\
         \\Version selectors: 20, 20.11, v20.11.0, node, stable, lts/*, lts/<name>, default, current, system
-        \\.nvmrc is read from the current directory and its parents. '#' comments are ignored.
+        \\.nvmrc is read from the current directory and its parents. .node-version is used when no .nvmrc exists.
+        \\'#' comments are ignored.
         \\
         \\Commands:
-        \\  install [version] [--lts] [--lts=<name>] [--default] [--alias=<name>]
-        \\  use [version] [--lts] [--silent]
+        \\  install [version] [--lts] [--lts=<name>] [--default] [--alias=<name>] [--save]
+        \\          [--reinstall-packages-from=<version>] [--copy-packages-from=<version>] [--latest-npm] [--skip-default-packages] [--offline]
+        \\  use [version] [--lts] [--silent] [--save]
         \\  exec [version] <command> [args...]
         \\  run [version] [node args...]
         \\  ls, list [version] [--no-alias]
@@ -638,15 +767,20 @@ pub fn printHelp() !void {
         \\  unalias <name>
         \\  default [version]          same as: alias default [version]
         \\  uninstall, rm <version>
+        \\  reinstall-packages <version>
+        \\  install-latest-npm
+        \\  cache dir|clear
         \\  deactivate [--silent]
+        \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
         \\  help, --help
         \\
-        \\Not supported: source builds (-s), io.js, --reinstall-packages-from, --latest-npm,
-        \\--offline, color themes, and per-version global npm packages.
-        \\Node binaries are downloaded from $ZNVM_NODE_MIRROR or $NVM_NODEJS_ORG_MIRROR
-        \\(default https://npmmirror.com/mirrors/node). Versions live in $ZNVM_DIR (default ~/.znvm).
+        \\Node versions are stored like nvm, under $NVM_DIR/versions/node (default ~/.nvm).
+        \\ZNVM_DIR is used only when NVM_DIR is unset. Downloads use $ZNVM_NODE_MIRROR or
+        \\$NVM_NODEJS_ORG_MIRROR (default https://npmmirror.com/mirrors/node).
+        \\Global npm packages belong to each Node version unless ZNVM_NPM_PREFIX is set.
+        \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
         \\
     , .{ program_name, program_name });
 }
@@ -655,24 +789,30 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     _ = args;
     const root_dir = try shellQuote(allocator, config.root_dir);
     defer allocator.free(root_dir);
-    const npm_prefix = try shellQuote(allocator, config.npm_prefix);
-    defer allocator.free(npm_prefix);
-    const npm_bin_path = try fs.path.join(allocator, &.{ config.npm_prefix, "bin" });
-    defer allocator.free(npm_bin_path);
-    const path = try currentPath(allocator);
-    defer allocator.free(path);
 
-    var path_list = std.ArrayList(u8){};
-    defer path_list.deinit(allocator);
-    try path_list.appendSlice(allocator, npm_bin_path);
-    var path_it = mem.splitScalar(u8, path, ':');
-    while (path_it.next()) |entry| {
-        if (entry.len == 0 or mem.eql(u8, entry, npm_bin_path)) continue;
-        try path_list.append(allocator, ':');
-        try path_list.appendSlice(allocator, entry);
+    var optional = std.ArrayList(u8){};
+    defer optional.deinit(allocator);
+    if (config.npm_prefix) |prefix| {
+        const npm_bin_path = try fs.path.join(allocator, &.{ prefix, "bin" });
+        defer allocator.free(npm_bin_path);
+        const path = try currentPath(allocator);
+        defer allocator.free(path);
+        var path_list = std.ArrayList(u8){};
+        defer path_list.deinit(allocator);
+        try path_list.appendSlice(allocator, npm_bin_path);
+        var path_it = mem.splitScalar(u8, path, ':');
+        while (path_it.next()) |entry| {
+            if (entry.len == 0 or mem.eql(u8, entry, npm_bin_path)) continue;
+            try path_list.append(allocator, ':');
+            try path_list.appendSlice(allocator, entry);
+        }
+        const quoted_prefix = try shellQuote(allocator, prefix);
+        defer allocator.free(quoted_prefix);
+        const quoted_path = try shellQuote(allocator, path_list.items);
+        defer allocator.free(quoted_path);
+        try optional.print(allocator, "export NPM_CONFIG_PREFIX={s}\nexport PATH={s}\n", .{ quoted_prefix, quoted_path });
     }
-    const path_value = try shellQuote(allocator, path_list.items);
-    defer allocator.free(path_value);
+    const optional_text = optional.items;
 
     const znvm_exe_raw = try siblingExe(allocator, "znvm");
     defer allocator.free(znvm_exe_raw);
@@ -685,10 +825,9 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
 
     const shell_script =
         \\# znvm shell setup
+        \\export NVM_DIR={s}
         \\export ZNVM_DIR={s}
-        \\export NPM_CONFIG_PREFIX={s}
-        \\export PATH={s}
-        \\
+        \\{s}
         \\__znvm_exe={s}
         \\__nvm_exe={s}
         \\if [ ! -x "$__nvm_exe" ]; then
@@ -720,6 +859,9 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  case "${{1-}}" in
         \\    use|install|uninstall|rm|deactivate)
         \\      __znvm_apply "$bin" "$@"
+        \\      ;;
+        \\    unload)
+        \\      unset -f znvm nvm __znvm_apply __znvm_dispatch __znvm_autoload __znvm_on_chdir 2>/dev/null || true
         \\      ;;
         \\    *)
         \\      "$bin" "$@"
@@ -770,7 +912,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\ZNVM_LAST_PWD="${{PWD-}}"
         \\
     ;
-    try stdout(shell_script, .{ root_dir, npm_prefix, path_value, znvm_exe, nvm_exe });
+    try stdout(shell_script, .{ root_dir, root_dir, optional_text, znvm_exe, nvm_exe });
 }
 
 fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, usage: []const u8, silent: bool) ![]u8 {
@@ -781,7 +923,7 @@ fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, usage: []con
     if (parsed.lts) |name| return ltsSpec(allocator, name);
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
     return try readNvmrcSpec(allocator, silent) orelse {
-        try stderr("{s}\nNo .nvmrc file found.\n", .{usage});
+        try stderr("{s}\nNo .nvmrc or .node-version file found.\n", .{usage});
         process.exit(127);
     };
 }
@@ -797,6 +939,15 @@ pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     const hit = try resolveLocalOrExit(allocator, config, spec, null);
     defer hit.deinit(allocator);
     try applyHit(allocator, config, hit, parsed.silent, "Using system Node.js");
+    if (parsed.save) {
+        switch (hit) {
+            .system => {
+                try stderr("The system Node.js cannot be written to .nvmrc.\n", .{});
+                process.exit(1);
+            },
+            .version => |ver| try writeCwdNvmrc(allocator, ver, parsed.silent),
+        }
+    }
 }
 
 fn resolveInstallSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []const u8, lts_flag: ?[]const u8, depth: u8) !?version.ResolvedRemote {
@@ -853,6 +1004,180 @@ fn aliasTargetIsUsable(allocator: mem.Allocator, config: ZnvmConfig, target: []c
     process.exit(1);
 }
 
+fn ensureTree(allocator: mem.Allocator, path: []const u8) !void {
+    var acc = std.ArrayList(u8){};
+    defer acc.deinit(allocator);
+    var start: usize = 0;
+    if (path.len > 0 and path[0] == '/') {
+        try acc.append(allocator, '/');
+        start = 1;
+    }
+    var it = mem.splitScalar(u8, path[start..], '/');
+    while (it.next()) |part| {
+        if (part.len == 0) continue;
+        if (acc.items.len > 0 and acc.items[acc.items.len - 1] != '/') try acc.append(allocator, '/');
+        try acc.appendSlice(allocator, part);
+        try ensureDir(acc.items);
+    }
+}
+
+fn fileNonEmpty(path: []const u8) bool {
+    const file = fs.openFileAbsolute(path, .{}) catch return false;
+    defer file.close();
+    const stat = file.stat() catch return false;
+    return stat.size > 0;
+}
+
+fn readPackageName(allocator: mem.Allocator, path: []const u8) !?[]u8 {
+    const content = try readSmallFile(allocator, path) orelse return null;
+    defer allocator.free(content);
+    const parsed = std.json.parseFromSlice(
+        struct { name: []const u8 },
+        allocator,
+        content,
+        .{ .ignore_unknown_fields = true, .allocate = .alloc_always },
+    ) catch return null;
+    defer parsed.deinit();
+    if (parsed.value.name.len == 0) return null;
+    return try allocator.dupe(u8, parsed.value.name);
+}
+
+fn listGlobalPackages(allocator: mem.Allocator, version_dir: []const u8) ![][]u8 {
+    var list = std.ArrayList([]u8){};
+    errdefer {
+        for (list.items) |item| allocator.free(item);
+        list.deinit(allocator);
+    }
+    const modules = try fs.path.join(allocator, &.{ version_dir, "lib", "node_modules" });
+    defer allocator.free(modules);
+    var dir = fs.openDirAbsolute(modules, .{ .iterate = true }) catch |err| {
+        if (err == error.FileNotFound) return list.toOwnedSlice(allocator);
+        return err;
+    };
+    defer dir.close();
+    var it = dir.iterate();
+    while (try it.next()) |entry| {
+        if (entry.kind != .directory) continue;
+        if (mem.eql(u8, entry.name, "npm") or mem.eql(u8, entry.name, "corepack") or mem.eql(u8, entry.name, ".bin")) continue;
+        if (entry.name.len == 0 or entry.name[0] == '.') continue;
+        const pkg_json = try fs.path.join(allocator, &.{ modules, entry.name, "package.json" });
+        defer allocator.free(pkg_json);
+        const name = try readPackageName(allocator, pkg_json) orelse try allocator.dupe(u8, entry.name);
+        try list.append(allocator, name);
+    }
+    return list.toOwnedSlice(allocator);
+}
+
+fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, packages: []const []const u8) !void {
+    if (packages.len == 0) return;
+    const home = try versionHome(allocator, config, ver);
+    defer allocator.free(home);
+    const npm = try fs.path.join(allocator, &.{ home, "bin", "npm" });
+    defer allocator.free(npm);
+    fs.accessAbsolute(npm, .{}) catch {
+        try stderr("npm was not found for {s}.\n", .{ver});
+        process.exit(1);
+    };
+    const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
+    defer allocator.free(bin_path);
+
+    var argv = std.ArrayList([]const u8){};
+    defer argv.deinit(allocator);
+    try argv.append(allocator, npm);
+    try argv.append(allocator, "install");
+    try argv.append(allocator, "-g");
+    for (packages) |pkg| try argv.append(allocator, pkg);
+
+    var env_map = try process.getEnvMap(allocator);
+    defer env_map.deinit();
+    const inherited = env_map.get("PATH") orelse "";
+    const path_value = try std.fmt.allocPrint(allocator, "{s}:{s}", .{ bin_path, inherited });
+    defer allocator.free(path_value);
+    try env_map.put("PATH", path_value);
+    if (config.npm_prefix) |prefix| {
+        try env_map.put("NPM_CONFIG_PREFIX", prefix);
+    } else {
+        env_map.remove("NPM_CONFIG_PREFIX");
+    }
+
+    var child = process.Child.init(argv.items, allocator);
+    child.env_map = &env_map;
+    child.stdin_behavior = .Inherit;
+    child.stdout_behavior = .Inherit;
+    child.stderr_behavior = .Inherit;
+    const term = try child.spawnAndWait();
+    const ok = switch (term) {
+        .Exited => |code| code == 0,
+        else => false,
+    };
+    if (!ok) {
+        try stderr("npm install -g failed for {s}.\n", .{ver});
+        process.exit(1);
+    }
+}
+
+fn reinstallPackages(allocator: mem.Allocator, config: ZnvmConfig, source_spec: []const u8, dest_ver: []const u8) !void {
+    const source_hit = try resolveLocalOrExit(allocator, config, source_spec, null);
+    defer source_hit.deinit(allocator);
+    const source_ver = switch (source_hit) {
+        .system => {
+            try stderr("Reinstalling packages from the system Node.js is not supported.\n", .{});
+            process.exit(1);
+        },
+        .version => |ver| ver,
+    };
+    if (mem.eql(u8, source_ver, dest_ver)) {
+        try stderr("Can not reinstall packages from the current version of node.\n", .{});
+        process.exit(2);
+    }
+    const source_dir = try versionHome(allocator, config, source_ver);
+    defer allocator.free(source_dir);
+    const names = try listGlobalPackages(allocator, source_dir);
+    defer {
+        for (names) |name| allocator.free(name);
+        allocator.free(names);
+    }
+    try stderr("Reinstalling global packages from {s}...\n", .{source_ver});
+    if (names.len == 0) {
+        try stderr("No installed global packages found...\n", .{});
+        return;
+    }
+    for (names) |name| try stderr("{s}\n", .{name});
+    const view = try allocator.alloc([]const u8, names.len);
+    defer allocator.free(view);
+    for (names, 0..) |name, index| view[index] = name;
+    try npmInstallGlobal(allocator, config, dest_ver, view);
+}
+
+fn installDefaultPackages(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, silent: bool) !void {
+    const path = try fs.path.join(allocator, &.{ config.root_dir, "default-packages" });
+    defer allocator.free(path);
+    const content = try readSmallFile(allocator, path) orelse return;
+    defer allocator.free(content);
+
+    var specs = std.ArrayList([]u8){};
+    defer {
+        for (specs.items) |item| allocator.free(item);
+        specs.deinit(allocator);
+    }
+    var lines = mem.splitScalar(u8, content, '\n');
+    while (lines.next()) |raw| {
+        const line = mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        if (mem.indexOfScalar(u8, line, ' ') != null or mem.indexOfScalar(u8, line, '\t') != null) {
+            try stderr("Only one package per line is allowed in `{s}`.\n", .{path});
+            process.exit(1);
+        }
+        try specs.append(allocator, try allocator.dupe(u8, line));
+    }
+    if (specs.items.len == 0) return;
+    if (!silent) try stderr("Installing default global packages from {s}...\n", .{path});
+    const view = try allocator.alloc([]const u8, specs.items.len);
+    defer allocator.free(view);
+    for (specs.items, 0..) |item, index| view[index] = item;
+    try npmInstallGlobal(allocator, config, ver, view);
+}
+
 pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
@@ -876,25 +1201,38 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
     defer allocator.free(resolved.filename);
     const ver = resolved.version;
 
-    const install_path = try fs.path.join(allocator, &.{ config.versions_dir, ver });
+    if (parsed.reinstall_from) |source| {
+        const source_dir = try locateVersionDir(allocator, config, source) orelse {
+            try stderr("If --reinstall-packages-from is provided, it must point to an installed version of node.\n", .{});
+            process.exit(1);
+        };
+        allocator.free(source_dir);
+    }
+
+    const install_path = try newVersionDir(allocator, config, ver);
     defer allocator.free(install_path);
-    const already = if (fs.accessAbsolute(install_path, .{})) true else |err| switch (err) {
-        error.FileNotFound => false,
-        else => return err,
-    };
-    if (already) {
+    const existing = try locateVersionDir(allocator, config, ver);
+    defer if (existing) |dir_path| allocator.free(dir_path);
+    if (existing != null) {
         if (!parsed.silent) try stderr("Version {s} is already installed.\n", .{ver});
     } else {
         if (!parsed.silent) try stderr("Installing {s} ({s})...\n", .{ ver, resolved.arch });
         const download_url = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ config.mirror, ver, resolved.filename });
         defer allocator.free(download_url);
-        const tar_path = try fs.path.join(allocator, &.{ config.root_dir, resolved.filename });
+        const tar_path = try fs.path.join(allocator, &.{ config.root_dir, ".cache", "bin", resolved.filename });
         defer allocator.free(tar_path);
-        try ensureDir(config.root_dir);
-        try version.downloadFile(allocator, download_url, tar_path);
+        try ensureTree(allocator, fs.path.dirname(tar_path) orelse config.root_dir);
+        if (!fileNonEmpty(tar_path)) {
+            if (parsed.offline) {
+                try stderr("No cached tarball for {s}. Run install once without --offline.\n", .{ver});
+                process.exit(1);
+            }
+            try version.downloadFile(allocator, download_url, tar_path);
+        } else if (!parsed.silent) {
+            try stderr("Using cached {s}\n", .{resolved.filename});
+        }
         if (!parsed.silent) try stderr("Extracting...\n", .{});
-        try ensureDir(config.versions_dir);
-        try ensureDir(install_path);
+        try ensureTree(allocator, install_path);
 
         const argv = &[_][]const u8{ "tar", "-xzf", tar_path, "-C", install_path, "--strip-components=1" };
         var child = process.Child.init(argv, allocator);
@@ -910,7 +1248,6 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
             fs.deleteTreeAbsolute(install_path) catch {};
             process.exit(1);
         }
-        fs.deleteFileAbsolute(tar_path) catch {};
         if (!parsed.silent) try stderr("Installed {s}\n", .{ver});
     }
 
@@ -924,6 +1261,10 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try setAlias(allocator, config, name, ver);
         if (!parsed.silent) try stderr("{s} -> {s}\n", .{ name, ver });
     }
+    if (parsed.reinstall_from) |source| try reinstallPackages(allocator, config, source, ver);
+    if (parsed.latest_npm) try npmInstallGlobal(allocator, config, ver, &.{"npm@latest"});
+    if (!parsed.skip_default_packages) try installDefaultPackages(allocator, config, ver, parsed.silent);
+    if (parsed.save) try writeCwdNvmrc(allocator, ver, parsed.silent);
 
     try emitExports(allocator, config, ver, parsed.silent);
 }
@@ -1065,7 +1406,10 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
         .version => |ver| {
             const active = try getCurrentVersionFromPath(allocator, config);
             defer if (active) |value| allocator.free(value);
-            const path = try fs.path.join(allocator, &.{ config.versions_dir, ver });
+            const path = try locateVersionDir(allocator, config, ver) orelse {
+                try stderr("Version '{s}' is not installed.\n", .{ver});
+                process.exit(1);
+            };
             defer allocator.free(path);
             try fs.deleteTreeAbsolute(path);
             try stderr("Uninstalled {s}\n", .{ver});
@@ -1173,7 +1517,9 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
             try stdout("{s}\n", .{node});
         },
         .version => |ver| {
-            const node = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin", "node" });
+            const home = try versionHome(allocator, config, ver);
+            defer allocator.free(home);
+            const node = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node);
             fs.accessAbsolute(node, .{}) catch {
                 try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
@@ -1264,18 +1610,24 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             if (!silent) try stderr("Running system node\n", .{});
         },
         .version => |ver| {
-            const node_bin = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin", "node" });
+            const home = try versionHome(allocator, config, ver);
+            defer allocator.free(home);
+            const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node_bin);
             fs.accessAbsolute(node_bin, .{}) catch {
                 try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
                 process.exit(1);
             };
-            const bin_path = try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin" });
+            const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
             defer allocator.free(bin_path);
-            const inc_path = try fs.path.join(allocator, &.{ config.versions_dir, ver, "include", "node" });
+            const inc_path = try fs.path.join(allocator, &.{ home, "include", "node" });
             defer allocator.free(inc_path);
             try env_map.put("ZNVM_CURRENT", ver);
-            try env_map.put("NPM_CONFIG_PREFIX", config.npm_prefix);
+            if (config.npm_prefix) |prefix| {
+                try env_map.put("NPM_CONFIG_PREFIX", prefix);
+            } else {
+                env_map.remove("NPM_CONFIG_PREFIX");
+            }
             try env_map.put("NVM_BIN", bin_path);
             try env_map.put("NVM_INC", inc_path);
             if (!silent) try stderr("Running node {s}\n", .{ver});
@@ -1300,7 +1652,7 @@ fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *con
         try allocator.dupe(u8, items[0])
     else
         try readNvmrcSpec(allocator, parsed.silent) orelse {
-            try stderr("Usage: {s} {s} [version] [args...]\nNo .nvmrc file found.\n", .{ program_name, command_name });
+            try stderr("Usage: {s} {s} [version] [args...]\nNo .nvmrc or .node-version file found.\n", .{ program_name, command_name });
             process.exit(127);
         };
     const cmd_args = if (first_is_version) items[1..] else items;
@@ -1335,7 +1687,11 @@ pub fn cmdRun(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
             try stderr("System version of node not found.\n", .{});
             process.exit(127);
         },
-        .version => |ver| try fs.path.join(allocator, &.{ config.versions_dir, ver, "bin", "node" }),
+        .version => |ver| blk: {
+            const home = try versionHome(allocator, config, ver);
+            defer allocator.free(home);
+            break :blk try fs.path.join(allocator, &.{ home, "bin", "node" });
+        },
     };
     defer allocator.free(node_bin);
 
@@ -1344,6 +1700,79 @@ pub fn cmdRun(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     try argv.append(allocator, node_bin);
     try argv.appendSlice(allocator, prepared.args);
     try runInHit(allocator, config, hit, argv.items, parsed.silent);
+}
+
+pub fn cmdReinstallPackages(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    var parsed = try parseArgs(allocator, args[2..], .strict);
+    defer parsed.deinit(allocator);
+    if (parsed.positionals.items.len != 1) {
+        try stderr("Usage: {s} reinstall-packages <version>\n", .{program_name});
+        process.exit(127);
+    }
+    const current = try getCurrentVersionFromPath(allocator, config) orelse {
+        try stderr("No active Node.js version. Run `{s} use <version>` first.\n", .{program_name});
+        process.exit(1);
+    };
+    defer allocator.free(current);
+    try reinstallPackages(allocator, config, parsed.positionals.items[0], current);
+}
+
+pub fn cmdInstallLatestNpm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    var parsed = try parseArgs(allocator, args[2..], .strict);
+    defer parsed.deinit(allocator);
+    if (parsed.positionals.items.len != 0) {
+        try stderr("Usage: {s} install-latest-npm\n", .{program_name});
+        process.exit(127);
+    }
+    const current = try getCurrentVersionFromPath(allocator, config) orelse {
+        try stderr("No active Node.js version. Run `{s} use <version>` first.\n", .{program_name});
+        process.exit(1);
+    };
+    defer allocator.free(current);
+    try npmInstallGlobal(allocator, config, current, &.{"npm@latest"});
+}
+
+pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const action = if (args.len >= 2 and mem.eql(u8, args[1], "clear-cache"))
+        "clear"
+    else if (args.len >= 3)
+        args[2]
+    else
+        "";
+    if (action.len == 0) {
+        try stderr("Usage: {s} cache dir|clear\n", .{program_name});
+        process.exit(127);
+    }
+    const cache_dir = try fs.path.join(allocator, &.{ config.root_dir, ".cache" });
+    defer allocator.free(cache_dir);
+    if (mem.eql(u8, action, "dir")) {
+        try stdout("{s}\n", .{cache_dir});
+        return;
+    }
+    if (mem.eql(u8, action, "clear")) {
+        fs.deleteTreeAbsolute(cache_dir) catch {};
+        try ensureDir(cache_dir);
+        try stdout("{s} cache cleared.\n", .{program_name});
+        return;
+    }
+    try stderr("Usage: {s} cache dir|clear\n", .{program_name});
+    process.exit(127);
+}
+
+pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    const installed = try version.getInstalledVersions(allocator, config);
+    defer freeInstalled(allocator, installed);
+    try stderr("znvm version: v2.2.2\n", .{});
+    try stderr("NVM_DIR: {s}\n", .{config.root_dir});
+    try stderr("versions: {s}\n", .{config.versions_dir});
+    try stderr("mirror: {s}\n", .{config.mirror});
+    try stderr("platform: {s}-{s}\n", .{ config.os, config.arch });
+    try stderr("installed: {d}\n", .{installed.len});
+    if (config.npm_prefix) |prefix| {
+        try stderr("npm prefix: {s}\n", .{prefix});
+    } else {
+        try stderr("npm prefix: per Node version\n", .{});
+    }
 }
 
 pub fn cmdDeactivate(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {

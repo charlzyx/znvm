@@ -70,6 +70,14 @@ pub fn main() !void {
         try commands.cmdRun(allocator, args, config);
     } else if (mem.eql(u8, cmd, "deactivate")) {
         try commands.cmdDeactivate(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "reinstall-packages") or mem.eql(u8, cmd, "copy-packages")) {
+        try commands.cmdReinstallPackages(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "install-latest-npm")) {
+        try commands.cmdInstallLatestNpm(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "cache") or mem.eql(u8, cmd, "clear-cache")) {
+        try commands.cmdCache(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "debug")) {
+        try commands.cmdDebug(allocator, config);
     } else {
         try stderr("Unknown command: {s}\n", .{cmd});
         try commands.printHelp();

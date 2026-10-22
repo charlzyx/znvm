@@ -2,7 +2,7 @@
 
 **znvm** — **Zero-overhead Node Version Manager**
 
-A blazingly fast, zero-config **Node.js version manager** built with Zig. It solves the **nvm-slow** problem with **< 5ms** startup time.
+A **Node.js version manager** built with Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. Measured shell startup on 2026-10-22 was **3.55 ms** (nvm 118 ms, fnm 1.58 ms; see the homepage table).
 
 ## Installation
 
@@ -104,9 +104,10 @@ cd /my-project            # Auto-switches to Node 20
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ZNVM_DIR` | znvm data directory | `~/.znvm` |
+| `NVM_DIR` | Node version root, same layout as nvm (`versions/node`) | `~/.nvm` |
+| `ZNVM_DIR` | Used as the version root only when `NVM_DIR` is unset | unset |
 | `ZNVM_NODE_MIRROR` | Node.js download mirror | `https://npmmirror.com/mirrors/node` |
-| `ZNVM_NPM_PREFIX` | Shared global npm package prefix | `$ZNVM_DIR/npm` |
+| `ZNVM_NPM_PREFIX` | Optional shared global npm prefix. Unset keeps nvm's per-version globals | unset |
 
 ## Mirror Configuration
 
@@ -116,9 +117,9 @@ For users in China, use a mirror to speed up downloads:
 export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
-## Shared Global Packages
+## Global packages
 
-znvm sets npm's global prefix to `$ZNVM_DIR/npm`. Packages installed with `npm install -g` and their commands stay available after switching Node.js versions. Set `ZNVM_NPM_PREFIX` before `eval "$(znvm env)"` to use a different location.
+`npm install -g` installs into the active Node version, matching nvm. `znvm reinstall-packages <version>` copies that version's global packages into the one that is active. Set `ZNVM_NPM_PREFIX` to an absolute directory before `eval "$(znvm env)"` only when you want a single shared prefix instead.
 
 ## Commands Reference
 

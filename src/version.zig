@@ -267,10 +267,19 @@ fn fetchIndexBody(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
     return readIndexCache(allocator, cache_path);
 }
 
+pub fn parseIndex(allocator: mem.Allocator, body: []const u8) !json.Parsed([]NodeEntry) {
+    // Strings must be copied. The index body is freed as soon as parsing returns,
+    // and the default parse option keeps slices pointing into that buffer.
+    return json.parseFromSlice([]NodeEntry, allocator, body, .{
+        .ignore_unknown_fields = true,
+        .allocate = .alloc_always,
+    });
+}
+
 pub fn loadRemoteIndex(allocator: mem.Allocator, config: ZnvmConfig) !json.Parsed([]NodeEntry) {
     const body = try fetchIndexBody(allocator, config);
     defer allocator.free(body);
-    return json.parseFromSlice([]NodeEntry, allocator, body, .{ .ignore_unknown_fields = true });
+    return parseIndex(allocator, body);
 }
 
 fn artifactToRemote(allocator: mem.Allocator, artifact: ResolvedEntry, os: []const u8) !ResolvedRemote {
@@ -308,26 +317,44 @@ pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []cons
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
 
-    if (result.term.Exited != 0) {
-        return error.DownloadFailed;
-    }
+    const downloaded = switch (result.term) {
+        .Exited => |code| code == 0,
+        else => false,
+    };
+    if (!downloaded) return error.DownloadFailed;
+}
+
+/// nvm stores Node older than 0.12 directly in `$NVM_DIR`, not `versions/node`.
+pub fn isOldNodeLayout(ver: []const u8) bool {
+    const numeric = if (ver.len > 0 and ver[0] == 'v') ver[1..] else ver;
+    const parsed = std.SemanticVersion.parse(numeric) catch return false;
+    const cutoff = std.SemanticVersion{ .major = 0, .minor = 12, .patch = 0 };
+    return parsed.order(cutoff) == .lt;
+}
+
+fn alreadyListed(list: []const []const u8, name: []const u8) bool {
+    for (list) |item| if (mem.eql(u8, item, name)) return true;
+    return false;
 }
 
 pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]const []const u8 {
     var list = std.ArrayList([]const u8){};
 
-    var dir = fs.openDirAbsolute(config.versions_dir, .{ .iterate = true }) catch |err| {
-        if (err == error.FileNotFound) return &.{};
-        return err;
-    };
-    defer dir.close();
+    for (config.scan_dirs) |dir_path| {
+        var dir = fs.openDirAbsolute(dir_path, .{ .iterate = true }) catch |err| {
+            if (err == error.FileNotFound) continue;
+            return err;
+        };
+        defer dir.close();
 
-    var it = dir.iterate();
-    while (try it.next()) |entry| {
-        if (entry.kind == .directory) {
-            if (mem.startsWith(u8, entry.name, "v")) {
-                try list.append(allocator, try allocator.dupe(u8, entry.name));
-            }
+        var it = dir.iterate();
+        while (try it.next()) |entry| {
+            if (entry.kind != .directory or !mem.startsWith(u8, entry.name, "v")) continue;
+            if (alreadyListed(list.items, entry.name)) continue;
+            const node_path = try fs.path.join(allocator, &.{ dir_path, entry.name, "bin", "node" });
+            defer allocator.free(node_path);
+            fs.accessAbsolute(node_path, .{}) catch continue;
+            try list.append(allocator, try allocator.dupe(u8, entry.name));
         }
     }
 

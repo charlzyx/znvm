@@ -2,7 +2,7 @@
 
 **znvm** — **零负担 Node 版本管理器**
 
-基于 Zig 构建的极速、零配置 **Node.js 版本管理器**。以 **< 5ms** 的启动时间解决 **nvm 卡顿** 问题。
+基于 Zig 的 **Node.js 版本管理器**。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得 shell 启动开销 **3.55 ms**（nvm 118 ms，fnm 1.58 ms；见首页表格）。
 
 ## 安装
 
@@ -104,9 +104,10 @@ cd /my-project            # 自动切换到 Node 20
 
 | 变量 | 描述 | 默认值 |
 |------|------|--------|
-| `ZNVM_DIR` | znvm 数据目录 | `~/.znvm` |
+| `NVM_DIR` | Node 版本根目录，布局与 nvm 相同（`versions/node`） | `~/.nvm` |
+| `ZNVM_DIR` | 仅在未设置 `NVM_DIR` 时作为版本根目录 | 未设置 |
 | `ZNVM_NODE_MIRROR` | Node.js 下载镜像 | `https://npmmirror.com/mirrors/node` |
-| `ZNVM_NPM_PREFIX` | npm 全局包共享目录 | `$ZNVM_DIR/npm` |
+| `ZNVM_NPM_PREFIX` | 可选的共享全局 npm 目录。不设置时与 nvm 一样按版本隔离 | 未设置 |
 
 ## 镜像配置
 
@@ -116,9 +117,9 @@ cd /my-project            # 自动切换到 Node 20
 export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
 ```
 
-## 共享全局包
+## 全局包
 
-znvm 会把 npm 全局目录设为 `$ZNVM_DIR/npm`。通过 `npm install -g` 安装的包及其命令，在切换 Node.js 版本后仍然可用。如需修改目录，请在 `eval "$(znvm env)"` 之前设置 `ZNVM_NPM_PREFIX`。
+`npm install -g` 会装到当前 Node 版本里，和 nvm 一样。`znvm reinstall-packages <version>` 把该版本的全局包复制到当前版本。只有在希望所有版本共用一个目录时，才在 `eval "$(znvm env)"` 之前把 `ZNVM_NPM_PREFIX` 设成绝对路径。
 
 ## 命令参考
 

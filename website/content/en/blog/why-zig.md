@@ -2,7 +2,7 @@
 
 In the modern dev ecosystem, we've grown accustomed to "fast enough." But as developers who live in the terminal, "fast enough" is a lie.
 
-Every time you open a new shell tab, nvm or other heavy version managers inject a tiny sliver of latency. 100ms here, 50ms there. It's the "death by a thousand cuts" for your productivity.
+Every time you open a new shell tab, a heavy version manager adds time before the prompt is usable. On the 2026-10-22 measurement below, sourcing nvm added 118 ms. That is the cost this project is aimed at.
 
 I built **znvm** because I wanted to reclaim those milliseconds, and **Zig** was the only language that made sense for this mission.
 
@@ -12,9 +12,7 @@ Rust is great, but Zig offers a level of raw, predictable control that is unpara
 
 In znvm, we don't have a garbage collector waking up at the wrong time. We don't have complex async runtimes bloating our binary.
 
-By leveraging Zig's **Manual Memory Management** and **Comptime**, znvm executes version switching and environment setup almost at the speed of hardware.
-
-When you type `znvm use`, it's not a "process"; it's an **instant state change**.
+Zig has no garbage collector and no async runtime in znvm. `znvm use` is still a process: it resolves a version and prints the exports that the shell `eval`s. The table below is one Linux VM, measured with `benchmarks/measure.py`. It does not say every operation is faster than every other manager. On this run, in-shell commands were quicker than nvm and fnm, and shell startup was quicker than nvm and slower than fnm.
 
 ## 2. The "No Hidden Control Flow" Philosophy
 
@@ -26,13 +24,15 @@ No background daemons, no heavy metadata syncing.
 
 ## 3. Performance & Binary Size
 
-Benchmark results on Apple M4 (16GB RAM, macOS 25.3):
+Warm medians, 2026-10-22, 4-vCPU KVM guest (Intel Xeon, Ubuntu 24.04), znvm ReleaseSafe (3.73 MiB, not stripped). Method: `benchmarks/measure.py`. Raw samples: `benchmarks/results/2026-10-22.json`.
 
-| Manager | `list` | `use` | `.nvmrc` | Binary |
-| :--- | :--- | :--- | :--- | :--- |
-| `nvm` | 708ms | 192ms | 189ms | N/A |
-| `fnm` | 6ms | 4ms | 10ms | ~8MB |
-| **`znvm`** | **4ms** | **3ms** | **2ms** | **< 1MB** |
+| Manager | Shell startup | `list` | `use` | `.nvmrc` | Size |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvm` | 118 ms | 527 ms | 153 ms | 166 ms | 146.7 KiB script |
+| `fnm` | 1.58 ms | 1.31 ms | 1.46 ms | 1.43 ms | 7.03 MiB |
+| **`znvm`** | **3.55 ms** | **0.62 ms** | **0.89 ms** | **0.97 ms** | **3.73 MiB** |
+
+Shell startup is a fresh bash minus `bash -c true`. fnm's documented init already had Node v22.14.0 active, so 1.58 ms is the startup in the table. Installing Node 22.13.1 from nodejs.org (3 samples, download included) was 1241 ms for znvm, 2317 ms for fnm, and 2327 ms for nvm. That install gap is mostly network.
 
 ## 4. The Unix-First Strategic Choice
 
@@ -40,7 +40,7 @@ Zig thrives when you talk directly to the OS. By focusing exclusively on Unix-li
 
 This allowed us to use Zig to write highly optimized, platform-specific code that respects the Unix philosophy:
 
-> **Do one thing, and do it faster than anyone else.**
+> **Do one thing, and measure it.**
 
 ## The Bottom Line
 
