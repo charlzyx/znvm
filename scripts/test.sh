@@ -139,7 +139,15 @@ ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >/dev/null
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default)" = "18"
+set +e
+DEFAULT_OUT=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default 2>"$NVM_ALIGN_TMP/default.err")
+DEFAULT_STATUS=$?
+set -e
+if [[ "$DEFAULT_STATUS" -ne 0 || "$DEFAULT_OUT" != "18" ]]; then
+    echo "default status=$DEFAULT_STATUS stdout=[$DEFAULT_OUT] stderr=[$(cat "$NVM_ALIGN_TMP/default.err")]" >&2
+    echo "alias file=[$([ -f "$ALIGN_ROOT/alias/default" ] && cat "$ALIGN_ROOT/alias/default")] legacy=[$([ -f "$ALIGN_ROOT/default" ] && cat "$ALIGN_ROOT/default")]" >&2
+    exit 1
+fi
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default)" = "v18.0.0"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20)" = "$ALIGN_ROOT/versions/node/v20.11.0/bin/node"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
