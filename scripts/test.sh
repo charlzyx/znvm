@@ -140,15 +140,14 @@ printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
 # bash 3.2 exits on a failing command inside a function or $(...) even after
 # set +e. Stay in the main script and capture through files.
-trap 'echo "ERR status=$? line=${BASH_LINENO[0]} cmd=$BASH_COMMAND" >&2' ERR
-echo "alias files before: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
 set +e
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 st=$?
 set -e
-echo "alias status=$st stdout=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.out" || true)") stderr=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.err" || true)")" >&2
-echo "alias files after: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
-if [[ "$st" -ne 0 ]]; then
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 || -n "$out" ]]; then
+    echo "FAIL alias status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -157,8 +156,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "18" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -167,8 +166,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "version-default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -177,8 +176,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "which-20 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -187,8 +186,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "which-18 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/v18.0.0/bin/node" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -197,8 +196,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -207,8 +206,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "nvm-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -217,8 +216,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "nvm-tool-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "v2.4.0" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -227,8 +226,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "version-missing status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 3 || "$out" != "N/A" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 # findUp prints the real path. macOS /var is a symlink to /private/var.
@@ -327,7 +326,6 @@ if [[ "$st" -eq 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "cached tarball"
     echo "FAIL offline status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
-trap - ERR
 echo -e "    ${GREEN}✓${NC} nvm-compatible commands OK"
 
 echo "  Testing install-as-nvm.sh..."
@@ -543,9 +541,76 @@ if code != 0:
     raise SystemExit(f"step exit {code}\n{screen}\nSTDOUT:\n{captured}")
 if "Install Node" in captured or "No versions installed" in captured:
     raise SystemExit(f"step stdout mixed with the menu\n{captured}")
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["9\n", "1\n", "\n", "0\n"],
+    ["Registries (scopes)", "View the current map", "No registry map", "Press Enter to continue", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"registry menu exit {code}\n{text}")
 print("pty guide ok")
 PY
 echo -e "    ${GREEN}✓${NC} interactive guide OK"
+
+echo "  Testing registry scopes..."
+REG_HOME="$EMPTY_ROOT/registry-home"
+REG_NVM="$EMPTY_ROOT/registry-nvm"
+mkdir -p "$REG_HOME" "$REG_NVM"
+# pnpm follows ~/Library/Preferences on macOS when XDG_CONFIG_HOME is unset.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    PNPM_RC="$REG_HOME/Library/Preferences/pnpm/rc"
+else
+    PNPM_RC="$REG_HOME/.config/pnpm/rc"
+fi
+printf '%s\n' 'fund=false' 'registry=https://keep.example' '//registry.npmjs.org/:_authToken=secret' > "$REG_HOME/.npmrc"
+printf '%s\n' 'save-prefix "~"' > "$REG_HOME/.yarnrc"
+reg() {
+    env -u XDG_CONFIG_HOME HOME="$REG_HOME" NVM_DIR="$REG_NVM" "$ZNVM_BIN" registry "$@"
+}
+reg add @company https://npm.company.example
+grep -q 'fund=false' "$REG_HOME/.npmrc"
+grep -q 'registry=https://keep.example' "$REG_HOME/.npmrc"
+grep -q '_authToken=secret' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$PNPM_RC"
+grep -q 'save-prefix "~"' "$REG_HOME/.yarnrc"
+grep -q '"@company:registry" "https://npm.company.example"' "$REG_HOME/.yarnrc"
+grep -q 'company:' "$REG_HOME/.yarnrc.yml"
+grep -q 'company = "https://npm.company.example"' "$REG_HOME/.bunfig.toml"
+reg china
+grep -q 'registry=https://registry.npmmirror.com' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
+grep -q 'registry=https://registry.npmmirror.com' "$PNPM_RC"
+grep -q 'registry "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc"
+grep -q 'npmRegistryServer: "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc.yml"
+grep -q 'registry = "https://registry.npmmirror.com"' "$REG_HOME/.bunfig.toml"
+if grep -q 'keep.example' "$REG_HOME/.npmrc"; then
+    echo "china left the previous default registry in place" >&2
+    exit 1
+fi
+reg add @acme https://npm.acme.example
+reg add @company https://npm.company.example/v2
+test "$(grep -c '@company:registry=' "$REG_HOME/.npmrc")" -eq 1
+grep -q '@company:registry=https://npm.company.example/v2' "$REG_HOME/.npmrc"
+grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
+reg official
+grep -q 'registry=https://registry.npmjs.org' "$REG_HOME/.npmrc"
+grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
+grep -q 'registry=https://registry.npmjs.org' "$PNPM_RC"
+reg remove @acme
+if grep -q '@acme:registry' "$REG_HOME/.npmrc" "$PNPM_RC" "$REG_HOME/.yarnrc"; then
+    echo "removed scope still present" >&2
+    exit 1
+fi
+grep -q '@company:registry=https://npm.company.example/v2' "$REG_HOME/.npmrc"
+set +e
+reg add company https://npm.company.example >/tmp/znvm-registry-bad.txt 2>&1
+REG_BAD=$?
+set -e
+test "$REG_BAD" -ne 0
+grep -q 'Scope must look like @company' /tmp/znvm-registry-bad.txt
+echo -e "    ${GREEN}✓${NC} registry scopes OK"
 
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"

@@ -84,6 +84,8 @@ pub fn main() !void {
         try commands.cmdInstallLatestNpm(allocator, args, config);
     } else if (mem.eql(u8, cmd, "cache") or mem.eql(u8, cmd, "clear-cache")) {
         try commands.cmdCache(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "registry")) {
+        try commands.cmdRegistry(allocator, args, config);
     } else if (mem.eql(u8, cmd, "debug")) {
         try commands.cmdDebug(allocator, config);
     } else {
