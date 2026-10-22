@@ -17,7 +17,7 @@ echo -e "${BLUE}Node.js version manager. nvm-compatible layout, npmmirror by def
 echo ""
 
 # 版本号（发布时更新此行）
-ZNVM_VERSION="v2.2.2"
+ZNVM_VERSION="v2.3.0"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
