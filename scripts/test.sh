@@ -138,37 +138,100 @@ ALIGN_BIN="$ALIGN_ROOT/bin/znvm"
 ALIGN_LS=$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" ls)
 printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
-# bash 3.2 (macOS CI) still aborts the script when a failing command is inside
-# $(...) under set -e, and a failing `test` prints nothing. Capture via files.
-align_expect() {
-    align_label=$1
-    align_want_status=$2
-    align_want_out=$3
-    shift 3
-    set +e
-    "$@" >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
-    align_status=$?
-    set -e
-    align_out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
-    align_err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-    if [[ "$align_status" -ne "$align_want_status" || "$align_out" != "$align_want_out" ]]; then
-        echo "FAIL $align_label status=$align_status want_status=$align_want_status stdout=$(printf %q "$align_out") want_out=$(printf %q "$align_want_out") stderr=$(printf %q "$align_err")" >&2
-        echo "alias file=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
-        exit 1
-    fi
-}
-align_env() {
-    env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$@"
-}
-align_expect alias 0 "" align_env "$ALIGN_BIN" alias default 18
-align_expect default 0 "18" align_env "$ALIGN_BIN" default
-align_expect version-default 0 "v18.0.0" align_env "$ALIGN_BIN" version default
-align_expect which-20 0 "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" align_env "$ALIGN_BIN" which 20
-align_expect which-18 0 "$ALIGN_ROOT/versions/v18.0.0/bin/node" align_env "$ALIGN_BIN" which 18
-align_expect current 0 "none" align_env "$ALIGN_BIN" current
-align_expect nvm-version 0 "none" align_env "$ALIGN_ROOT/bin/nvm" version
-align_expect nvm-tool-version 0 "v2.4.0" env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version
-align_expect version-missing 3 "N/A" align_env "$ALIGN_BIN" version 99
+# bash 3.2 exits on a failing command inside a function or $(...) even after
+# set +e. Stay in the main script and capture through files.
+trap 'echo "ERR status=$? line=${BASH_LINENO[0]} cmd=$BASH_COMMAND" >&2' ERR
+echo "alias files before: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+echo "alias status=$st stdout=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.out" || true)") stderr=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.err" || true)")" >&2
+echo "alias files after: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
+if [[ "$st" -ne 0 ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" default >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "18" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version default >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "version-default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 20 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "which-20 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "which-18 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/v18.0.0/bin/node" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "nvm-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    exit 1
+fi
+set +e
+env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "nvm-tool-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 0 || "$out" != "v2.4.0" ]]; then
+    exit 1
+fi
+set +e
+env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+echo "version-missing status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+if [[ "$st" -ne 3 || "$out" != "N/A" ]]; then
+    exit 1
+fi
+trap - ERR
 USE_OUT=$(cd "$ALIGN_ROOT/proj/sub" && env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" use 2>&1)
 printf '%s\n' "$USE_OUT" | grep -q "v20.11.0"
 printf '%s\n' "$USE_OUT" | grep -q "Found '$ALIGN_ROOT/proj/.nvmrc'"
