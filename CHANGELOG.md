@@ -17,6 +17,10 @@
 - `nvm registry china` sets the default to `https://registry.npmmirror.com` and keeps scopes. `nvm registry official` sets `https://registry.npmjs.org` and keeps scopes.
 - The interactive guide can view, add, edit, and delete those routes, set the default, sync every package manager, or restore the official registry.
 
+### Fixed
+
+- Recognize the active Node version when `NVM_DIR` is a symlink. On macOS, `/var` and `/tmp` are links to `/private/var` and `/private/tmp`.
+
 ## [v2.2.2] - 2026-07-15
 
 ### Fixed
