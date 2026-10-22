@@ -543,9 +543,70 @@ if code != 0:
     raise SystemExit(f"step exit {code}\n{screen}\nSTDOUT:\n{captured}")
 if "Install Node" in captured or "No versions installed" in captured:
     raise SystemExit(f"step stdout mixed with the menu\n{captured}")
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["9\n", "1\n", "\n", "0\n"],
+    ["Registries (scopes)", "View the current map", "No registry map", "Press Enter to continue", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"registry menu exit {code}\n{text}")
 print("pty guide ok")
 PY
 echo -e "    ${GREEN}✓${NC} interactive guide OK"
+
+echo "  Testing registry scopes..."
+REG_HOME="$EMPTY_ROOT/registry-home"
+REG_NVM="$EMPTY_ROOT/registry-nvm"
+mkdir -p "$REG_HOME" "$REG_NVM"
+printf '%s\n' 'fund=false' 'registry=https://keep.example' '//registry.npmjs.org/:_authToken=secret' > "$REG_HOME/.npmrc"
+printf '%s\n' 'save-prefix "~"' > "$REG_HOME/.yarnrc"
+reg() {
+    env -u XDG_CONFIG_HOME HOME="$REG_HOME" NVM_DIR="$REG_NVM" "$ZNVM_BIN" registry "$@"
+}
+reg add @company https://npm.company.example
+grep -q 'fund=false' "$REG_HOME/.npmrc"
+grep -q 'registry=https://keep.example' "$REG_HOME/.npmrc"
+grep -q '_authToken=secret' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.config/pnpm/rc"
+grep -q 'save-prefix "~"' "$REG_HOME/.yarnrc"
+grep -q '"@company:registry" "https://npm.company.example"' "$REG_HOME/.yarnrc"
+grep -q 'company:' "$REG_HOME/.yarnrc.yml"
+grep -q 'company = "https://npm.company.example"' "$REG_HOME/.bunfig.toml"
+reg china
+grep -q 'registry=https://registry.npmmirror.com' "$REG_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$REG_HOME/.npmrc"
+grep -q 'registry=https://registry.npmmirror.com' "$REG_HOME/.config/pnpm/rc"
+grep -q 'registry "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc"
+grep -q 'npmRegistryServer: "https://registry.npmmirror.com"' "$REG_HOME/.yarnrc.yml"
+grep -q 'registry = "https://registry.npmmirror.com"' "$REG_HOME/.bunfig.toml"
+if grep -q 'keep.example' "$REG_HOME/.npmrc"; then
+    echo "china left the previous default registry in place" >&2
+    exit 1
+fi
+reg add @acme https://npm.acme.example
+reg add @company https://npm.company.example/v2
+test "$(grep -c '@company:registry=' "$REG_HOME/.npmrc")" -eq 1
+grep -q '@company:registry=https://npm.company.example/v2' "$REG_HOME/.npmrc"
+grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
+reg official
+grep -q 'registry=https://registry.npmjs.org' "$REG_HOME/.npmrc"
+grep -q '@acme:registry=https://npm.acme.example' "$REG_HOME/.npmrc"
+grep -q 'registry=https://registry.npmjs.org' "$REG_HOME/.config/pnpm/rc"
+reg remove @acme
+if grep -q '@acme:registry' "$REG_HOME/.npmrc" "$REG_HOME/.config/pnpm/rc" "$REG_HOME/.yarnrc"; then
+    echo "removed scope still present" >&2
+    exit 1
+fi
+grep -q '@company:registry=https://npm.company.example/v2' "$REG_HOME/.npmrc"
+set +e
+reg add company https://npm.company.example >/tmp/znvm-registry-bad.txt 2>&1
+REG_BAD=$?
+set -e
+test "$REG_BAD" -ne 0
+grep -q 'Scope must look like @company' /tmp/znvm-registry-bad.txt
+echo -e "    ${GREEN}✓${NC} registry scopes OK"
 
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"

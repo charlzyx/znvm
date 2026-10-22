@@ -4,6 +4,7 @@ const fs = std.fs;
 const process = std.process;
 
 const commands = @import("commands.zig");
+const registry = @import("registry.zig");
 const version = @import("version.zig");
 const util = @import("util.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
@@ -116,6 +117,7 @@ fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
         .{ "Aliases", "别名（alias）" },
         .{ "Uninstall", "卸载（uninstall）" },
         .{ "Install / migrate (install-as-nvm)", "安装 / 迁移（install-as-nvm）" },
+        .{ "Registries (scopes)", "镜像源（scope）" },
     };
     while (true) {
         try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "（交互引导）") });
@@ -178,6 +180,15 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
             .{ "Print the install-as-nvm.sh curl (does not run it)", "指向官网 install-as-nvm.sh（打印 curl，不替用户 curl）" },
             .{ "Shell hooks (bashrc / zshrc / fish)", "说明 shell 钩子（bashrc / zshrc / fish）" },
             .{ "Default npmmirror / NVM_NODEJS_ORG_MIRROR", "说明默认 npmmirror / NVM_NODEJS_ORG_MIRROR" },
+        }),
+        9 => itemMenu(allocator, config, zh, which, "Registries (scopes)", "镜像源（scope）", &.{
+            .{ "View the current map", "查看当前映射" },
+            .{ "Add or edit a scope", "添加或修改 scope" },
+            .{ "Delete a scope", "删除 scope" },
+            .{ "Set the default registry", "设置默认源" },
+            .{ "China default, keep scopes", "中国默认源，保留 scope" },
+            .{ "Sync npm, yarn, pnpm, and bun", "同步 npm、yarn、pnpm、bun" },
+            .{ "Restore the official registry", "恢复官方源" },
         }),
         else => .back,
     };
@@ -249,8 +260,59 @@ fn dispatch(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, menu: usize,
             3 => try explainMirror(config, zh),
             else => {},
         },
+        9 => switch (item) {
+            1 => try registryAction(allocator, config, zh, "nvm registry show", registry.show),
+            2 => try promptRegistryScope(allocator, config, zh, true),
+            3 => try promptRegistryScope(allocator, config, zh, false),
+            4 => try promptRegistryDefault(allocator, config, zh),
+            5 => try registryAction(allocator, config, zh, "nvm registry china", registry.useChina),
+            6 => try registryAction(allocator, config, zh, "nvm registry sync", registry.sync),
+            7 => try registryAction(allocator, config, zh, "nvm registry official", registry.useOfficial),
+            else => {},
+        },
         else => {},
     }
+}
+
+fn registryAction(
+    allocator: mem.Allocator,
+    config: ZnvmConfig,
+    zh: bool,
+    label: []const u8,
+    comptime func: fn (mem.Allocator, []const u8) anyerror!void,
+) !void {
+    try running(zh, label);
+    func(allocator, config.root_dir) catch |err| try registry.printError(err);
+}
+
+fn promptRegistryScope(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, editing: bool) !void {
+    try stderr("{s}\n", .{text(zh, "Scope (for example @company)", "scope（例如 @company）")});
+    const scope_line = try prompt(allocator) orelse return;
+    defer allocator.free(scope_line);
+    const scope = mem.trim(u8, scope_line, " \t");
+    if (scope.len == 0) return;
+    if (!editing) {
+        try running(zh, "nvm registry remove <@scope>");
+        registry.removeScope(allocator, config.root_dir, scope) catch |err| try registry.printError(err);
+        return;
+    }
+    try stderr("{s}\n", .{text(zh, "Registry URL", "源地址")});
+    const url_line = try prompt(allocator) orelse return;
+    defer allocator.free(url_line);
+    const url = mem.trim(u8, url_line, " \t");
+    if (url.len == 0) return;
+    try running(zh, "nvm registry add <@scope> <url>");
+    registry.add(allocator, config.root_dir, scope, url) catch |err| try registry.printError(err);
+}
+
+fn promptRegistryDefault(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
+    try stderr("{s}\n", .{text(zh, "Default registry URL", "默认源地址")});
+    const line = try prompt(allocator) orelse return;
+    defer allocator.free(line);
+    const url = mem.trim(u8, line, " \t");
+    if (url.len == 0) return;
+    try running(zh, "nvm registry set-default <url>");
+    registry.setDefault(allocator, config.root_dir, url) catch |err| try registry.printError(err);
 }
 
 fn running(zh: bool, command: []const u8) !void {

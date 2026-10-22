@@ -6,6 +6,11 @@ const testing = std.testing;
 const version = @import("version.zig");
 const config = @import("config.zig");
 const util = @import("util.zig");
+const registry = @import("registry.zig");
+
+test "registry module is linked" {
+    try testing.expect(registry.china_registry.len > 0);
+}
 
 // Test utilities
 fn createTestAllocator() std.mem.Allocator {

@@ -13,6 +13,9 @@
 - The menu installs, switches, lists, and uninstalls Node by calling the existing commands. Number then Enter selects an item.
 - Prompts follow `LC_ALL` / `LC_MESSAGES` / `LANG` when the locale starts with `zh`. Otherwise they are English.
 - Without a terminal, `nvm` prints a short notice and exits.
+- `nvm registry` stores a default registry and any number of `@scope` routes, then writes `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`.
+- `nvm registry china` sets the default to `https://registry.npmmirror.com` and keeps scopes. `nvm registry official` sets `https://registry.npmjs.org` and keeps scopes.
+- The interactive guide can view, add, edit, and delete those routes, set the default, sync every package manager, or restore the official registry.
 
 ## [v2.2.2] - 2026-07-15
 

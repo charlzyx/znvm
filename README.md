@@ -97,7 +97,16 @@ nvm uninstall 20
 nvm deactivate
 ```
 
-In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Without a terminal, `nvm` prints a short notice and exits.
+In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Without a terminal, `nvm` prints a short notice and exits. The same menu can edit package-registry routes: several `@scope` registries at once, a separate default, then a sync to npm, yarn, pnpm, and bun.
+
+```bash
+nvm registry add @company https://npm.company.example
+nvm registry china          # default https://registry.npmmirror.com, scopes stay
+nvm registry official       # default https://registry.npmjs.org, scopes stay
+nvm registry show
+```
+
+The saved map is `$NVM_DIR/registries.json`. Sync rewrites the default registry and `@scope` registry lines in `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc (`~/.config/pnpm/rc`, or `~/Library/Preferences/pnpm/rc` on macOS), and `~/.bunfig.toml`. Other lines in those files stay. A `npmScopes` block in `~/.yarnrc.yml` is replaced by the saved scopes. Electron and other binary mirrors are not part of this command.
 
 ### Differences from nvm
 

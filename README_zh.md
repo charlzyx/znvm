@@ -82,7 +82,16 @@ nvm exec 20 npm test
 nvm uninstall 20
 ```
 
-在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。没有终端时，`nvm` 只打印一句说明并退出。
+在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。没有终端时，`nvm` 只打印一句说明并退出。同一个菜单可以改包的源：多个 `@scope` 同时指向不同仓库，默认源单独设置，然后同步到 npm、yarn、pnpm 和 bun。
+
+```bash
+nvm registry add @company https://npm.company.example
+nvm registry china          # 默认源改为 https://registry.npmmirror.com，scope 保留
+nvm registry official       # 默认源改为 https://registry.npmjs.org，scope 保留
+nvm registry show
+```
+
+映射保存在 `$NVM_DIR/registries.json`。同步会改写 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc（Linux 是 `~/.config/pnpm/rc`，macOS 是 `~/Library/Preferences/pnpm/rc`）和 `~/.bunfig.toml` 里的默认源和 `@scope` 源。这些文件里的其他行会留下。`~/.yarnrc.yml` 里的 `npmScopes` 段会按已保存的 scope 重写。Electron 和其他二进制镜像不在这个命令里。
 
 版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已经装好的版本可以直接用。0.12 之前的 Node 从 `$NVM_DIR/vX.Y.Z` 读取。
 

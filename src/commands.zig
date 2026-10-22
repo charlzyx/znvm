@@ -800,6 +800,7 @@ pub fn printHelp() !void {
         \\  cache dir|clear
         \\  deactivate [--silent]
         \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
+        \\  registry [show|set-default|add|remove|china|official|sync]
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
@@ -812,8 +813,51 @@ pub fn printHelp() !void {
         \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
         \\With no arguments in a terminal, {s} opens an interactive guide.
         \\Without a terminal it prints a short notice and exits.
+        \\registry stores a default URL plus @scope routes in $NVM_DIR/registries.json.
+        \\It writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
+        \\china sets https://registry.npmmirror.com and keeps scopes.
+        \\official sets https://registry.npmjs.org and keeps scopes.
+        \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
         \\
     , .{ program_name, program_name, program_name, program_name });
+}
+
+pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const reg = @import("registry.zig");
+    const sub = if (args.len < 3) "show" else args[2];
+    const failed = blk: {
+        if (mem.eql(u8, sub, "show") and args.len <= 3) {
+            break :blk reg.show(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "set-default") and args.len == 4) {
+            break :blk reg.setDefault(allocator, config.root_dir, args[3]);
+        } else if (mem.eql(u8, sub, "add") and args.len == 5) {
+            break :blk reg.add(allocator, config.root_dir, args[3], args[4]);
+        } else if ((mem.eql(u8, sub, "remove") or mem.eql(u8, sub, "rm")) and args.len == 4) {
+            break :blk reg.removeScope(allocator, config.root_dir, args[3]);
+        } else if (mem.eql(u8, sub, "china") and args.len == 3) {
+            break :blk reg.useChina(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "official") and args.len == 3) {
+            break :blk reg.useOfficial(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "sync") and args.len == 3) {
+            break :blk reg.sync(allocator, config.root_dir);
+        } else {
+            try stderr(
+                \\registry show
+                \\registry set-default <url>
+                \\registry add <@scope> <url>
+                \\registry remove <@scope>
+                \\registry china
+                \\registry official
+                \\registry sync
+                \\
+            , .{});
+            process.exit(1);
+        }
+    };
+    failed catch |err| {
+        try reg.printError(err);
+        process.exit(1);
+    };
 }
 
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
