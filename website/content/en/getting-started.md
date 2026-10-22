@@ -65,9 +65,13 @@ The menu uses number keys and Enter. It installs, switches, lists, and uninstall
 `nvm registry` keeps one default registry and any number of `@scope` routes, then writes them for npm, yarn, pnpm, and bun. The interactive menu can view that map, add or edit a scope, delete one, set the default, sync every file, switch to the China default while keeping scopes, or restore the official npm registry.
 
 ```bash
-nvm registry add @company https://npm.company.example
-nvm registry china
 nvm registry show
+nvm registry set-default https://registry.npmmirror.com
+nvm registry add @company https://npm.company.example
+nvm registry remove @company
+nvm registry china
+nvm registry official
+nvm registry sync
 ```
 
 `china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Electron and other binary mirrors are not changed.

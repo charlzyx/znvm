@@ -65,9 +65,13 @@ nvm
 `nvm registry` 保存一个默认源和任意多个 `@scope` 路由，并写给 npm、yarn、pnpm 和 bun。交互菜单可以查看这张表、添加或修改 scope、删除 scope、设置默认源、同步全部文件、切到中国默认源并保留 scope，或恢复官方 npm 源。
 
 ```bash
-nvm registry add @company https://npm.company.example
-nvm registry china
 nvm registry show
+nvm registry set-default https://registry.npmmirror.com
+nvm registry add @company https://npm.company.example
+nvm registry remove @company
+nvm registry china
+nvm registry official
+nvm registry sync
 ```
 
 `china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。Electron 和其他二进制镜像不会被改动。
