@@ -6,11 +6,12 @@ const heap = std.heap;
 const util = @import("util.zig");
 const config_mod = @import("config.zig");
 const commands = @import("commands.zig");
+const guide = @import("guide.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.2.2";
+const ZNVM_VERSION = "v2.4.0";
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
@@ -23,16 +24,23 @@ pub fn main() !void {
     const invoked_as_nvm = mem.eql(u8, std.fs.path.basename(args[0]), "nvm");
     commands.program_name = if (invoked_as_nvm) "nvm" else "znvm";
 
-    if (args.len < 2) {
-        try commands.printHelp();
-        process.exit(1);
-    }
-
-    const cmd = args[1];
     const config = try config_mod.getConfig(allocator);
     defer config.deinit();
 
-    if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
+    if (args.len < 2) {
+        try guide.run(allocator, config, .session);
+        return;
+    }
+
+    const cmd = args[1];
+
+    if (mem.eql(u8, cmd, "guide") or mem.eql(u8, cmd, "interactive")) {
+        try guide.run(allocator, config, .session);
+        return;
+    } else if (mem.eql(u8, cmd, "--guide-step")) {
+        try guide.run(allocator, config, .step);
+        return;
+    } else if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
         try commands.printHelp();
     } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
         try stdout("{s}\n", .{ZNVM_VERSION});

@@ -97,7 +97,7 @@ nvm uninstall 20
 nvm deactivate
 ```
 
-An interactive guided mode is planned. This version is the `nvm` command line above.
+In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Without a terminal, `nvm` prints a short notice and exits.
 
 ### Differences from nvm
 

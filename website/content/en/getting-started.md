@@ -4,7 +4,7 @@
 
 A **Node.js version manager** built with Zig. After install, the command is `nvm`. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
 
-An interactive guided mode is planned. This version is the `nvm` command line.
+In a terminal, `nvm` with no arguments opens an interactive guide (`nvm guide` does the same). Without a terminal, it prints a short notice and exits.
 
 ## Installation
 
@@ -51,6 +51,14 @@ export NVM_DIR="$HOME/.nvm"
 ```
 
 Open a new terminal, or `source` that profile. The command after that is `nvm`.
+
+## Interactive guide
+
+```bash
+nvm
+```
+
+The menu uses number keys and Enter. It installs, switches, lists, and uninstalls by running the same `nvm` commands as the sections below. Chinese prompts are used when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
 
 ## Usage
 

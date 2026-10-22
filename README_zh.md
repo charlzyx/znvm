@@ -82,7 +82,7 @@ nvm exec 20 npm test
 nvm uninstall 20
 ```
 
-交互式引导模式还在计划中。这一版就是上面的 `nvm` 命令行。
+在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。没有终端时，`nvm` 只打印一句说明并退出。
 
 版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已经装好的版本可以直接用。0.12 之前的 Node 从 `$NVM_DIR/vX.Y.Z` 读取。
 

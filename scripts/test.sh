@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.2.2 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.4.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.2.2" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.4.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.2.2, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.4.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -145,7 +145,7 @@ test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" which 18)" = "$ALIGN_ROOT/versions/v18.0.0/bin/node"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" current)" = "none"
 test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_ROOT/bin/nvm" version)" = "none"
-test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.2.2"
+test "$(env -u NVM_DIR ZNVM_DIR="$ALIGN_ROOT" "$ALIGN_ROOT/bin/nvm" --version)" = "v2.4.0"
 set +e
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" version 99 >/dev/null
 ALIGN_STATUS=$?
@@ -182,7 +182,7 @@ bash -c '
         "v20 "*) ;;
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
-    test "$(nvm --version)" = "v2.2.2"
+    test "$(nvm --version)" = "v2.4.0"
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -244,12 +244,160 @@ bash -c '
     export PATH="$1/.nvm:/usr/bin:/bin"
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
-    test "$(nvm --version)" = "v2.2.2"
+    test "$(nvm --version)" = "v2.4.0"
     test "$(nvm version)" = "none"
     test "$(nvm current)" = "none"
     test -z "$(type znvm 2>/dev/null || true)"
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
+echo "  Testing interactive guide..."
+GUIDE_BIN="$ZNVM_BIN"
+set +e
+GUIDE_OUT=$(env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" </dev/null 2>&1)
+GUIDE_STATUS=$?
+set -e
+test "$GUIDE_STATUS" -eq 1
+printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"
+set +e
+GUIDE_OUT=$(env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" guide </dev/null 2>&1)
+GUIDE_STATUS=$?
+set -e
+test "$GUIDE_STATUS" -eq 1
+printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"
+set +e
+GUIDE_OUT=$(env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" interactive </dev/null 2>&1)
+GUIDE_STATUS=$?
+set -e
+test "$GUIDE_STATUS" -eq 1
+printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"
+HELP_OUT=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" help)
+printf '%s\n' "$HELP_OUT" | grep -q "interactive guide"
+if printf '%s\n' "$HELP_OUT" | grep -q 'completion'; then
+    echo "help mentioned completion" >&2
+    exit 1
+fi
+ENV_GUIDE=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" env)
+printf '%s\n' "$ENV_GUIDE" | grep -q '__nvm_guide'
+printf '%s\n' "$ENV_GUIDE" | grep -q 'guide|interactive'
+python3 - "$GUIDE_BIN" "$EMPTY_ROOT" <<'PY'
+import os, pty, select, subprocess, sys, time
+bin_path, root = sys.argv[1], sys.argv[2]
+
+def run_pty(args, env, sends, needles, timeout=5, stdout_pipe=False):
+    master, slave = pty.openpty()
+    stdout = subprocess.PIPE if stdout_pipe else slave
+    proc = subprocess.Popen(args, stdin=slave, stdout=stdout, stderr=slave, env=env, close_fds=True)
+    os.close(slave)
+    data = b""
+    pos = 0
+    pending = list(sends)
+    waiting = list(needles)
+    end = time.time() + timeout
+    while time.time() < end:
+        r, _, _ = select.select([master], [], [], 0.2)
+        if master in r:
+            try:
+                chunk = os.read(master, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            data += chunk
+        while waiting:
+            encoded = waiting[0].encode()
+            found = data.find(encoded, pos)
+            if found < 0:
+                break
+            pos = found + len(encoded)
+            waiting.pop(0)
+            if pending:
+                os.write(master, pending.pop(0).encode())
+        if proc.poll() is not None and not waiting:
+            break
+    else:
+        proc.kill()
+        text = data.decode("utf-8", "replace")
+        raise SystemExit(f"timeout args={args[1:]} waiting={waiting!r}\n{text}")
+    captured = b""
+    if stdout_pipe:
+        captured = proc.stdout.read()
+    proc.wait(timeout=2)
+    os.close(master)
+    text = data.decode("utf-8", "replace")
+    if waiting:
+        raise SystemExit(f"missing {waiting!r} status={proc.returncode}\n{text}")
+    return proc.returncode, text, captured.decode("utf-8", "replace")
+
+base = os.environ.copy()
+base.update({
+    "LC_ALL": "C",
+    "LANG": "C",
+    "HOME": root + "/home",
+    "PATH": "/usr/bin:/bin",
+})
+base.pop("NVM_DIR", None)
+base.pop("ZNVM_DIR", None)
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["4\n", "1\n", "\n", "0\n"],
+    ["Install Node", "Installed", "Press Enter to continue", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"english menu exit {code}\n{text}")
+if "No versions installed" not in text:
+    raise SystemExit(f"ls did not run\n{text}")
+zh = dict(base)
+zh["LC_ALL"] = "zh_CN.UTF-8"
+zh["LANG"] = "zh_CN.UTF-8"
+code, text, _ = run_pty([bin_path], zh, ["0\n"], ["安装 Node"])
+if code != 0:
+    raise SystemExit(f"chinese menu exit {code}\n{text}")
+
+nvm_dir = root + "/guide-node"
+os.makedirs(nvm_dir + "/versions/node/v20.11.0/bin")
+node = nvm_dir + "/versions/node/v20.11.0/bin/node"
+with open(node, "w") as fh:
+    fh.write("#!/bin/sh\nprintf 'v20 %s\\n' \"$*\"\n")
+os.chmod(node, 0o755)
+use_env = dict(base)
+use_env["NVM_DIR"] = nvm_dir
+code, text, _ = run_pty(
+    [bin_path],
+    use_env,
+    ["2\n", "1\n", "1\n", "\n", "3\n", "1\n", "\n", "0\n"],
+    [
+        "Switch version (use)",
+        "Choose an installed version",
+        "v20.11.0",
+        "Press Enter to continue",
+        "Show current",
+        "Active version",
+        "Press Enter to continue",
+        "(interactive guide)",
+    ],
+)
+if code != 0:
+    raise SystemExit(f"use menu exit {code}\n{text}")
+if "export PATH=" not in text:
+    raise SystemExit(f"use did not print shell exports\n{text}")
+if text.rfind("v20.11.0") <= text.find("Using v20.11.0"):
+    raise SystemExit(f"current did not run after use\n{text}")
+code, screen, captured = run_pty(
+    [bin_path, "--guide-step"],
+    base,
+    ["4\n", "1\n"],
+    ["Install Node", "Installed", "No versions installed"],
+    stdout_pipe=True,
+)
+if code != 0:
+    raise SystemExit(f"step exit {code}\n{screen}\nSTDOUT:\n{captured}")
+if "Install Node" in captured or "No versions installed" in captured:
+    raise SystemExit(f"step stdout mixed with the menu\n{captured}")
+print("pty guide ok")
+PY
+echo -e "    ${GREEN}✓${NC} interactive guide OK"
 
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"

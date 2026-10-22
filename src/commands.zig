@@ -9,6 +9,9 @@ const ZnvmConfig = @import("config.zig").ZnvmConfig;
 const stdout = util.stdout;
 const stderr = util.stderr;
 
+extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
+extern "c" fn unsetenv(name: [*:0]const u8) c_int;
+
 pub var program_name: []const u8 = "znvm";
 
 const LocalHit = union(enum) {
@@ -137,6 +140,10 @@ fn pathEntries(allocator: mem.Allocator) !?[]const u8 {
     return try allocator.dupe(u8, path_env);
 }
 
+pub fn activeVersion(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
+    return getCurrentVersionFromPath(allocator, config);
+}
+
 fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
     const path_env_owned = try pathEntries(allocator) orelse return null;
     defer allocator.free(path_env_owned);
@@ -248,13 +255,19 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const quoted_inc = try shellQuote(allocator, inc_path);
     defer allocator.free(quoted_inc);
 
+    putEnv(allocator, "PATH", new_path);
+    putEnv(allocator, "ZNVM_CURRENT", ver);
+    putEnv(allocator, "NVM_BIN", bin_path);
+    putEnv(allocator, "NVM_INC", inc_path);
     try stdout("export PATH={s}\n", .{quoted_path});
     try stdout("export ZNVM_CURRENT={s}\n", .{quoted_version});
     if (config.npm_prefix) |prefix| {
         const quoted_prefix = try shellQuote(allocator, prefix);
         defer allocator.free(quoted_prefix);
+        putEnv(allocator, "NPM_CONFIG_PREFIX", prefix);
         try stdout("export NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
     } else {
+        _ = unsetenv("NPM_CONFIG_PREFIX");
         try stdout("unset NPM_CONFIG_PREFIX\n", .{});
     }
     try stdout("export NVM_BIN={s}\n", .{quoted_bin});
@@ -271,12 +284,22 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
 
+    putEnv(allocator, "PATH", new_path);
+    _ = unsetenv("ZNVM_CURRENT");
+    _ = unsetenv("NVM_BIN");
+    _ = unsetenv("NVM_INC");
     try stdout("export PATH={s}\n", .{quoted_path});
     try stdout("unset ZNVM_CURRENT\n", .{});
     try stdout("unset NVM_BIN\n", .{});
     try stdout("unset NVM_INC\n", .{});
     try stdout("hash -r 2>/dev/null || true\n", .{});
     if (!silent and message.len > 0) try stderr("{s}\n", .{message});
+}
+
+fn putEnv(allocator: mem.Allocator, key: [:0]const u8, value: []const u8) void {
+    const owned = allocator.dupeZ(u8, value) catch return;
+    defer allocator.free(owned);
+    _ = setenv(key, owned.ptr, 1);
 }
 
 fn ensureDir(path: []const u8) !void {
@@ -764,6 +787,7 @@ pub fn printHelp() !void {
         \\  install-latest-npm
         \\  cache dir|clear
         \\  deactivate [--silent]
+        \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
@@ -774,9 +798,10 @@ pub fn printHelp() !void {
         \\https://npmmirror.com/mirrors/node.
         \\Global npm packages belong to each Node version.
         \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
-        \\An interactive guided mode is planned; this version is the nvm command line.
+        \\With no arguments in a terminal, {s} opens an interactive guide.
+        \\Without a terminal it prints a short notice and exits.
         \\
-    , .{ program_name, program_name });
+    , .{ program_name, program_name, program_name, program_name });
 }
 
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -836,13 +861,37 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  fi
         \\}}
         \\
+        \\__nvm_guide() {{
+        \\  local result
+        \\  local exit_code
+        \\  while true; do
+        \\    result="$("$__nvm_exe" --guide-step)"
+        \\    exit_code=$?
+        \\    if [ "$exit_code" -eq 2 ]; then
+        \\      return 0
+        \\    fi
+        \\    if [ "$exit_code" -ne 0 ]; then
+        \\      if [ -n "$result" ]; then
+        \\        printf '%s\\n' "$result" >&2
+        \\      fi
+        \\      return "$exit_code"
+        \\    fi
+        \\    if [ -n "$result" ]; then
+        \\      eval "$result"
+        \\    fi
+        \\  done
+        \\}}
+        \\
         \\nvm() {{
         \\  case "${{1-}}" in
+        \\    ""|guide|interactive)
+        \\      __nvm_guide "$@"
+        \\      ;;
         \\    use|install|uninstall|rm|deactivate)
         \\      __nvm_apply "$@"
         \\      ;;
         \\    unload)
-        \\      unset -f nvm __nvm_apply __nvm_autoload __nvm_on_chdir 2>/dev/null || true
+        \\      unset -f nvm __nvm_apply __nvm_guide __nvm_autoload __nvm_on_chdir 2>/dev/null || true
         \\      unset __nvm_last_pwd
         \\      ;;
         \\    *)
@@ -1732,7 +1781,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.2.2\n", .{});
+    try stderr("znvm version: v2.4.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});
