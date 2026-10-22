@@ -62,19 +62,31 @@ fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
     return quoted.toOwnedSlice(allocator);
 }
 
-fn pathEntryIsManaged(config: ZnvmConfig, entry: []const u8) bool {
+fn underManagedPrefix(entry: []const u8, root: []const u8) bool {
+    if (root.len == 0 or entry.len <= root.len) return false;
+    if (!mem.startsWith(u8, entry, root) or entry[root.len] != '/') return false;
+    const rest = entry[root.len + 1 ..];
+    if (mem.startsWith(u8, rest, "versions/")) return true;
+    return rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null;
+}
+
+/// `realpath` rewrites symlink prefixes. macOS `/var` and `/tmp` are `/private/var`
+/// and `/private/tmp`, so a node path and `NVM_DIR` can disagree until both are resolved.
+fn pathEntryIsManaged(allocator: mem.Allocator, config: ZnvmConfig, entry: []const u8) !bool {
     for (config.managed_roots) |root| {
-        if (root.len == 0 or entry.len <= root.len) continue;
-        if (!mem.startsWith(u8, entry, root) or entry[root.len] != '/') continue;
-        const rest = entry[root.len + 1 ..];
-        if (mem.startsWith(u8, rest, "versions/")) return true;
-        if (rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null) return true;
+        if (underManagedPrefix(entry, root)) return true;
+        const real_root = fs.realpathAlloc(allocator, root) catch continue;
+        defer allocator.free(real_root);
+        if (underManagedPrefix(entry, real_root)) return true;
+        const real_entry = fs.realpathAlloc(allocator, entry) catch continue;
+        defer allocator.free(real_entry);
+        if (underManagedPrefix(real_entry, real_root)) return true;
     }
     return false;
 }
 
 fn managedVersionFromRealPath(allocator: mem.Allocator, config: ZnvmConfig, real_path: []const u8) !?[]u8 {
-    if (!pathEntryIsManaged(config, real_path)) return null;
+    if (!try pathEntryIsManaged(allocator, config, real_path)) return null;
     const bin_at = mem.lastIndexOf(u8, real_path, "/bin/") orelse return null;
     const before = real_path[0..bin_at];
     const slash = mem.lastIndexOfScalar(u8, before, '/') orelse return null;
@@ -201,7 +213,7 @@ fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8
 
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0 or pathEntryIsManaged(config, entry) or mem.eql(u8, entry, bin_path)) continue;
+        if (entry.len == 0 or try pathEntryIsManaged(allocator, config, entry) or mem.eql(u8, entry, bin_path)) continue;
         if (npm_bin_path) |path| if (mem.eql(u8, entry, path)) continue;
         try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
@@ -214,7 +226,7 @@ fn pathWithoutVersions(allocator: mem.Allocator, config: ZnvmConfig, current_pat
     errdefer list.deinit(allocator);
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
-        if (entry.len == 0 or pathEntryIsManaged(config, entry)) continue;
+        if (entry.len == 0 or try pathEntryIsManaged(allocator, config, entry)) continue;
         if (list.items.len > 0) try list.append(allocator, ':');
         try list.appendSlice(allocator, entry);
     }

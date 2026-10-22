@@ -256,6 +256,21 @@ fi
 test "$(cat "$ALIGN_ROOT/save/.nvmrc")" = "v20.11.0"
 PATH="$ALIGN_ROOT/versions/v18.0.0/bin:/usr/bin:/bin" env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" reinstall-packages 20 >/dev/null
 grep -q "install -g cowsay" "$ALIGN_ROOT/npm-log"
+# NVM_DIR may be a symlink while PATH holds the real directory (macOS /var -> /private/var).
+SYMLINK_TARGET="$NVM_ALIGN_TMP/symlink-target"
+mkdir -p "$SYMLINK_TARGET/versions/v18.0.0/bin"
+cp "$ALIGN_ROOT/versions/v18.0.0/bin/node" "$SYMLINK_TARGET/versions/v18.0.0/bin/node"
+ln -s "$SYMLINK_TARGET" "$NVM_ALIGN_TMP/symlink-root"
+set +e
+env -u ZNVM_DIR NVM_DIR="$NVM_ALIGN_TMP/symlink-root" HOME="$NVM_ALIGN_TMP/home" PATH="$SYMLINK_TARGET/versions/v18.0.0/bin:/usr/bin:/bin" "$ALIGN_BIN" current >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+st=$?
+set -e
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    echo "FAIL symlink-current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
+    exit 1
+fi
 set +e
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" install --copy-packages-from=9.9.9 20 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 st=$?
