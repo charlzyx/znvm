@@ -3,12 +3,14 @@
 set -e
 
 # Header
-echo "znvm: Zig Node Version Manager"
-echo "Node.js version manager. nvm-compatible layout, npmmirror by default."
-echo ""
+if [ "${1:-}" != "--uninstall" ]; then
+    echo "znvm: Zig Node Version Manager"
+    echo "Node.js version manager. nvm-compatible layout, npmmirror by default."
+    echo ""
+fi
 
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.4.0"
+ZNVM_VERSION="v2.5.0"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
@@ -39,6 +41,131 @@ for dir in "${PATH_DIRS[@]}"; do
             ;;
     esac
 done
+
+link_nrm() {
+    local exe="$1"
+    local dir base link target other
+    dir="$(dirname "$exe")"
+    base="$(basename "$exe")"
+    link="$dir/nrm"
+
+    if [ -L "$link" ]; then
+        target="$(readlink "$link")"
+        if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
+            echo "ok nrm 已链接 $link"
+            echo "ok nrm already linked at $link"
+        else
+            echo "note: $link 已存在, 未改动."
+            echo "note: $link already exists and was not changed."
+            echo "note: 未在 $base 旁链接 nrm. 移走该文件后重新安装."
+            echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+        fi
+    elif [ -e "$link" ]; then
+        echo "note: $link 已存在, 未改动."
+        echo "note: $link already exists and was not changed."
+        echo "note: 未在 $base 旁链接 nrm. 移走该文件后重新安装."
+        echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+    else
+        ln -s "$base" "$link"
+        echo "ok 已链接 $link -> $base"
+        echo "ok Linked $link -> $base"
+    fi
+
+    local IFS=':'
+    for other in ${PATH:-}; do
+        [ -n "$other" ] || continue
+        if [ ! -e "$other/nrm" ] && [ ! -L "$other/nrm" ]; then
+            continue
+        fi
+        if [ "$other/nrm" = "$link" ]; then
+            continue
+        fi
+        echo "note: 未删除 PATH 上的另一个 nrm: $other/nrm"
+        echo "note: another nrm is at $other/nrm and was not removed."
+        if [ -L "$link" ]; then
+            target="$(readlink "$link")"
+            if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
+                if [ "$ADD_TO_PATH" = true ]; then
+                    echo "note: shell 配置会把 $(dirname "$link") 放在 PATH 前面, 因此 $link 作为 nrm 运行."
+                    echo "note: the shell profile puts $(dirname "$link") first on PATH, so $link runs as nrm."
+                else
+                    echo "note: $link 在 znvm 旁边. 若另一个 nrm 在 PATH 中更靠前, 运行的仍是那一个."
+                    echo "note: $link is beside znvm. If another nrm is earlier on PATH, that one still runs."
+                fi
+            fi
+        fi
+        return
+    done
+}
+
+remove_nrm_link() {
+    local exe="$1"
+    local link target base
+    link="$(dirname "$exe")/nrm"
+    base="$(basename "$exe")"
+    if [ -L "$link" ]; then
+        target="$(readlink "$link")"
+        if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
+            rm -f "$link"
+            echo "ok 已删除 $link"
+            echo "ok Removed $link"
+        else
+            echo "note: $link 不是指向 $base 的链接, 已保留."
+            echo "note: $link does not point at $base and was left in place."
+        fi
+    elif [ -e "$link" ]; then
+        echo "note: $link 不是本次安装的链接, 已保留."
+        echo "note: $link is not this install and was left in place."
+    fi
+}
+
+uninstall_znvm() {
+    local exe profile tmp
+    exe="$INSTALL_BIN_DIR/znvm"
+    remove_nrm_link "$exe"
+    if [ -e "$exe" ] || [ -L "$exe" ]; then
+        rm -f "$exe"
+        echo "ok 已删除 $exe"
+        echo "ok Removed $exe"
+    fi
+
+    SHELL_NAME=$(basename "${SHELL:-bash}")
+    case "$SHELL_NAME" in
+        bash)
+            if [ -f "$HOME/.bashrc" ]; then
+                profile="$HOME/.bashrc"
+            else
+                profile="$HOME/.bash_profile"
+            fi
+            ;;
+        zsh)
+            profile="$HOME/.zshrc"
+            ;;
+        *)
+            profile="$HOME/.profile"
+            ;;
+    esac
+    if [ -f "$profile" ] && grep -q "znvm env" "$profile"; then
+        tmp="$(mktemp)"
+        awk '
+            $0 == "# znvm" { skipping = 1; next }
+            skipping && $0 ~ /znvm env/ { skipping = 0; next }
+            skipping && ($0 ~ /^export PATH=/ || $0 == "") { next }
+            skipping { skipping = 0 }
+            { print }
+        ' "$profile" > "$tmp"
+        mv "$tmp" "$profile"
+        echo "ok 已从 $profile 移除 znvm 启动行"
+        echo "ok Removed znvm startup from $profile"
+    fi
+    echo "ok 已卸载. Node 版本目录未删除."
+    echo "ok Uninstalled. Node version directories were kept."
+}
+
+if [ "${1:-}" = "--uninstall" ]; then
+    uninstall_znvm
+    exit 0
+fi
 
 VERSION_ARG="$1"
 
@@ -111,6 +238,7 @@ if [ -n "$TARGET" ]; then
 
         if curl -L -o "$INSTALL_BIN_DIR/znvm" "$DOWNLOAD_URL" --fail 2>/dev/null; then
             chmod +x "$INSTALL_BIN_DIR/znvm"
+            link_nrm "$INSTALL_BIN_DIR/znvm"
             BINARY_DOWNLOADED=true
             echo "ok 二进制文件下载成功"
             echo "ok Binary downloaded"

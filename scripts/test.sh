@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.4.0 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.5.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.4.0" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.5.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.4.0, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.5.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.4.0" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.5.0" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.4.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.5.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -352,6 +352,8 @@ if printf '%s\n' "$INSTALL_OUT" | grep -q 'znvm\|completion'; then
     exit 1
 fi
 test -x "$INSTALL_HOME/.nvm/nvm"
+test -L "$INSTALL_HOME/.nvm/nrm"
+test "$(readlink "$INSTALL_HOME/.nvm/nrm")" = "nvm"
 test ! -e "$INSTALL_HOME/.znvm/bin/znvm"
 grep -q "nvm: shell setup" "$INSTALL_HOME/.nvm/nvm.sh"
 if grep -q 'znvm\|completion' "$INSTALL_HOME/.nvm/nvm.sh" "$INSTALL_HOME/.bashrc"; then
@@ -379,7 +381,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.4.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.5.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -387,6 +389,106 @@ bash -c '
     if type znvm >/dev/null 2>&1; then echo "znvm leaked into the shell" >&2; exit 1; fi
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
+echo "  Testing nrm link, foreign nrm, and uninstall..."
+FOREIGN_HOME="$NVM_ALIGN_TMP/foreign-home"
+mkdir -p "$FOREIGN_HOME/other" "$FOREIGN_HOME/.nvm/versions/node/v9.9.9" "$FOREIGN_HOME/.nvm"
+echo keep-foreign > "$FOREIGN_HOME/.nvm/versions/node/v9.9.9/marker"
+printf '#!/bin/sh\necho foreign-nrm\n' > "$FOREIGN_HOME/other/nrm"
+chmod +x "$FOREIGN_HOME/other/nrm"
+echo "echo original-nvm" > "$FOREIGN_HOME/.nvm/nvm.sh"
+touch "$FOREIGN_HOME/.bashrc"
+FOREIGN_OUT=$(env -i \
+    HOME="$FOREIGN_HOME" \
+    PATH="$FOREIGN_HOME/other:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ALIGN_BIN" \
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$FOREIGN_OUT" | grep -q "note: another nrm is at $FOREIGN_HOME/other/nrm and was not removed."
+printf '%s\n' "$FOREIGN_OUT" | grep -q "ok Linked $FOREIGN_HOME/.nvm/nrm -> nvm"
+test "$(readlink "$FOREIGN_HOME/.nvm/nrm")" = "nvm"
+test "$(bash "$FOREIGN_HOME/other/nrm")" = "foreign-nrm"
+test "$(cat "$FOREIGN_HOME/.nvm/versions/node/v9.9.9/marker")" = "keep-foreign"
+if printf '%s\n' "$FOREIGN_OUT" | grep -q 'znvm\|completion'; then
+    echo "foreign install output mentioned znvm or completion" >&2
+    printf '%s\n' "$FOREIGN_OUT" >&2
+    exit 1
+fi
+OCCUPIED="$NVM_ALIGN_TMP/occupied-home"
+mkdir -p "$OCCUPIED/.nvm"
+printf '#!/bin/sh\necho occupied-nrm\n' > "$OCCUPIED/.nvm/nrm"
+chmod +x "$OCCUPIED/.nvm/nrm"
+touch "$OCCUPIED/.bashrc"
+OCCUPIED_OUT=$(env -i \
+    HOME="$OCCUPIED" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ALIGN_BIN" \
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$OCCUPIED_OUT" | grep -q "note: $OCCUPIED/.nvm/nrm already exists and was not changed."
+test ! -L "$OCCUPIED/.nvm/nrm"
+test "$(bash "$OCCUPIED/.nvm/nrm")" = "occupied-nrm"
+UNINSTALL_OUT=$(env -i \
+    HOME="$FOREIGN_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ALIGN_BIN" \
+    bash ./install-as-nvm.sh --uninstall 2>&1)
+printf '%s\n' "$UNINSTALL_OUT" | grep -q "ok Removed $FOREIGN_HOME/.nvm/nrm"
+printf '%s\n' "$UNINSTALL_OUT" | grep -q "ok Removed $FOREIGN_HOME/.nvm/nvm"
+printf '%s\n' "$UNINSTALL_OUT" | grep -q "ok Restored $FOREIGN_HOME/.nvm/nvm.sh"
+printf '%s\n' "$UNINSTALL_OUT" | grep -q "Node versions in $FOREIGN_HOME/.nvm were kept."
+test ! -e "$FOREIGN_HOME/.nvm/nvm"
+test ! -e "$FOREIGN_HOME/.nvm/nrm"
+test "$(cat "$FOREIGN_HOME/.nvm/nvm.sh")" = "echo original-nvm"
+test "$(cat "$FOREIGN_HOME/.nvm/versions/node/v9.9.9/marker")" = "keep-foreign"
+test "$(bash "$FOREIGN_HOME/other/nrm")" = "foreign-nrm"
+if grep -q 'nvm: shell setup' "$FOREIGN_HOME/.bashrc"; then
+    echo "uninstall left the nvm shell block in bashrc" >&2
+    exit 1
+fi
+if printf '%s\n' "$UNINSTALL_OUT" | grep -q 'znvm\|completion'; then
+    echo "uninstall output mentioned znvm or completion" >&2
+    printf '%s\n' "$UNINSTALL_OUT" >&2
+    exit 1
+fi
+echo -e "    ${GREEN}✓${NC} nrm install link OK"
+
+echo "  Testing install.sh uninstall..."
+PLAIN_HOME="$NVM_ALIGN_TMP/plain-home"
+mkdir -p "$PLAIN_HOME/.local/bin" "$PLAIN_HOME/other" "$PLAIN_HOME/.znvm/versions"
+echo keep-znvm > "$PLAIN_HOME/.znvm/versions/marker"
+printf '#!/bin/sh\necho znvm-bin\n' > "$PLAIN_HOME/.local/bin/znvm"
+chmod +x "$PLAIN_HOME/.local/bin/znvm"
+ln -s znvm "$PLAIN_HOME/.local/bin/nrm"
+printf '#!/bin/sh\necho foreign-nrm\n' > "$PLAIN_HOME/other/nrm"
+chmod +x "$PLAIN_HOME/other/nrm"
+cat > "$PLAIN_HOME/.bashrc" <<'EOF'
+echo kept
+# znvm
+export PATH="$HOME/.znvm/bin:$PATH"
+eval "$(znvm env)"
+echo after
+EOF
+PLAIN_OUT=$(env -i \
+    HOME="$PLAIN_HOME" \
+    PATH="$PLAIN_HOME/other:$PLAIN_HOME/.local/bin:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install.sh --uninstall 2>&1)
+printf '%s\n' "$PLAIN_OUT" | grep -q "ok Removed $PLAIN_HOME/.local/bin/nrm"
+printf '%s\n' "$PLAIN_OUT" | grep -q "ok Removed $PLAIN_HOME/.local/bin/znvm"
+printf '%s\n' "$PLAIN_OUT" | grep -q "ok Removed znvm startup from $PLAIN_HOME/.bashrc"
+test ! -e "$PLAIN_HOME/.local/bin/znvm"
+test ! -e "$PLAIN_HOME/.local/bin/nrm"
+test "$(bash "$PLAIN_HOME/other/nrm")" = "foreign-nrm"
+test "$(cat "$PLAIN_HOME/.znvm/versions/marker")" = "keep-znvm"
+grep -q '^echo kept$' "$PLAIN_HOME/.bashrc"
+grep -q '^echo after$' "$PLAIN_HOME/.bashrc"
+if grep -q 'znvm env' "$PLAIN_HOME/.bashrc"; then
+    echo "uninstall left the znvm env line" >&2
+    exit 1
+fi
+echo -e "    ${GREEN}✓${NC} install.sh uninstall OK"
 
 echo "  Testing interactive guide..."
 GUIDE_BIN="$ZNVM_BIN"
@@ -611,6 +713,272 @@ set -e
 test "$REG_BAD" -ne 0
 grep -q 'Scope must look like @company' /tmp/znvm-registry-bad.txt
 echo -e "    ${GREEN}✓${NC} registry scopes OK"
+
+echo "  Testing nrm command..."
+NRM_HOME="$EMPTY_ROOT/nrm-home"
+NRM_NVM="$EMPTY_ROOT/nrm-nvm"
+mkdir -p "$NRM_HOME" "$NRM_NVM" "$EMPTY_ROOT/nrm-bin"
+NRM_TARGET="$(cd "$(dirname "$ZNVM_BIN")" && pwd)/$(basename "$ZNVM_BIN")"
+ln -sfn "$NRM_TARGET" "$EMPTY_ROOT/nrm-bin/nrm"
+nrm_run() {
+    env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C "$EMPTY_ROOT/nrm-bin/nrm" "$@"
+}
+set +e
+nrm_run </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+NRM_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$NRM_STATUS" -ne 0 ]] || ! printf '%s\n' "$NRM_OUT" | grep -q "nrm - registry manager"; then
+    echo "FAIL bare nrm status=$NRM_STATUS out=$(printf %q "$NRM_OUT")" >&2
+    exit 1
+fi
+if printf '%s\n' "$NRM_OUT" | grep -q "needs a terminal"; then
+    echo "bare nrm asked for a terminal" >&2
+    exit 1
+fi
+nrm_run help | grep -q "scope add"
+nrm_run ls >"$NVM_ALIGN_TMP/cmd.out"
+grep -q "  npm https://registry.npmjs.org/" "$NVM_ALIGN_TMP/cmd.out"
+grep -q "  taobao https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/cmd.out"
+if grep -q '^\* ' "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "nrm ls starred a registry before use" >&2
+    exit 1
+fi
+nrm_run use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "The registry has been changed to 'taobao'." "$NVM_ALIGN_TMP/cmd.out"
+grep -q "Wrote $NRM_HOME/.npmrc" "$NVM_ALIGN_TMP/cmd.err"
+grep -q 'registry=https://registry.npmmirror.com/' "$NRM_HOME/.npmrc"
+test "$(nrm_run current)" = "taobao"
+test "$(nrm_run current -u)" = "https://registry.npmmirror.com/"
+env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" "$ZNVM_BIN" registry china >/dev/null
+test "$(nrm_run current)" = "taobao"
+grep -q 'registry=https://registry.npmmirror.com' "$NRM_HOME/.npmrc"
+env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" "$ZNVM_BIN" registry official >/dev/null
+test "$(nrm_run current)" = "npm"
+nrm_run add local http://127.0.0.1:1 | grep -q "added local"
+nrm_run ls | grep -q "  local http://127.0.0.1:1"
+nrm_run test local >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "^local error$" "$NVM_ALIGN_TMP/cmd.out"
+set +e
+nrm_run del npm >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: npm is a built-in registry." "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "FAIL del builtin status=$NRM_STATUS" >&2
+    exit 1
+fi
+set +e
+nrm_run add npm https://example.com >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: npm is a built-in registry." "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "FAIL add builtin status=$NRM_STATUS" >&2
+    exit 1
+fi
+nrm_run del local | grep -q "deleted local"
+if nrm_run ls | grep -q "local "; then
+    echo "deleted registry still listed" >&2
+    exit 1
+fi
+nrm_run scope add @company https://npm.company.example >/dev/null
+nrm_run scope ls | grep -q "@company https://npm.company.example"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+nrm_run scope del @company >/dev/null
+if grep -q '@company:registry=' "$NRM_HOME/.npmrc"; then
+    echo "scope del left the scope in npmrc" >&2
+    exit 1
+fi
+set +e
+nrm_run nosuch >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL unknown nrm status=$NRM_STATUS" >&2
+    exit 1
+fi
+python3 - "$EMPTY_ROOT/nrm-bin/nrm" "$NRM_HOME" "$NRM_NVM" <<'PY'
+import os, pty, select, subprocess, sys, time
+bin_path, home, nvm_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+master, slave = pty.openpty()
+env = os.environ.copy()
+env.update({"HOME": home, "NVM_DIR": nvm_dir, "LC_ALL": "C", "PATH": "/usr/bin:/bin"})
+env.pop("XDG_CONFIG_HOME", None)
+proc = subprocess.Popen([bin_path], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
+os.close(slave)
+data = b""
+end = time.time() + 5
+seen = False
+while time.time() < end:
+    r, _, _ = select.select([master], [], [], 0.2)
+    if master in r:
+        try:
+            chunk = os.read(master, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        data += chunk
+        if b"Registries (scopes)" in data and not seen:
+            seen = True
+            os.write(master, b"0\n")
+    if proc.poll() is not None and seen:
+        break
+else:
+    proc.kill()
+    raise SystemExit("timeout waiting for nrm menu\n" + data.decode("utf-8", "replace"))
+proc.wait(timeout=2)
+os.close(master)
+text = data.decode("utf-8", "replace")
+if proc.returncode != 0:
+    raise SystemExit(f"nrm menu exit {proc.returncode}\n{text}")
+if "Install Node" in text:
+    raise SystemExit(f"nrm opened the full guide\n{text}")
+if "Registries (scopes)" not in text:
+    raise SystemExit(f"nrm menu missing registry title\n{text}")
+print("pty nrm ok")
+PY
+echo -e "    ${GREEN}✓${NC} nrm command OK"
+
+echo "  Testing nvm and nrm commands stay separate..."
+SPLIT_HOME="$NVM_ALIGN_TMP/split-home"
+SPLIT_NVM="$SPLIT_HOME/.nvm"
+mkdir -p "$SPLIT_NVM/versions/node/v22.23.4/bin" "$SPLIT_HOME/bin" "$SPLIT_HOME/.bashrc.d"
+printf '#!/bin/sh\nprintf "v22.23.4\\n"\n' > "$SPLIT_NVM/versions/node/v22.23.4/bin/node"
+chmod +x "$SPLIT_NVM/versions/node/v22.23.4/bin/node"
+cp "$ZNVM_BIN" "$SPLIT_HOME/bin/nvm"
+ln -s nvm "$SPLIT_HOME/bin/nrm"
+touch "$SPLIT_HOME/.bashrc"
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" use 22 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -ne 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "Using v22.23.4"; then
+    echo "FAIL nvm use 22 status=$SPLIT_STATUS stdout=$(printf %q "$SPLIT_OUT") stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+if printf '%s\n' "$SPLIT_OUT" "$SPLIT_ERR" | grep -q "The registry has been changed"; then
+    echo "nvm use 22 changed a registry" >&2
+    exit 1
+fi
+printf '%s\n' "$SPLIT_OUT" | grep -q 'export PATH='
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" ls >"$NVM_ALIGN_TMP/nvm-ls.out"
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" ls >"$NVM_ALIGN_TMP/nrm-ls.out"
+grep -q "v22.23.4" "$NVM_ALIGN_TMP/nvm-ls.out"
+if grep -q "registry.npmjs.org" "$NVM_ALIGN_TMP/nvm-ls.out"; then
+    echo "nvm ls printed registries" >&2
+    exit 1
+fi
+grep -q "taobao https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/nrm-ls.out"
+if grep -q "v22.23.4" "$NVM_ALIGN_TMP/nrm-ls.out"; then
+    echo "nrm ls printed Node versions" >&2
+    exit 1
+fi
+if cmp -s "$NVM_ALIGN_TMP/nvm-ls.out" "$NVM_ALIGN_TMP/nrm-ls.out"; then
+    echo "nvm ls and nrm ls printed the same text" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "not installed"; then
+    echo "FAIL nvm use taobao status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" use 22 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "22 is not a registry"; then
+    echo "FAIL nrm use 22 status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "The registry has been changed to 'taobao'." "$NVM_ALIGN_TMP/cmd.out"
+if grep -q "Using v22" "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "nrm use taobao switched Node" >&2
+    exit 1
+fi
+grep -q 'registry=https://registry.npmmirror.com/' "$SPLIT_HOME/.npmrc"
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" add local http://127.0.0.1:1 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+if [[ "$SPLIT_STATUS" -eq 0 ]]; then
+    echo "nvm add was accepted" >&2
+    exit 1
+fi
+grep -q "Unknown command: add" "$NVM_ALIGN_TMP/cmd.err"
+env -i \
+    HOME="$SPLIT_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$ZNVM_BIN" \
+    bash ./install-as-nvm.sh >/dev/null
+if grep -q 'nrm()' "$SPLIT_NVM/nvm.sh"; then
+    echo "nvm.sh defined an nrm function" >&2
+    exit 1
+fi
+bash -c '
+    set -e
+    export HOME="$1"
+    export PATH="/usr/bin:/bin"
+    # shellcheck disable=SC1091
+    . "$1/.nvm/nvm.sh"
+    if [ "$(type -t nvm)" != "function" ]; then
+        echo "nvm is not a shell function: $(type -t nvm)" >&2
+        exit 1
+    fi
+    if [ "$(type -t nrm)" = "function" ]; then
+        echo "nvm.sh intercepted nrm" >&2
+        exit 1
+    fi
+    if [ "$(type -t nrm)" != "file" ]; then
+        echo "nrm is not the binary: $(type -t nrm 2>&1)" >&2
+        exit 1
+    fi
+    nvm use 22 >/dev/null
+    cur=$(nvm current)
+    if [ "$cur" != "v22.23.4" ]; then
+        echo "shell nvm use 22 current=$cur" >&2
+        exit 1
+    fi
+    nvm_ls=$(nvm ls)
+    nrm_ls=$(nrm ls)
+    printf "%s\n" "$nvm_ls" | grep -q "v22.23.4"
+    if printf "%s\n" "$nvm_ls" | grep -q "registry.npmjs.org"; then
+        echo "shell nvm ls printed registries" >&2
+        exit 1
+    fi
+    printf "%s\n" "$nrm_ls" | grep -q "taobao https://registry.npmmirror.com/"
+    if printf "%s\n" "$nrm_ls" | grep -q "v22.23.4"; then
+        echo "shell nrm ls printed Node versions" >&2
+        exit 1
+    fi
+    nrm use npm >/dev/null
+    reg=$(nrm current)
+    if [ "$reg" != "npm" ]; then
+        echo "shell nrm current=$reg" >&2
+        exit 1
+    fi
+    cur=$(nvm current)
+    if [ "$cur" != "v22.23.4" ]; then
+        echo "nrm use changed the Node version: $cur" >&2
+        exit 1
+    fi
+' _ "$SPLIT_HOME"
+echo -e "    ${GREEN}✓${NC} nvm and nrm commands stay separate"
 
 echo ""
 echo -e "${GREEN}=== All tests passed! ===${NC}"

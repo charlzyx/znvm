@@ -5,7 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [v2.5.0] - 2026-10-22
+
+### Added
+
+- One install provides `nvm` and `nrm`. `nrm` is the same binary, installed as a relative symlink beside `nvm` (or `znvm`).
+- `nrm ls`, `nrm use <name>`, `nrm current`, `nrm add <name> <url>`, `nrm del <name>`, `nrm test [name]`, and `nrm help`.
+- `nrm scope add`, `nrm scope ls`, and `nrm scope del` edit `@scope` routes on the same map as `nvm registry`.
+- In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help.
+- Installers do not replace an existing `nrm`. They print the other path and leave that file in place. `install-as-nvm.sh` moves its directory to the front of `PATH` so the linked `nrm` runs first.
+- `--uninstall` removes this install's binary and its `nrm` link, restores or removes the shell block, and does not delete Node versions or a foreign `nrm`.
 
 ### Changed
 
@@ -259,6 +268,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.5.0]: https://github.com/charlzyx/znvm/compare/v2.4.0...v2.5.0
 [v2.4.0]: https://github.com/charlzyx/znvm/compare/v2.3.0...v2.4.0
 [v2.2.2]: https://github.com/charlzyx/znvm/compare/v2.2.1...v2.2.2
 [v2.2.1]: https://github.com/charlzyx/znvm/compare/v2.2.0...v2.2.1

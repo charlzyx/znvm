@@ -22,8 +22,8 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted-foreground">
               {zh
-                ? "安装之后的命令是 nvm。版本放在 ~/.nvm。Node 默认从 npmmirror 下载。不带参数打开交互引导，也可以按 scope 把源写进 npm、yarn、pnpm 和 bun。"
-                : "After install the command is nvm. Versions live in ~/.nvm. Node downloads come from npmmirror. With no arguments it opens a guide, and scope routes can be written for npm, yarn, pnpm, and bun."}
+                ? "安装之后的命令是 nvm 和 nrm。版本放在 ~/.nvm。Node 默认从 npmmirror 下载。不带参数的 nvm 打开交互引导。nrm 切换源，也可以按 scope 写进 npm、yarn、pnpm 和 bun。"
+                : "After install the commands are nvm and nrm. Versions live in ~/.nvm. Node downloads come from npmmirror. nvm with no arguments opens a guide. nrm switches registries, including scope routes for npm, yarn, pnpm, and bun."}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={zh ? "/zh/getting-started" : "/getting-started"}>

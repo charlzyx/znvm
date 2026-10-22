@@ -4,7 +4,7 @@ const features = {
   en: [
     {
       title: "Drop-in nvm",
-      body: "install-as-nvm.sh installs the nvm command. Versions live in ~/.nvm ($NVM_DIR). The shell hook exports NVM_DIR and sources nvm.sh. Everyday commands are install, use, ls, current, alias, and uninstall.",
+      body: "install-as-nvm.sh installs the nvm command and links nrm to the same binary. Versions live in ~/.nvm ($NVM_DIR). The shell hook exports NVM_DIR, sources nvm.sh, and puts that directory first on PATH. Everyday commands are install, use, ls, current, alias, and uninstall.",
     },
     {
       title: "npmmirror by default",
@@ -16,13 +16,13 @@ const features = {
     },
     {
       title: "Scope registries",
-      body: "Keep a default registry and any number of @scope routes, for example @company to an intranet registry and everything else on npmmirror. nvm registry china and nvm registry official change only the default. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+      body: "nrm ls, nrm use, nrm current, nrm add, nrm del, and nrm test use the usual registry names. nrm scope add @company <url> keeps several scope routes. nvm registry is the same map. In a terminal, nrm with no arguments opens the registry menu. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
     },
   ],
   zh: [
     {
       title: "当作 nvm 使用",
-      body: "install-as-nvm.sh 安装的命令是 nvm。版本在 ~/.nvm（$NVM_DIR）。shell 钩子导出 NVM_DIR 并 source nvm.sh。日常命令是 install、use、ls、current、alias 和 uninstall。",
+      body: "install-as-nvm.sh 安装 nvm，并把 nrm 链接到同一个二进制。版本在 ~/.nvm（$NVM_DIR）。shell 钩子导出 NVM_DIR、source nvm.sh，并把该目录放到 PATH 最前。日常命令是 install、use、ls、current、alias 和 uninstall。",
     },
     {
       title: "默认 npmmirror",
@@ -34,7 +34,7 @@ const features = {
     },
     {
       title: "按 scope 分流源",
-      body: "可以同时保存一个默认源和任意多个 @scope，例如 @company 走内网，其余走 npmmirror。nvm registry china 和 nvm registry official 只改默认源。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+      body: "nrm ls、nrm use、nrm current、nrm add、nrm del 和 nrm test 使用常见的源名字。nrm scope add @company <url> 保存多条 scope。nvm registry 改的是同一张表。在终端里不带参数运行 nrm 会打开源菜单。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
     },
   ],
 };

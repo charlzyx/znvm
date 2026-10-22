@@ -818,8 +818,81 @@ pub fn printHelp() !void {
         \\china sets https://registry.npmmirror.com and keeps scopes.
         \\official sets https://registry.npmjs.org and keeps scopes.
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
+        \\use, ls, and current on this command always select Node versions.
+        \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
         \\
     , .{ program_name, program_name, program_name, program_name });
+}
+
+pub fn printNrmHelp() !void {
+    try stdout(
+        \\nrm - registry manager
+        \\
+        \\Commands:
+        \\  ls
+        \\  use <name>
+        \\  current [-u|--show-url]
+        \\  add <name> <url>
+        \\  del <name>
+        \\  test [name]
+        \\  scope ls
+        \\  scope add <@scope> <url>
+        \\  scope del <@scope>
+        \\  help
+        \\  --version, -v
+        \\
+        \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.
+        \\Custom names are stored in $NVM_DIR/registries.json.
+        \\use and scope write ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
+        \\With no arguments in a terminal, nrm opens the registry menu.
+        \\Without a terminal it prints this help.
+        \\nvm registry edits the same map.
+        \\
+    , .{});
+}
+
+pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const reg = @import("registry.zig");
+    if (args.len < 2) {
+        try printNrmHelp();
+        return;
+    }
+    const sub = args[1];
+    const failed = blk: {
+        if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
+            try printNrmHelp();
+            return;
+        } else if ((mem.eql(u8, sub, "ls") or mem.eql(u8, sub, "list")) and args.len == 2) {
+            break :blk reg.listNames(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "use") and args.len == 3) {
+            break :blk reg.useName(allocator, config.root_dir, args[2]);
+        } else if (mem.eql(u8, sub, "current") and args.len == 2) {
+            break :blk reg.current(allocator, config.root_dir, false);
+        } else if (mem.eql(u8, sub, "current") and args.len == 3 and (mem.eql(u8, args[2], "-u") or mem.eql(u8, args[2], "--show-url"))) {
+            break :blk reg.current(allocator, config.root_dir, true);
+        } else if (mem.eql(u8, sub, "add") and (args.len == 4 or args.len == 5)) {
+            break :blk reg.addName(allocator, config.root_dir, args[2], args[3]);
+        } else if ((mem.eql(u8, sub, "del") or mem.eql(u8, sub, "rm")) and args.len == 3) {
+            break :blk reg.delName(allocator, config.root_dir, args[2]);
+        } else if (mem.eql(u8, sub, "test") and args.len == 2) {
+            break :blk reg.testRegistries(allocator, config.root_dir, null);
+        } else if (mem.eql(u8, sub, "test") and args.len == 3) {
+            break :blk reg.testRegistries(allocator, config.root_dir, args[2]);
+        } else if (mem.eql(u8, sub, "scope") and args.len >= 3 and (mem.eql(u8, args[2], "ls") or mem.eql(u8, args[2], "list")) and args.len == 3) {
+            break :blk reg.listScopes(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "scope") and args.len == 5 and mem.eql(u8, args[2], "add")) {
+            break :blk reg.add(allocator, config.root_dir, args[3], args[4]);
+        } else if (mem.eql(u8, sub, "scope") and args.len == 4 and (mem.eql(u8, args[2], "del") or mem.eql(u8, args[2], "rm"))) {
+            break :blk reg.removeScope(allocator, config.root_dir, args[3]);
+        } else {
+            try printNrmHelp();
+            process.exit(1);
+        }
+    };
+    failed catch |err| {
+        try reg.printError(err);
+        process.exit(1);
+    };
 }
 
 pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -938,6 +1011,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  done
         \\}}
         \\
+        \\# nrm is not a shell function. The nrm symlink runs the binary directly.
         \\nvm() {{
         \\  case "${{1-}}" in
         \\    ""|guide|interactive)
@@ -1837,7 +1911,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.4.0\n", .{});
+    try stderr("znvm version: v2.5.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

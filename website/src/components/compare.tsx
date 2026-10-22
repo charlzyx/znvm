@@ -35,8 +35,8 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
           </h2>
           <p className="mt-4 max-w-2xl text-muted-foreground">
             {zh
-              ? "znvm 覆盖日常的 nvm 命令，也覆盖 nrm 做不到的多 scope。二进制镜像还没有做。"
-              : "znvm covers everyday nvm commands, and scope routes that nrm keeps as one global switch. Binary mirrors are not part of znvm yet."}
+              ? "一次安装同时提供 nvm 和 nrm。下面的 nrm 列是原来的 npm 源工具。znvm 的 nrm 还能写多条 scope，并写入 npm、yarn、pnpm 和 bun。二进制镜像还没有做。"
+              : "One install provides both nvm and nrm. The nrm column is the original npm registry manager. znvm's nrm also writes scope routes for npm, yarn, pnpm, and bun. Binary mirrors are not part of znvm."}
           </p>
           <div className="mt-8 overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full min-w-[36rem] text-left text-sm">

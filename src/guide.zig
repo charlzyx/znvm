@@ -19,6 +19,17 @@ const Pick = union(enum) { quit, back, index: usize };
 
 const page_size: usize = 15;
 
+pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    if (!std.posix.isatty(std.posix.STDIN_FILENO)) return;
+    const zh = preferZh(allocator);
+    while (true) {
+        switch (try submenu(allocator, config, zh, 9)) {
+            .quit, .back => return,
+            .acted => if (!try pause(allocator, zh)) return,
+        }
+    }
+}
+
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
     if (!std.posix.isatty(std.posix.STDIN_FILENO)) {
         try stderr("{s}: interactive guide needs a terminal.\nRun `{s} help` for commands.\n", .{ commands.program_name, commands.program_name });

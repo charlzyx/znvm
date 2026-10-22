@@ -2,7 +2,7 @@
 
 **znvm** — **零负担 Node 版本管理器**
 
-基于 Zig 的 **Node.js 版本管理器**。安装之后的命令是 `nvm`。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
+基于 Zig 的 **Node.js 版本管理器**。安装之后有两个命令：`nvm` 和 `nrm`。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
 
 在终端里不带参数运行 `nvm` 会打开交互引导（`nvm guide` 相同）。没有终端时，它只打印一句说明并退出。
 
@@ -20,7 +20,8 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.4.0 (x86_64-linux)...
+> Downloading nvm v2.5.0 (x86_64-linux)...
+ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
 
@@ -33,6 +34,7 @@ export NVM_DIR="/home/user/.nvm"
 nvm install 22
 nvm use 22
 nvm ls
+nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
@@ -43,9 +45,11 @@ Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is
 ### 安装器做了什么
 
 1. 检测平台（macOS/Linux）和架构（x64/arm64）
-2. 安装 `nvm` 命令并写入 `~/.nvm/nvm.sh`
+2. 安装 `nvm` 命令，把 `nrm` 链接到它，并写入 `~/.nvm/nvm.sh`
 3. 把 `NVM_DIR` 的启动行追加到 shell 配置
 4. 保留 `$NVM_DIR/versions/node` 里已经装好的 Node 版本
+
+`nrm` 是和 `nvm` 同目录的相对符号链接。如果那个路径已经有文件，安装器会保留它并打印说明。如果 `PATH` 上还有另一个 `nrm`，会打印那个路径，不会删除它。新的 shell 会把 `nvm` 所在目录移到 `PATH` 最前面，因此这个 `nrm` 先运行。`install-as-nvm.sh --uninstall` 会删除 `nvm` 二进制和指向它的 `nrm` 链接，恢复或去掉 shell 配置段，不会删除 Node 版本，也不会删除别人的 `nrm`。
 
 ### Shell 配置
 
@@ -57,7 +61,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-新开一个终端，或 `source` 那个配置文件。之后的命令是 `nvm`。
+新开一个终端，或 `source` 那个配置文件。之后的命令是 `nvm` 和 `nrm`。
 
 ## 交互引导
 
@@ -82,6 +86,25 @@ nvm registry sync
 ```
 
 `china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。Electron 和其他二进制镜像不会被改动。
+
+## nrm
+
+`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。
+
+```bash
+nrm ls
+nrm use taobao
+nrm current
+nrm current -u
+nrm add local http://127.0.0.1:4873
+nrm del local
+nrm test taobao
+nrm scope add @company https://npm.company.example
+nrm scope ls
+nrm scope del @company
+```
+
+内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use taobao` 和 `nvm registry china` 指向同一个 npmmirror 地址。末尾一个斜杠不影响匹配。`nrm del` 不能删除内置名字。`nvm registry` 仍然可用。
 
 ## 使用
 

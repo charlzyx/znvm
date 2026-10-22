@@ -25,7 +25,9 @@
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-The script installs the `nvm` command and writes `~/.nvm/nvm.sh`. Running it again is safe: it does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
+The script installs the `nvm` command, links `nrm` to that same binary, and writes `~/.nvm/nvm.sh`. Running it again is safe: it does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
+
+`nrm` is a relative symlink beside `nvm`. The installer does not replace an existing `nrm`. If that path is already a file, it prints a note and leaves the file in place. If another `nrm` is elsewhere on `PATH`, it prints that path and does not delete it. A new shell moves the `nvm` directory to the front of `PATH`, so the linked `nrm` runs first. `--uninstall` removes this `nvm` binary and the `nrm` symlink when the link points at it, restores `nvm.sh` from `nvm.sh.bak` when that backup exists, removes the `nvm: shell setup` profile block, and does not delete Node versions or a foreign `nrm`.
 
 When it finishes, it prints:
 
@@ -39,6 +41,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm install 22
 nvm use 22
 nvm ls
+nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
@@ -107,6 +110,23 @@ nvm registry show
 ```
 
 The saved map is `$NVM_DIR/registries.json`. Sync rewrites the default registry and `@scope` registry lines in `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc (`~/.config/pnpm/rc`, or `~/Library/Preferences/pnpm/rc` on macOS), and `~/.bunfig.toml`. Other lines in those files stay. A `npmScopes` block in `~/.yarnrc.yml` is replaced by the saved scopes. Electron and other binary mirrors are not part of this command.
+
+The same install provides `nrm`. It is this binary when the command name is `nrm`. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. `nvm registry` is the prefixed alias for that map.
+
+```bash
+nrm ls
+nrm use taobao
+nrm current
+nrm current -u
+nrm add local http://127.0.0.1:4873
+nrm del local
+nrm test taobao
+nrm scope add @company https://npm.company.example
+nrm scope ls
+nrm scope del @company
+```
+
+Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use` and `nvm registry china` / `official` pick the built-in name when the URL matches, ignoring one trailing slash. `nrm del` does not remove a built-in name. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help. `nrm add` accepts an optional home argument and ignores it.
 
 ### Differences from nvm
 
