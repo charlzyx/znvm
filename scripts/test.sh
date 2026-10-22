@@ -140,15 +140,14 @@ printf '%s\n' "$ALIGN_LS" | grep -q "v18.0.0"
 printf '%s\n' "$ALIGN_LS" | grep -q "v20.11.0"
 # bash 3.2 exits on a failing command inside a function or $(...) even after
 # set +e. Stay in the main script and capture through files.
-trap 'echo "ERR status=$? line=${BASH_LINENO[0]} cmd=$BASH_COMMAND" >&2' ERR
-echo "alias files before: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
 set +e
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" alias default 18 >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 st=$?
 set -e
-echo "alias status=$st stdout=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.out" || true)") stderr=$(printf %q "$(cat "$NVM_ALIGN_TMP/cmd.err" || true)")" >&2
-echo "alias files after: alias=$(printf %q "$(cat "$ALIGN_ROOT/alias/default" 2>/dev/null || true)") legacy=$(printf %q "$(cat "$ALIGN_ROOT/default" 2>/dev/null || true)")" >&2
-if [[ "$st" -ne 0 ]]; then
+out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
+err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$st" -ne 0 || -n "$out" ]]; then
+    echo "FAIL alias status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -157,8 +156,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "18" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -167,8 +166,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "version-default status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "v18.0.0" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -177,8 +176,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "which-20 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/node/v20.11.0/bin/node" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -187,8 +186,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "which-18 status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "$ALIGN_ROOT/versions/v18.0.0/bin/node" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -197,8 +196,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "current status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -207,8 +206,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "nvm-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "none" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -217,8 +216,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "nvm-tool-version status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 0 || "$out" != "v2.4.0" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 set +e
@@ -227,8 +226,8 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-echo "version-missing status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
 if [[ "$st" -ne 3 || "$out" != "N/A" ]]; then
+    echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
 # findUp prints the real path. macOS /var is a symlink to /private/var.
@@ -327,7 +326,6 @@ if [[ "$st" -eq 0 ]] || ! printf '%s\n' "$out" "$err" | grep -q "cached tarball"
     echo "FAIL offline status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
-trap - ERR
 echo -e "    ${GREEN}✓${NC} nvm-compatible commands OK"
 
 echo "  Testing install-as-nvm.sh..."
