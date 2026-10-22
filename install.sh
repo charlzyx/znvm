@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Header
 echo -e "${CYAN}${BOLD}znvm: Zig Node Version Manager${NC}"
-echo -e "${BLUE}The blazingly fast, zero-config Node.js version manager.${NC}"
+echo -e "${BLUE}Node.js version manager. nvm-compatible layout, npmmirror by default.${NC}"
 echo ""
 
 # 版本号（发布时更新此行）

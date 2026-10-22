@@ -45,26 +45,16 @@
 ### Added
 
 - **性能基准测试** (`benchmarks/benchmark_key_operations.sh`)
-  - 完整的性能对比测试脚本
-  - 测试关键操作：`list`, `use`, `.nvmrc` 解析
-  - 对标 nvm 和 fnm 的真实性能数据
+  - 当时加入了一个对比脚本
+  - 该脚本的方法和随它发布的数字已撤回，见下方说明
 
 ### Changed
 
 - **文档站点更新**
   - 更新主页 (`docs/pages/index.mdx`, `docs/pages/zh/index.mdx`) 添加性能对比表格
   - 新增博客文章 "Why Zig?" (`docs/pages/blog/why-zig.mdx`, `docs/pages/zh/blog/why-zig.mdx`)
-  - 完整的真实基准测试数据 (Apple M4, 16GB RAM, macOS 25.3)
-
-**性能数据对比**:
-
-| 管理器 | list | use | .nvmrc |
-|--------|------|-----|--------|
-| nvm | 708ms | 192ms | 189ms |
-| fnm | 6ms | 4ms | 10ms |
-| **znvm** | **4ms** | **3ms** | **2ms** |
-
-**性能优势**: znvm 快 **95-177 倍** (相比 nvm)
+  - 本条目原先写过一组 Apple M4 性能数字（list/use/.nvmrc 为 708/192/189 ms、6/4/10 ms、4/3/2 ms，以及 “95–177 倍”）。那些数字不是可复现测量，已撤回，不要把它们当作 v2.1.1 的结果。
+  - 当前测量在 2026-10-22，方法是 `benchmarks/measure.py`，结果见 README 的 Benchmarks 和 `benchmarks/results/2026-10-22.json`。那次测量不是本版本发布时做的，不要把新数字回写成 2026-03-16 的发布数据。
 
 ### Breaking Changes
 
@@ -102,7 +92,7 @@ src/
 
 ### Added
 
-- **Zig 核心**: 全新的 Zig 实现，启动速度 < 5ms
+- **Zig 核心**: 全新的 Zig 实现。本条目原先写的 “启动速度 < 5ms” 已撤回；启动时间以 2026-10-22 的测量为准（README Benchmarks）
 - **default 命令**: 恢复设置/查看默认版本功能
 - **文档站点**: 新增 website 配置和完整文档 (znvm.dev)
 

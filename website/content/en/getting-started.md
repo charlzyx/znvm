@@ -2,159 +2,161 @@
 
 **znvm** — **Zero-overhead Node Version Manager**
 
-A blazingly fast, zero-config **Node.js version manager** built with Zig. It solves the **nvm-slow** problem with **< 5ms** startup time.
+A **Node.js version manager** built with Zig. After install, the command is `nvm`. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
+
+An interactive guided mode is planned. This version is the `nvm` command line.
 
 ## Installation
 
 ### Quick Install (Recommended)
 
 ```bash
-curl -fsSL https://znvm.dev/install.sh | bash
+curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 ```
 
-Then restart your terminal or run:
+When it finishes, it prints:
 
-```bash
-source ~/.zshrc  # or ~/.bashrc
+```text
+nvm is ready.
+
+Open a new terminal, or run:
+  source "~/.bashrc"
+
+export NVM_DIR="$HOME/.nvm"
+nvm install 22
+nvm use 22
+nvm ls
+
+Node versions are stored in $NVM_DIR/versions/node.
+Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
+
+The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running the script again is safe: it does not duplicate that block, and it does not delete Node versions already under `~/.nvm/versions/node`.
 
 ### What the installer does
 
 1. Detects your platform (macOS/Linux) and architecture (x64/arm64)
-2. Downloads the latest `znvm` binary to `~/.znvm/bin/`
-3. Adds `znvm` to your `PATH` in shell profile
-4. Sets up the shell wrapper for `use` command and auto-switching
+2. Installs the `nvm` command and writes `~/.nvm/nvm.sh`
+3. Appends the `NVM_DIR` startup lines to your shell profile
+4. Leaves existing Node versions in `$NVM_DIR/versions/node` in place
 
-### Shell Setup
+### Shell setup
 
-If the automatic setup didn't work, add this to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.):
+The installer writes:
 
 ```bash
-eval "$(znvm env)"
+# nvm: shell setup
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
-This command:
-- Adds `znvm` to your PATH
-- Sets up the shell wrapper for the `use` command
-- Enables auto-switching when you `cd` into directories with `.nvmrc`
+Open a new terminal, or `source` that profile. The command after that is `nvm`.
 
 ## Usage
 
 ### Install Node.js
 
-znvm supports SemVer patterns. Use `22` to get the latest v22.x.x:
+Use `22` to get the latest v22.x.x:
 
 ```bash
-znvm install 22           # Latest v22.x.x
-# Run again later to install the newest release on the v22 line
-znvm install 20.11.0      # Specific version
-znvm install v18.20.0     # With v prefix
+nvm install 22            # Latest v22.x.x
+nvm install --lts         # Latest LTS
+nvm install 20.11.0       # Specific version
+nvm install v18.20.0      # With v prefix
+nvm install               # Version from .nvmrc, then switch to it
 ```
 
 ### Switch Versions
 
 ```bash
-znvm use 20               # Switch to Node 20
-znvm use                  # Auto-detect from .nvmrc
+nvm use 20                # Switch to Node 20
+nvm use                   # Read .nvmrc from this directory or a parent
+nvm use --lts
 ```
 
 ### List Installed Versions
 
 ```bash
-znvm ls
-# or
-znvm list
+nvm ls
+nvm current
+nvm which 20
 ```
 
-Output shows:
-- `[*]` - Currently active version
-- `[->]` - Default version
+`->` marks the active version. Aliases are listed after the versions.
 
 ### Set Default Version
 
 ```bash
-znvm default 20           # Set v20 as default
-znvm default              # Show current default
+nvm alias default 20      # Same as: nvm default 20
+nvm alias
 ```
 
-The default version is used when:
-- No `.nvmrc` file exists in current directory
-- The `.nvmrc` version is not installed
+The default alias is used when you enter a directory that has no `.nvmrc` and no `.node-version`.
 
 ### Uninstall a Version
 
 ```bash
-znvm uninstall 20
-# or
-znvm rm 20
+nvm uninstall 20
+nvm deactivate
 ```
 
 ## Auto Switching with .nvmrc
 
-znvm automatically switches Node versions when you `cd` into a directory with `.nvmrc`:
+With `nvm.sh` loaded, entering a directory reads `.nvmrc` and switches to that installed version. If no `.nvmrc` exists anywhere above the current directory, `.node-version` is used. A missing version is not downloaded.
 
 ```bash
-echo "20" > .nvmrc        # Create .nvmrc
-cd /my-project            # Auto-switches to Node 20
+echo "20" > .nvmrc
+cd /my-project
 ```
-
-> **Note:** Auto-switching is enabled by default when you use `eval "$(znvm env)"` in your shell profile.
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ZNVM_DIR` | znvm data directory | `~/.znvm` |
-| `ZNVM_NODE_MIRROR` | Node.js download mirror | `https://npmmirror.com/mirrors/node` |
-| `ZNVM_NPM_PREFIX` | Shared global npm package prefix | `$ZNVM_DIR/npm` |
-
-## Mirror Configuration
-
-For users in China, use a mirror to speed up downloads:
+| `NVM_DIR` | Node version root (`versions/node`) | `~/.nvm` |
+| `NVM_NODEJS_ORG_MIRROR` | Override the Node.js download mirror | unset; downloads use `https://npmmirror.com/mirrors/node` |
 
 ```bash
-export ZNVM_NODE_MIRROR=https://npmmirror.com/mirrors/node
+export NVM_DIR="$HOME/.nvm"
+export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 ```
 
-## Shared Global Packages
+## Global packages
 
-znvm sets npm's global prefix to `$ZNVM_DIR/npm`. Packages installed with `npm install -g` and their commands stay available after switching Node.js versions. Set `ZNVM_NPM_PREFIX` before `eval "$(znvm env)"` to use a different location.
+`npm install -g` installs into the active Node version. `nvm reinstall-packages <version>` copies that version's global packages into the one that is active.
 
-## Commands Reference
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `znvm install <ver>` | Install a Node.js version |
-| `znvm use [ver]` | Switch to version (or use .nvmrc) |
-| `znvm ls` | List installed versions |
-| `znvm default [ver]` | Set/show default version |
-| `znvm uninstall <ver>` | Remove a version |
-| `znvm version` | Show znvm version |
-| `znvm env` | Output shell configuration |
+| `nvm install [version]` | Install a Node.js version |
+| `nvm use [version]` | Switch version, or read `.nvmrc` |
+| `nvm ls` | List installed versions |
+| `nvm alias default [version]` | Set or show the default alias |
+| `nvm uninstall <version>` | Remove a version |
+| `nvm version` | Active Node version (`none` or `system` when this nvm is not providing it) |
+| `nvm --version` | Installed tool version |
 
 ## Troubleshooting
 
-### Command not found
+### `nvm` is not found
 
-Make sure `~/.znvm/bin` is in your PATH:
+Open a new terminal, or load the profile the installer printed:
 
 ```bash
-export PATH="$HOME/.znvm/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 ```
 
 ### Version not found after install
 
-Run `znvm use <version>` or restart your terminal.
+```bash
+nvm use 22
+```
 
 ### Auto-switch not working
 
-Ensure the shell wrapper is loaded in your profile:
-
-```bash
-eval "$(znvm env)"
-```
-
-If you want to disable auto-switch, remove or comment out the `eval "$(znvm env)"` line from your shell profile.
+Confirm the profile still contains the `NVM_DIR` / `nvm.sh` lines above. To stop auto-switch, remove those lines.
 
 ---
 

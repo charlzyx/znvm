@@ -20,7 +20,7 @@ interface HeroProps {
 export function Hero({ lang = "en" }: HeroProps) {
   const isZh = lang === "zh";
   const [copied, setCopied] = useState(false);
-  const installCmd = "curl -fsSL https://znvm.dev/install.sh | bash";
+  const installCmd = "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash";
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(installCmd);
@@ -52,8 +52,8 @@ export function Hero({ lang = "en" }: HeroProps) {
           {/* Description */}
           <p className="mt-6 max-w-[700px] text-lg text-muted-foreground sm:text-xl">
             {isZh
-              ? "零负担 Node 版本管理器。终极 nvm 替代品，解决 nvm 卡顿问题。< 5ms 启动，Unix 优先，零配置。"
-              : "Zero-overhead Node Version Manager. The ultimate nvm alternative that solves the nvm-slow problem. < 5ms startup, Unix-first, zero config."
+              ? "按 nvm 的目录存放 Node 版本，默认从 npmmirror 下载。2026-10-22 在一台 Linux 虚拟机上，暖 shell 启动 3.31 ms，冷 shell 启动 5.01 ms（fnm 1.58 / 4.70 ms，nvm 113 / 121 ms）。"
+              : "Stores Node versions the way nvm does, and downloads from npmmirror by default. On a Linux VM (2026-10-22): warm shell startup 3.31 ms, cold 5.01 ms (fnm 1.58 / 4.70 ms, nvm 113 / 121 ms)."
             }
           </p>
 
