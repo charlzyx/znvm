@@ -52,7 +52,7 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {items.map((item) => (
             <article key={item.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
-              <h3 className="font-mono text-sm text-orange-300">{item.title}</h3>
+              <h3 className="text-sm font-semibold text-node-bright">{item.title}</h3>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.body}</p>
             </article>
           ))}

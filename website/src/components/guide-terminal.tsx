@@ -167,7 +167,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           </p>
           <div
             ref={frame}
-            className="term-frame mt-8 outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            className="term-frame mt-8 outline-none focus-visible:ring-2 focus-visible:ring-node"
             tabIndex={0}
             role="group"
             aria-label={zh ? "nvm 交互引导演示" : "nvm interactive guide demo"}

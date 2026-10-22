@@ -18,7 +18,7 @@ export function Footer({ lang = "en" }: FooterProps) {
           {/* Brand */}
           <div>
             <Link href={isZh ? "/zh" : "/"} className="flex items-center space-x-2">
-              <Zap className="h-5 w-5 text-orange-500" />
+              <Zap className="h-5 w-5 text-node" />
               <span className="font-bold">znvm</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">

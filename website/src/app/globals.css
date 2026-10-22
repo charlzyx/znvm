@@ -9,6 +9,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, monospace;
+  --color-node: #339933;
+  --color-node-bright: #9ed49e;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -164,7 +166,7 @@
 
   /* Links */
   .prose a {
-    @apply text-orange-500 underline underline-offset-4 decoration-orange-500/30 hover:decoration-orange-500 transition-colors;
+    @apply text-node-bright underline underline-offset-4 decoration-node/40 hover:decoration-node-bright transition-colors;
   }
 
   /* Lists */
@@ -183,7 +185,7 @@
 
   /* Blockquotes */
   .prose blockquote {
-    @apply border-l-4 border-orange-500/30 pl-4 italic my-6 text-muted-foreground;
+    @apply border-l-4 border-node/40 pl-4 italic my-6 text-muted-foreground;
   }
 
   /* Code */
@@ -191,7 +193,7 @@
     @apply bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto my-6 text-sm leading-relaxed;
   }
   .prose code {
-    @apply bg-white/10 text-orange-50 px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-white/10 text-node-bright px-1.5 py-0.5 rounded text-sm font-mono;
   }
   .prose pre code {
     @apply bg-transparent text-slate-50 p-0;
@@ -312,7 +314,7 @@
 }
 
 .term-prompt {
-  color: oklch(0.78 0.16 55);
+  color: #9ed49e;
 }
 
 .term-out {
@@ -325,12 +327,12 @@
   height: 1em;
   margin-left: 1px;
   transform: translateY(2px);
-  background: oklch(0.78 0.16 55);
+  background: #339933;
   animation: term-blink 1s steps(1) infinite;
 }
 
 .term-menu-title {
-  color: oklch(0.78 0.16 55);
+  color: #9ed49e;
 }
 
 .term-choice,
@@ -350,19 +352,19 @@
 .term-choice:focus-visible,
 .term-key:focus-visible {
   background: rgb(255 255 255 / 6%);
-  outline: 2px solid oklch(0.78 0.16 55);
+  outline: 2px solid #339933;
   outline-offset: 2px;
 }
 
 .term-key {
   width: auto;
-  color: oklch(0.78 0.16 55);
+  color: #9ed49e;
 }
 
 .term-num {
   width: 1.2rem;
   flex: none;
-  color: oklch(0.78 0.16 55);
+  color: #9ed49e;
 }
 
 @keyframes term-blink {
