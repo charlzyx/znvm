@@ -511,7 +511,7 @@ fn preset(allocator: mem.Allocator, root: []const u8) !void {
     agent.mirror_quiet = true;
     defer agent.mirror_quiet = false;
     if (try mirrorConfigured(allocator, root)) {
-        try i18n.out(messages.mirror_line, .{"unchanged"});
+        try i18n.out(messages.mirror_unchanged, .{});
         return;
     }
     const registry = @import("registry.zig");

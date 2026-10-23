@@ -242,7 +242,12 @@ fetch_binary() {
     target="$(download_target)" || exit 1
     url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
     install_msg downloading "$version" "$target"
-    if ! curl -fL --retry 3 -o "$dest" "$url"; then
+    local curl_flags="-fsSL --retry 3"
+    if [ -t 2 ]; then
+        curl_flags="-f#L --retry 3"
+    fi
+    # shellcheck disable=SC2086
+    if ! curl $curl_flags -o "$dest" "$url"; then
         rm -f "$dest"
         install_msg download_failed "$url"
         exit 1
@@ -398,7 +403,6 @@ unset __nvm_path
 eval "$("$NVM_BIN" env)"
 EOF
     } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.bak"
-    install_msg wrote_nvm_sh "$NVM_COMPAT_DIR/nvm.sh"
 }
 
 configure_profile() {
