@@ -5,6 +5,7 @@ const fs = std.fs;
 const process = std.process;
 
 const select = @import("select.zig");
+const locale = @import("locale.zig");
 const commands = @import("commands.zig");
 const registry = @import("registry.zig");
 const binary = @import("binary.zig");
@@ -230,16 +231,7 @@ pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
 }
 
 fn preferZh(allocator: mem.Allocator) bool {
-    var env = host.envMap(allocator) catch return false;
-    defer env.deinit();
-    const keys = [_][]const u8{ "LC_ALL", "LC_MESSAGES", "LANG" };
-    for (keys) |key| {
-        const value = env.get(key) orelse continue;
-        if (value.len == 0) continue;
-        if (mem.eql(u8, value, "C") or mem.eql(u8, value, "POSIX")) return false;
-        return mem.startsWith(u8, value, "zh");
-    }
-    return false;
+    return locale.preferZh(allocator);
 }
 
 fn text(zh: bool, en: []const u8, zh_text: []const u8) []const u8 {

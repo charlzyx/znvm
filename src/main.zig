@@ -11,7 +11,7 @@ const host = @import("host.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.8.2";
+const ZNVM_VERSION = "v2.8.3";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -93,7 +93,7 @@ pub fn main(init: process.Init.Minimal) !void {
         try guide.run(allocator, config, .step);
         return;
     } else if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
-        try commands.printHelp();
+        try commands.cmdHelp(args);
     } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
         try writeToolVersion(allocator);
     } else if (mem.eql(u8, cmd, "version") and args.len == 2 and !invoked_as_nvm) {
@@ -143,7 +143,7 @@ pub fn main(init: process.Init.Minimal) !void {
     } else if (mem.eql(u8, cmd, "debug")) {
         try commands.cmdDebug(allocator, config);
     } else {
-        try stderr("Unknown command: {s}\n", .{cmd});
+        try @import("help.zig").unknownCommand(cmd);
         try commands.printHelp();
         process.exit(1);
     }

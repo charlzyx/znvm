@@ -8,9 +8,36 @@ const config = @import("config.zig");
 const util = @import("util.zig");
 const registry = @import("registry.zig");
 const agent = @import("agent.zig");
+const locale = @import("locale.zig");
 
 test {
     _ = @import("select.zig");
+}
+
+test "locale: NVM_LANG wins, C is not Chinese, empty is undecided" {
+    try testing.expectEqual(true, locale.decideZh("zh", "C", null, "en_US").?);
+    try testing.expectEqual(false, locale.decideZh(null, "C", "zh_CN.UTF-8", null).?);
+    try testing.expectEqual(false, locale.decideZh(null, "POSIX", null, "zh_CN").?);
+    try testing.expectEqual(true, locale.decideZh("", "zh_CN.UTF-8", null, null).?);
+    try testing.expectEqual(true, locale.decideZh(null, null, null, "zh-Hans").?);
+    try testing.expect(locale.decideZh("", null, "", null) == null);
+    try testing.expect(locale.isZhTag("zh-Hans-CN"));
+    try testing.expect(!locale.isZhTag("en_US.UTF-8"));
+    const apple =
+        \\(
+        \\    "zh-Hans-CN",
+        \\    "en-CN"
+        \\)
+    ;
+    try testing.expectEqualStrings("zh-Hans-CN", locale.firstQuoted(apple).?);
+    try testing.expect(locale.isZhTag(locale.firstQuoted(apple).?));
+    const english =
+        \\(
+        \\    "en-US",
+        \\    "zh-Hans"
+        \\)
+    ;
+    try testing.expect(!locale.isZhTag(locale.firstQuoted(english).?));
 }
 
 test "registry module is linked" {

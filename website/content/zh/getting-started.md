@@ -18,9 +18,9 @@ curl -fsSL https://znvm.dev/install.sh | bash
 
 ```text
 nvm
-Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
+Node versions go in ~/.nvm.
 
-> Downloading nvm v2.8.2 (x86_64-linux)...
+> Downloading nvm v2.8.3 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -37,7 +37,6 @@ nvm ls
 nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
-Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
 `source` 脚本打印的配置（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。可以重复执行。`nvm --version` 已是这一版就保留二进制。版本不同则把旧文件留作 `nvm.bak` 再替换。不重复写入配置，不删除已有 Node。
@@ -69,7 +68,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm
 ```
 
-上下键选择，回车确认。数字仍然可用。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
+上下键选择，回车确认。数字仍然可用。菜单里有源和下载镜像。`NVM_LANG`，然后 `LC_ALL`、`LC_MESSAGES` 或 `LANG`，以 `zh` 开头时用中文。这些都为空时，macOS 用系统首选语言。
 
 ## 镜像源
 
@@ -163,7 +162,7 @@ nvm mirror test
 
 不设置。安装脚本没有可核对的 host 环境变量，或镜像路径和安装脚本对不上：@journeyapps/sqlcipher、leveldown、utf-8-validate、argon2、fsevents、couchbase、wrtc、skia-canvas、libpg-query、@ali/s2。
 
-`official` 清掉。`auto` 为每个工具留下更快的一边。npm、pnpm、yarn v1 的键写入各自的 rc。环境变量写在 `$NVM_DIR/binaries.env`，由 `nvm.sh` source。`reset` 删掉这个文件和 `# nvm binaries` 段。scope 不动。安装时不测量。
+`official` 清掉。`auto` 为每个工具留下更快的一边。npm、pnpm、yarn v1 的键写入各自的 rc。环境变量写在 `$NVM_DIR/binaries.env`，由 `nvm.sh` source。`reset` 删掉这个文件和 `# nvm binaries` 段。scope 不动。安装时语言是 zh 就写入 china，否则写入 official。`NVM_MIRROR=china|official` 可以覆盖。已有镜像配置会保留。
 
 清掉 Node 镜像后回到默认地址。强制 nodejs.org：`nvm mirror set node https://nodejs.org/dist`。
 

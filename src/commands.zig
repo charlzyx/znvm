@@ -771,123 +771,25 @@ fn applyHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, silent:
 }
 
 pub fn printHelp() !void {
-    try stdout(
-        \\{s} - fast Node.js version manager
-        \\
-        \\Version selectors: 20, 20.11, v20.11.0, node, stable, lts/*, lts/<name>, default, current, system
-        \\.nvmrc is read from the current directory and its parents. .node-version is used when no .nvmrc exists.
-        \\'#' comments are ignored.
-        \\
-        \\Commands:
-        \\  install [version] [--lts] [--lts=<name>] [--default] [--alias=<name>] [--save]
-        \\          [--reinstall-packages-from=<version>] [--copy-packages-from=<version>] [--latest-npm] [--skip-default-packages] [--offline]
-        \\  use [version] [--lts] [--silent] [--save]
-        \\  exec [version] <command> [args...]
-        \\  run [version] [node args...]
-        \\  ls, list [version] [--no-alias]
-        \\  ls-remote, list-remote [version] [--lts]
-        \\  current
-        \\  which [version]
-        \\  version [version]          nvm: active or resolved version; znvm with no args: tool version
-        \\  version-remote [version]
-        \\  alias [name [target]]
-        \\  unalias <name>
-        \\  default [version]          same as: alias default [version]
-        \\  uninstall, rm <version>
-        \\  reinstall-packages <version>
-        \\  install-latest-npm
-        \\  cache dir|clear
-        \\  deactivate [--silent]
-        \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
-        \\  registry [show|set-default|add|remove|china|official|sync]
-        \\  mirror [ls|use|set|reset|test]
-        \\  debug
-        \\  env                        shell setup (eval "$({s} env)")
-        \\  --llm                      print the agent guide and exit
-        \\  --version, -v              print the znvm version
-        \\  help, --help
-        \\
-        \\Node versions are stored under $NVM_DIR/versions/node (default ~/.nvm).
-        \\Downloads use $NVM_NODEJS_ORG_MIRROR when it is set, otherwise
-        \\https://npmmirror.com/mirrors/node.
-        \\Global npm packages belong to each Node version.
-        \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
-        \\With no arguments in a terminal, {s} opens an interactive guide.
-        \\Up and Down, or k and j, move the highlight. Enter confirms.
-        \\Esc, q, or Left goes back. A number, then Enter, still picks that row.
-        \\Ctrl-C restores the terminal and exits.
-        \\Without a terminal it prints a short notice and exits.
-        \\registry stores a default URL plus @scope routes in $NVM_DIR/registries.json.
-        \\It writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
-        \\china sets https://registry.npmmirror.com and keeps scopes.
-        \\official sets https://registry.npmjs.org and keeps scopes.
-        \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
-        \\use, ls, and current on this command always select Node versions.
-        \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
-        \\mirror ls prints every supported download host. china writes those npmmirror
-        \\hosts, including Node, Electron, Playwright, puppeteer, and sharp.
-        \\It writes npm, pnpm, and yarn v1 keys, plus $NVM_DIR/binaries.env.
-        \\A new shell sources that file. Scope routes are not changed.
-        \\Docker image mirrors are not set here.
-        \\
-        \\Agents:
-        \\  --llm prints the agent guide on stdout and exits. nvm --llm and nrm --llm
-        \\  print the same text as skills/znvm/SKILL.md. That is the zero-install
-        \\  way for an agent to learn this tool.
-        \\  --json writes one JSON object to stdout for ls, ls-remote, current, which,
-        \\  version, --version, mirror ls, and mirror test.
-        \\  Other commands reject --json.
-        \\  A --json error is {{"error":"...","exit":N}} on stderr, and stdout is empty.
-        \\  --yes and NVM_NONINTERACTIVE=1 (also true or yes) never open a menu.
-        \\  A non-empty CI does the same. NVM_NONINTERACTIVE=0 does not.
-        \\  Menus need a terminal on stdin and on the menu stream.
-        \\  --guide-step draws on stderr, so a piped stdout still works in a terminal.
-        \\  NO_COLOR stays plain ASCII. Output has no color sequences.
-        \\  Exit codes: 0 success, 1 usage or failure, 2 the guide quit,
-        \\  3 no matching version, 8 an alias loop, 55 an unsupported option,
-        \\  127 system node missing or a missing version file, 130 Ctrl-C in a menu.
-        \\
-    , .{ program_name, program_name, program_name, program_name });
+    const help = @import("help.zig");
+    try help.printNvm(program_name);
+}
+
+pub fn cmdHelp(args: []const []const u8) !void {
+    const help = @import("help.zig");
+    if (args.len <= 2) {
+        try help.printNvm(program_name);
+        return;
+    }
+    if (args.len == 3 and try help.printCommand(program_name, args[2])) return;
+    if (args.len >= 3) try help.unknownCommand(args[2]);
+    try help.printNvm(program_name);
+    process.exit(1);
 }
 
 pub fn printNrmHelp() !void {
-    try stdout(
-        \\nrm - registry manager
-        \\
-        \\nrm --llm prints the agent guide on stdout and exits.
-        \\It is the same text as nvm --llm and skills/znvm/SKILL.md.
-        \\
-        \\Commands:
-        \\  ls
-        \\  use <name|auto>
-        \\  current [-u|--show-url]
-        \\  add <name> <url>
-        \\  del <name>
-        \\  test [name]
-        \\  scope ls
-        \\  scope add <@scope> <url>
-        \\  scope del <@scope>
-        \\  help
-        \\  --llm
-        \\  --version, -v
-        \\
-        \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.
-        \\Custom names are stored in $NVM_DIR/registries.json.
-        \\use and scope write ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
-        \\use auto picks the fastest healthy registry and leaves @scope routes unchanged.
-        \\Download mirrors are the nvm mirror command.
-        \\With no arguments in a terminal, nrm opens a menu for registries, scopes, and tests.
-        \\Up and Down, or k and j, move the highlight. Enter confirms.
-        \\Esc, q, or Left goes back. A number, then Enter, still picks that row.
-        \\Ctrl-C restores the terminal and exits.
-        \\Without a terminal it prints this help.
-        \\--yes, NVM_NONINTERACTIVE=1 (also true or yes), and a non-empty CI do the same.
-        \\--json writes one JSON object to stdout for ls, current, test, and scope ls.
-        \\A --json error is {{"error":"...","exit":N}} on stderr, and stdout is empty.
-        \\NO_COLOR stays plain ASCII.
-        \\nvm registry edits the same map.
-        \\
-    , .{});
+    const help = @import("help.zig");
+    try help.printNrm();
 }
 
 pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -955,16 +857,8 @@ pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: Z
         } else if (mem.eql(u8, sub, "sync") and args.len == 3) {
             break :blk reg.sync(allocator, config.root_dir);
         } else {
-            try stderr(
-                \\registry show
-                \\registry set-default <url>
-                \\registry add <@scope> <url>
-                \\registry remove <@scope>
-                \\registry china
-                \\registry official
-                \\registry sync
-                \\
-            , .{});
+            const help = @import("help.zig");
+            _ = try help.printCommand(program_name, "registry");
             process.exit(1);
         }
     };
@@ -2041,7 +1935,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.8.2\n", .{});
+    try stderr("znvm version: v2.8.3\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

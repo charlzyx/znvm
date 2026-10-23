@@ -7,6 +7,7 @@ const process = std.process;
 
 const util = @import("util.zig");
 const agent = @import("agent.zig");
+const locale = @import("locale.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
@@ -426,28 +427,9 @@ pub fn printError(err: anyerror) !void {
 }
 
 pub fn printHelp() !void {
-    try stdout(
-        \\nvm mirror - download mirrors
-        \\
-        \\Commands:
-        \\  ls
-        \\  use <china|official|auto>
-        \\  set <name> <url>
-        \\  reset
-        \\  test [name]
-        \\
-        \\ls prints every supported name.
-        \\china writes the npmmirror hosts, including the Node dist mirror.
-        \\official clears them. set stores one URL.
-        \\auto measures both sides and keeps the faster one.
-        \\npm, pnpm, and yarn v1 keys go in their rc files.
-        \\Env-only tools go in $NVM_DIR/binaries.env. A new shell sources it.
-        \\Scope routes are not changed. test always measures again.
-        \\--json writes one JSON object to stdout for ls and test.
-        \\Latency is cached in $NVM_DIR/mirror-latency.json for 6 hours.
-        \\Docker image mirrors are not set here.
-        \\
-    , .{});
+    const help = @import("help.zig");
+    const commands = @import("commands.zig");
+    try help.printMirror(commands.program_name);
 }
 
 pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8) !void {
@@ -469,6 +451,7 @@ pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8)
     }
     if (mem.eql(u8, sub, "set") and args.len == 3) return setOne(allocator, root, args[1], args[2]);
     if (mem.eql(u8, sub, "reset") and args.len == 1) return reset(allocator, root);
+    if (mem.eql(u8, sub, "preset") and args.len == 1) return preset(allocator, root);
     if (mem.eql(u8, sub, "test") and args.len == 1) return testMirrors(allocator, root, null);
     if (mem.eql(u8, sub, "test") and args.len == 2) return testMirrors(allocator, root, args[1]);
     try printHelp();
@@ -514,6 +497,79 @@ fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
     try stdout("The mirrors have been changed to '{s}'.\n", .{@tagName(mode)});
+}
+
+fn preset(allocator: mem.Allocator, root: []const u8) !void {
+    if (try mirrorConfigured(allocator, root)) {
+        try stdout("mirror config already set\n", .{});
+        return;
+    }
+    const registry = @import("registry.zig");
+    if (try installChina(allocator)) {
+        try useFixed(allocator, root, .china);
+        try registry.useChina(allocator, root);
+        return;
+    }
+    var state = State{ .mode = .custom };
+    defer state.deinit(allocator);
+    try state.put(allocator, "node", "https://nodejs.org/dist");
+    try applyState(allocator, root, &state);
+    try saveState(allocator, root, &state);
+    try stdout("The mirrors have been changed to 'official'.\n", .{});
+    try registry.useOfficial(allocator, root);
+}
+
+fn installChina(allocator: mem.Allocator) !bool {
+    var env = try host.envMap(allocator);
+    defer env.deinit();
+    if (env.get("NVM_MIRROR")) |raw| {
+        const value = mem.trim(u8, raw, " \t");
+        if (value.len != 0) {
+            if (mem.eql(u8, value, "china")) return true;
+            if (mem.eql(u8, value, "official")) return false;
+            try stderr("error: NVM_MIRROR must be china or official.\n", .{});
+            return error.Explained;
+        }
+    }
+    return locale.preferZh(allocator);
+}
+
+fn mirrorConfigured(allocator: mem.Allocator, root: []const u8) !bool {
+    const binaries = try statePath(allocator, root);
+    defer allocator.free(binaries);
+    if (try nonEmptyFile(allocator, binaries)) return true;
+    const regs = try fs.path.join(allocator, &.{ root, "registries.json" });
+    defer allocator.free(regs);
+    if (try nonEmptyFile(allocator, regs)) return true;
+    const envfile = try fs.path.join(allocator, &.{ root, "binaries.env" });
+    defer allocator.free(envfile);
+    if (pathExists(envfile)) return true;
+    var env_map = try openHome(allocator);
+    defer env_map.deinit();
+    const paths = try configPaths(allocator, env_map, root);
+    defer paths.deinit(allocator);
+    if (try hasMarker(allocator, paths.npmrc)) return true;
+    if (try hasMarker(allocator, paths.yarnrc)) return true;
+    if (try hasMarker(allocator, paths.pnpmrc)) return true;
+    return false;
+}
+
+fn nonEmptyFile(allocator: mem.Allocator, path: []const u8) !bool {
+    const body = try readOptional(allocator, path);
+    defer allocator.free(body);
+    return mem.trim(u8, body, " \t\r\n").len != 0;
+}
+
+fn hasMarker(allocator: mem.Allocator, path: []const u8) !bool {
+    const body = try readOptional(allocator, path);
+    defer allocator.free(body);
+    return mem.indexOf(u8, body, block_begin) != null;
+}
+
+fn pathExists(path: []const u8) bool {
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch return false;
+    file.close(host.io());
+    return true;
 }
 
 fn setOne(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {

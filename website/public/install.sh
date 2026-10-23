@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.8.2"
+ZNVM_VERSION="v2.8.3"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
@@ -29,7 +29,7 @@ esac
 
 if [ "${1:-}" != "--uninstall" ]; then
     echo "nvm"
-    echo "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node."
+    echo "Node versions go in ~/.nvm."
     echo ""
 fi
 
@@ -481,6 +481,7 @@ fi
 
 write_nvm_sh "$NVM_EXE"
 PROFILE_PATH="$(configure_profile)"
+NVM_DIR="$NVM_COMPAT_DIR" "$NVM_EXE" mirror preset
 
 echo ""
 echo "nvm is ready."
@@ -494,4 +495,3 @@ echo "nvm ls"
 echo "nrm ls"
 echo ""
 echo "Node versions are stored in \$NVM_DIR/versions/node."
-echo "Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set."

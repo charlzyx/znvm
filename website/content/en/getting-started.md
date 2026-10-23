@@ -18,9 +18,9 @@ When it finishes, it prints:
 
 ```text
 nvm
-Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
+Node versions go in ~/.nvm.
 
-> Downloading nvm v2.8.2 (x86_64-linux)...
+> Downloading nvm v2.8.3 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -37,7 +37,6 @@ nvm ls
 nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
-Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
 `source` the profile it printed (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running it again is safe. A matching `nvm --version` keeps the binary. A different version is saved as `nvm.bak` and replaced. It does not duplicate the shell block or delete Node versions.
@@ -69,7 +68,7 @@ Open a new terminal, or `source` that profile. The commands after that are `nvm`
 nvm
 ```
 
-Up and down, then Enter. A number still works. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
+Up and down, then Enter. A number still works. Registries and Mirrors are on the menu. Prompts are Chinese when `NVM_LANG`, then `LC_ALL`, `LC_MESSAGES`, or `LANG`, starts with `zh`. On macOS, an empty locale uses the preferred language.
 
 ## Registries
 
@@ -163,7 +162,7 @@ Not set. cnpm rewrites package files (`replaceHost` / `replaceHostFiles`), and n
 
 Not set. The installer has no verified host env, or the mirror path does not match that installer: @journeyapps/sqlcipher, leveldown, utf-8-validate, argon2, fsevents, couchbase, wrtc, skia-canvas, libpg-query, @ali/s2.
 
-`official` clears them. `auto` keeps the faster side of each tool. npm, pnpm, and yarn v1 keys go in their rc files. Env values go in `$NVM_DIR/binaries.env`, sourced by `nvm.sh`. `reset` removes that file and the `# nvm binaries` block. Scopes stay. Nothing runs on install.
+`official` clears them. `auto` keeps the faster side of each tool. npm, pnpm, and yarn v1 keys go in their rc files. Env values go in `$NVM_DIR/binaries.env`, sourced by `nvm.sh`. `reset` removes that file and the `# nvm binaries` block. Scopes stay. Install writes china when the language is zh, and official otherwise. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept.
 
 Clearing the Node mirror falls back to the usual host. Force nodejs.org with `nvm mirror set node https://nodejs.org/dist`.
 

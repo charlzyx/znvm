@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.8.2 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.8.3 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.8.2" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.8.3" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.8.2, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.8.3, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.8.2" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.8.3" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.8.2" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.3" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -364,7 +364,14 @@ grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
 test "$(cat "$INSTALL_HOME/.nvm/bash_completion")" = "original completion"
 test ! -e "$INSTALL_HOME/.nvm/bash_completion.bak"
 test ! -e "$INSTALL_HOME/.nvm/bash_completion.pre-znvm"
-test ! -e "$INSTALL_HOME/.nvm/binaries.env"
+grep -q "export NODEJS_ORG_MIRROR='https://nodejs.org/dist'" "$INSTALL_HOME/.nvm/binaries.env"
+grep -q "export NVM_NODEJS_ORG_MIRROR='https://nodejs.org/dist'" "$INSTALL_HOME/.nvm/binaries.env"
+if grep -q ELECTRON_MIRROR "$INSTALL_HOME/.nvm/binaries.env"; then
+    echo "official install set a binary mirror" >&2
+    exit 1
+fi
+grep -q 'registry=https://registry.npmjs.org' "$INSTALL_HOME/.npmrc"
+echo '# keep-me' >> "$INSTALL_HOME/.nvm/binaries.env"
 test "$(cat "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker")" = "keep"
 test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
 env -i \
@@ -374,6 +381,7 @@ env -i \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
     bash ./install-as-nvm.sh >/dev/null
 test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
+grep -q '# keep-me' "$INSTALL_HOME/.nvm/binaries.env"
 grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
 bash -c '
     set -e
@@ -382,7 +390,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.8.2" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.3" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -390,6 +398,64 @@ bash -c '
     if type znvm >/dev/null 2>&1; then echo "znvm leaked into the shell" >&2; exit 1; fi
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
+echo "  Testing install mirror preset..."
+preset_install() {
+    env -i \
+        HOME="$1" \
+        PATH="/usr/bin:/bin" \
+        SHELL="/bin/bash" \
+        ZNVM_BIN_SRC="$ALIGN_BIN" \
+        ${2:+LC_ALL="$2"} \
+        ${3:+NVM_MIRROR="$3"} \
+        ${4:+NVM_LANG="$4"} \
+        bash ./install-as-nvm.sh
+}
+ZH_HOME="$NVM_ALIGN_TMP/zh-home"
+mkdir -p "$ZH_HOME"
+touch "$ZH_HOME/.bashrc"
+preset_install "$ZH_HOME" zh_CN.UTF-8 "" "" >/dev/null
+grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$ZH_HOME/.nvm/binaries.env"
+grep -q "export NVM_NODEJS_ORG_MIRROR='https://cdn.npmmirror.com/binaries/node'" "$ZH_HOME/.nvm/binaries.env"
+grep -q 'registry=https://registry.npmmirror.com' "$ZH_HOME/.npmrc"
+OFF_HOME="$NVM_ALIGN_TMP/off-home"
+mkdir -p "$OFF_HOME"
+touch "$OFF_HOME/.bashrc"
+preset_install "$OFF_HOME" zh_CN.UTF-8 official "" >/dev/null
+grep -q "export NVM_NODEJS_ORG_MIRROR='https://nodejs.org/dist'" "$OFF_HOME/.nvm/binaries.env"
+if grep -q ELECTRON_MIRROR "$OFF_HOME/.nvm/binaries.env"; then
+    echo "NVM_MIRROR=official set a binary mirror" >&2
+    exit 1
+fi
+grep -q 'registry=https://registry.npmjs.org' "$OFF_HOME/.npmrc"
+KEEP_HOME="$NVM_ALIGN_TMP/keep-home"
+mkdir -p "$KEEP_HOME/.nvm"
+echo 'export KEEP_MIRROR=1' > "$KEEP_HOME/.nvm/binaries.env"
+touch "$KEEP_HOME/.bashrc"
+preset_install "$KEEP_HOME" zh_CN.UTF-8 china "" >/dev/null
+grep -q 'export KEEP_MIRROR=1' "$KEEP_HOME/.nvm/binaries.env"
+if grep -q ELECTRON_MIRROR "$KEEP_HOME/.nvm/binaries.env"; then
+    echo "existing mirror config was replaced" >&2
+    exit 1
+fi
+test ! -e "$KEEP_HOME/.nvm/registries.json"
+BAD_HOME="$NVM_ALIGN_TMP/bad-home"
+mkdir -p "$BAD_HOME"
+touch "$BAD_HOME/.bashrc"
+set +e
+BAD_OUT=$(preset_install "$BAD_HOME" C auto "" 2>&1)
+BAD_ST=$?
+set -e
+if [ "$BAD_ST" -eq 0 ] || ! printf '%s\n' "$BAD_OUT" | grep -q "NVM_MIRROR must be china or official"; then
+    echo "bad NVM_MIRROR status=$BAD_ST out=$(printf %q "$BAD_OUT")" >&2
+    exit 1
+fi
+LANG_HOME="$NVM_ALIGN_TMP/lang-home"
+mkdir -p "$LANG_HOME"
+touch "$LANG_HOME/.bashrc"
+preset_install "$LANG_HOME" C "" zh >/dev/null
+grep -q "export ELECTRON_MIRROR=" "$LANG_HOME/.nvm/binaries.env"
+echo -e "    ${GREEN}✓${NC} install mirror preset OK"
 
 echo "  Testing install-as-nvm.sh upgrades an older binary..."
 REAL_BIN="$(cd "$(dirname "$ZNVM_BIN")" && pwd)/$(basename "$ZNVM_BIN")"
@@ -457,7 +523,7 @@ UPGRADE_OUT=$(env -i \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.2"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.3"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved the previous $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Linked $UPGRADE_HOME/.nvm/nrm -> nvm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -467,7 +533,7 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.8.2" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.3" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
@@ -532,9 +598,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.2"
+printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.3"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.8.2" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.3" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -659,12 +725,12 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.8.2"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.8.3"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Linked $PLAIN_UP/.local/bin/nrm -> znvm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.8.2" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.3" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
@@ -743,8 +809,21 @@ if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "intera
     echo "FAIL interactive status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
     exit 1
 fi
-HELP_OUT=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" help)
-printf '%s\n' "$HELP_OUT" | grep -q "interactive guide"
+HELP_OUT=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" help)
+printf '%s\n' "$HELP_OUT" | grep -q "Usage: znvm <command>"
+printf '%s\n' "$HELP_OUT" | grep -q "NVM_DIR"
+printf '%s\n' "$HELP_OUT" | grep -q "NVM_NODEJS_ORG_MIRROR"
+printf '%s\n' "$HELP_OUT" | grep -q "NVM_LANG"
+printf '%s\n' "$HELP_OUT" | grep -q "NVM_MIRROR"
+printf '%s\n' "$HELP_OUT" | grep -F -q 'mirror [ls|use|set|reset|test]'
+if printf '%s\n' "$HELP_OUT" | grep -q 'Docker image'; then
+    echo "help still has the long notes" >&2
+    exit 1
+fi
+HELP_ONE=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" help install)
+printf '%s\n' "$HELP_ONE" | grep -F -q "Usage: znvm install [version]"
+HELP_ZH=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=zh LC_ALL=C "$GUIDE_BIN" help)
+printf '%s\n' "$HELP_ZH" | grep -q "用法: znvm <命令>"
 if printf '%s\n' "$HELP_OUT" | grep -q 'completion'; then
     echo "help mentioned completion" >&2
     exit 1
@@ -1558,8 +1637,8 @@ json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
 test "$(json_nvm current --json)" = '{"version":"none"}'
 test "$(json_nvm version --json)" = '{"version":"none"}'
-test "$(json_nvm --version --json)" = '{"version":"v2.8.2"}'
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.8.2"}'
+test "$(json_nvm --version --json)" = '{"version":"v2.8.3"}'
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.8.3"}'
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1583,8 +1662,8 @@ JSON_STATUS=$?
 set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
-json_nvm help | grep -q 'NVM_NONINTERACTIVE'
-nrm_run --version --json | grep -q '"version":"v2.8.2"'
+json_nvm help | grep -q 'NVM_LANG'
+nrm_run --version --json | grep -q '"version":"v2.8.3"'
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"
