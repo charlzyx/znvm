@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "@/components/icons";
 import { themeStorageKey } from "@/lib/theme";
 
 function applyTheme(theme: "light" | "dark") {

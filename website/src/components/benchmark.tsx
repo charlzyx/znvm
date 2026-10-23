@@ -37,7 +37,7 @@ function PhoneStats({
   rows: { label: string; value: string; accent?: boolean }[];
 }) {
   return (
-    <article className={`border-b-2 border-border p-4 last:border-b-0 ${highlight ? "bg-node/10" : ""}`}>
+    <article className={`border-b border-border p-4 last:border-b-0 ${highlight ? "bg-node/10" : ""}`}>
       <p className="font-semibold">
         {highlight ? <Badge className="bg-node text-[#041208]">{name}</Badge> : name}
       </p>
@@ -65,13 +65,13 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
   const isZh = lang === "zh";
 
   return (
-    <section className="py-16 sm:py-24">
+    <section className="border-t border-border py-14 md:py-16">
       <div className="container">
         <div>
-          <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
+          <h2 className="kicker">
             {isZh ? "速度" : "Speed"}
           </h2>
-          <p className="mt-6 text-6xl font-bold tracking-tight text-zig sm:text-7xl">3.31 ms</p>
+          <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-zig sm:text-6xl">3.31 ms</p>
           <p className="mt-2 text-lg text-muted-foreground">
             {isZh ? "暖 shell 启动，2026-10-22" : "Warm shell startup, 2026-10-22"}
           </p>
@@ -85,7 +85,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
           <h3 className="mb-3 mt-14 text-2xl font-semibold">
             {isZh ? "Shell 启动" : "Shell startup"}
           </h3>
-          <div className="mb-8 border-2 border-border md:hidden">
+          <div className="mb-8 border border-border md:hidden">
             {startup.map((row) => (
               <PhoneStats
                 key={row.name}
@@ -100,7 +100,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
               />
             ))}
           </div>
-          <Card className="mb-8 hidden min-w-0 border-2 border-border shadow-none ring-0 md:flex">
+          <Card className="mb-8 hidden min-w-0 border border-border shadow-none ring-0 md:flex">
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -130,7 +130,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
           <h3 className="mb-3 mt-12 text-2xl font-semibold">
             {isZh ? "Shell 内命令" : "In-shell commands"}
           </h3>
-          <div className="border-2 border-border md:hidden">
+          <div className="border border-border md:hidden">
             {commands.map((row) => (
               <PhoneStats
                 key={row.name}
@@ -147,7 +147,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
               />
             ))}
           </div>
-          <Card className="hidden min-w-0 border-2 border-border shadow-none ring-0 md:flex">
+          <Card className="hidden min-w-0 border border-border shadow-none ring-0 md:flex">
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -178,7 +178,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
             </CardContent>
           </Card>
 
-          <p className="mt-4 max-w-[65ch] text-sm text-muted-foreground">
+          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-muted-foreground">
             {isZh
               ? "暖启动 20 次（预热 5 次），减去 bash -c true（0.63 ms）。冷启动 20 次，每次丢掉页缓存，减去 bash -c true（2.02 ms）。命令：暖 40 次，冷 20 次。这次 shell 启动 fnm 更快；list、use、.nvmrc 是 znvm 更快。样本：benchmarks/results/2026-10-22-cold-warm.json。"
               : "Warm startup: 20 samples after 5 warmup, minus bash -c true (0.63 ms). Cold startup: 20 samples after a page-cache drop, minus bash -c true (2.02 ms). Commands: warm 40, cold 20. On this run fnm started the shell faster. znvm was faster at list, use, and .nvmrc. Samples: benchmarks/results/2026-10-22-cold-warm.json."

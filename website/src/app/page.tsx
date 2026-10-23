@@ -8,8 +8,8 @@ export default function Home() {
   return (
     <>
       <Hero lang="en" />
-      <Features lang="en" />
       <GuideTerminal lang="en" />
+      <Features lang="en" />
       <Compare lang="en" />
       <Benchmark lang="en" />
     </>

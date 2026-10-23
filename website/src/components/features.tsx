@@ -1,5 +1,9 @@
 "use client";
 
+import { IconAgent, IconDownload, IconGuide, IconMirror, IconNvm, IconRegistry } from "@/components/icons";
+
+const icons = [IconNvm, IconMirror, IconGuide, IconRegistry, IconDownload, IconAgent];
+
 const features = {
   en: [
     {
@@ -60,22 +64,22 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
   const items = zh ? features.zh : features.en;
 
   return (
-    <section className="border-b-2 border-border py-16 sm:py-24">
+    <section className="border-t border-border py-14 md:py-16">
       <div className="container">
-        <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
-          {zh ? "功能" : "Features"}
-        </h2>
-        <div className="mt-12 border-2 border-border">
-          {items.map((item) => (
-            <article key={item.title} className="grid min-w-0 border-b-2 border-border last:border-b-0 md:grid-cols-[18rem_1fr]">
-              <h3 className="border-b-2 border-border p-6 text-3xl font-black tracking-tight text-node-bright sm:p-8 md:border-r-2 md:border-b-0">
-                {item.title}
-              </h3>
-              <p className="max-w-[65ch] px-6 pb-8 text-lg leading-7 text-foreground [overflow-wrap:anywhere] sm:px-8 md:py-8">{item.body}</p>
-            </article>
-          ))}
+        <h2 className="kicker">{zh ? "功能" : "Features"}</h2>
+        <div className="mt-6 grid grid-cols-1 border-l border-t border-border sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item, index) => {
+            const Icon = icons[index];
+            return (
+              <article key={item.title} className="min-w-0 border-r border-b border-border p-6">
+                <Icon className="size-4 text-muted-foreground" />
+                <h3 className="mt-4 text-base font-semibold tracking-tight">{item.title}</h3>
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.body}</p>
+              </article>
+            );
+          })}
         </div>
-        <p className="mt-8 text-base text-muted-foreground">
+        <p className="mt-8 text-base leading-relaxed text-muted-foreground">
           {zh
             ? "不设置 Docker 镜像。那要改 daemon 配置并重启。"
             : "Docker image mirrors are not set here. That needs a daemon config and a restart."}
