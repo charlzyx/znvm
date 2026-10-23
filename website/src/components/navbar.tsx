@@ -19,6 +19,8 @@ const navLinks: NavLink[] = [
   { href: "/blog/why-zig", label: "Blog", labelZh: "博客" },
 ];
 
+const agentsHref = "https://znvm.dev/llm.txt";
+
 const getNavHref = (link: NavLink, isZh: boolean): string => {
   if (isZh) {
     return link.href === "/" ? "/zh" : `/zh${link.href}`;
@@ -64,6 +66,10 @@ export function Navbar() {
               中文
             </Link>
           </nav>
+
+          <a href={agentsHref} className="hidden text-sm font-medium text-foreground/80 hover:text-foreground sm:inline">
+            {isZh ? "给 Agent" : "For Agents"}
+          </a>
 
           {/* GitHub */}
           <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
@@ -124,6 +130,12 @@ function MobileNav({ isZh }: { isZh: boolean }) {
             中文
           </Link>
         </div>
+      </div>
+
+      <div className="border-t pt-4">
+        <a href={agentsHref} className="text-foreground/80 hover:text-foreground">
+          {isZh ? "给 Agent" : "For Agents"}
+        </a>
       </div>
 
       {/* GitHub */}

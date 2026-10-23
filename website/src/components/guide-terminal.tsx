@@ -472,8 +472,8 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           </h2>
           <p className="mt-4 text-muted-foreground">
             {zh
-              ? "在终端里不带参数运行 nvm 会打开这个菜单. 下面是同一棵两级菜单, 可以点数字走一遍. 0 返回, 在根菜单则退出. 根菜单按 1 再回车打开第一项, 按 1 再按 0 打开下载镜像."
-              : "Running nvm with no arguments opens this menu. The same two-level tree is below. Pick a number. 0 goes back, and on the root menu it exits. On the root menu, 1 then Enter opens the first item, and 1 then 0 opens Mirrors."}
+              ? "不带参数的 nvm 打开这个菜单。按数字。0 返回，在根菜单则退出。1 再回车打开第一项。1 再 0 打开下载镜像。"
+              : "nvm with no arguments opens this menu. Press a number. 0 goes back, or exits on the root menu. 1 then Enter opens the first item. 1 then 0 opens Mirrors."}
           </p>
           <div
             ref={frame}

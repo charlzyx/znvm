@@ -22,16 +22,21 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted-foreground">
               {zh
-                ? "安装之后的命令是 nvm 和 nrm。版本放在 ~/.nvm。Node 默认从 npmmirror 下载。不带参数的 nvm 打开交互引导。nrm 切换源，也可以按 scope 写进 npm、yarn、pnpm 和 bun。"
-                : "After install the commands are nvm and nrm. Versions live in ~/.nvm. Node downloads come from npmmirror. nvm with no arguments opens a guide. nrm switches registries, including scope routes for npm, yarn, pnpm, and bun."}
+                ? "命令是 nvm 和 nrm。版本在 ~/.nvm。Node 从 npmmirror 下载。"
+                : "Commands are nvm and nrm. Versions live in ~/.nvm. Node downloads come from npmmirror."}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={zh ? "/zh/getting-started" : "/getting-started"}>
                 <Button size="lg" className="bg-node text-[#041208] hover:bg-[#43a843]">
-                  {zh ? "快速开始" : "Get started"}
+                  {zh ? "快速开始" : "Quick start"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+              <a href="https://znvm.dev/llm.txt">
+                <Button size="lg" variant="outline" className="border-white/15 bg-transparent">
+                  {zh ? "给 Agent" : "For Agents"}
+                </Button>
+              </a>
               <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
                 <Button size="lg" variant="outline" className="border-white/15 bg-transparent">
                   <Github className="mr-2 h-4 w-4" />

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Heart } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
 import { Separator } from "@/components/ui/separator";
 
@@ -23,10 +22,7 @@ export function Footer({ lang = "en" }: FooterProps) {
               <span className="font-bold">znvm</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
-              {isZh
-                ? "零负担 Node 版本管理器，基于 Zig 构建"
-                : "Zero-overhead Node Version Manager, built with Zig"
-              }
+              {isZh ? "Zig 写的 nvm 和 nrm" : "nvm and nrm, written in Zig"}
             </p>
           </div>
 
@@ -38,8 +34,13 @@ export function Footer({ lang = "en" }: FooterProps) {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href={isZh ? "/zh/getting-started" : "/getting-started"} className="text-muted-foreground hover:text-foreground">
-                  {isZh ? "快速开始" : "Getting Started"}
+                  {isZh ? "快速开始" : "Quick start"}
                 </Link>
+              </li>
+              <li>
+                <a href="https://znvm.dev/llm.txt" className="text-muted-foreground hover:text-foreground">
+                  {isZh ? "给 Agent" : "For Agents"}
+                </a>
               </li>
               <li>
                 <Link href={isZh ? "/zh/blog/why-zig" : "/blog/why-zig"} className="text-muted-foreground hover:text-foreground">
@@ -94,9 +95,7 @@ export function Footer({ lang = "en" }: FooterProps) {
           <p>
             © {new Date().getFullYear()} znvm. {isZh ? "保留所有权利" : "All rights reserved"}.
           </p>
-          <p className="flex items-center">
-            {isZh ? "用" : "Made with"} <Heart className="mx-1 h-4 w-4 text-red-500" /> {isZh ? "和 Zig 构建" : "and Zig"}
-          </p>
+          <p>Linux, macOS</p>
         </div>
       </div>
     </footer>

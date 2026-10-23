@@ -82,7 +82,7 @@
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
+  --radius: 0px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -190,11 +190,11 @@
 
   /* Code */
   .prose pre {
-    @apply bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto my-6 text-sm leading-relaxed;
+    @apply bg-slate-950 text-slate-50 p-4 overflow-x-auto my-6 text-sm leading-relaxed;
     border-left: 3px solid #339933;
   }
   .prose code {
-    @apply bg-white/10 text-node-bright px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-white/10 text-node-bright px-1.5 py-0.5 text-sm font-mono;
   }
   .prose pre code {
     @apply bg-transparent text-slate-50 p-0;
@@ -274,11 +274,34 @@
 
 .term-frame {
   overflow: hidden;
-  border-radius: 0.9rem;
+  border-radius: 0;
   border: 1px solid rgb(255 255 255 / 12%);
   border-left: 3px solid #339933;
   background: oklch(0.14 0.004 60);
   box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+}
+
+.term-frame-fixed {
+  display: flex;
+  flex-direction: column;
+  height: 26rem;
+}
+
+.term-frame-fixed .term-chrome {
+  flex: none;
+}
+
+.term-frame-fixed .term-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+@media (max-width: 639px) {
+  .term-frame-fixed {
+    height: 20rem;
+  }
 }
 
 .term-chrome {
@@ -292,7 +315,7 @@
 .term-dot {
   height: 0.55rem;
   width: 0.55rem;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgb(255 255 255 / 22%);
 }
 
@@ -343,7 +366,7 @@
   width: 100%;
   align-items: flex-start;
   gap: 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 0;
   padding: 0.35rem 0.4rem;
   text-align: left;
   color: inherit;
@@ -376,6 +399,12 @@
 
 @keyframes term-blink {
   50% { opacity: 0; }
+}
+
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

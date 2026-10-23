@@ -44,18 +44,18 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
         <div className="mx-auto max-w-4xl">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {isZh ? "性能对比" : "Performance Comparison"}
+              {isZh ? "速度" : "Speed"}
             </h2>
             <p className="mt-4 text-muted-foreground">
               {isZh
-                ? "2026-10-22 15:38–15:40 UTC，同一次运行里的暖启动和冷启动中位数。4 核 KVM（lscpu：Intel Xeon），Ubuntu 24.04。方法：benchmarks/measure.py。znvm 为 ReleaseSafe，3.73 MiB。"
-                : "Warm and cold medians from one run, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM guest (lscpu: Intel Xeon), Ubuntu 24.04. Method: benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
+                ? "2026-10-22 15:38–15:40 UTC，中位数。4 核 KVM（Intel Xeon），Ubuntu 24.04。benchmarks/measure.py。znvm ReleaseSafe，3.73 MiB。"
+                : "Medians, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
               }
             </p>
           </div>
 
           <h3 className="mb-3 text-lg font-semibold">
-            {isZh ? "Shell 启动（新 bash，减去 bash -c true）" : "Shell startup (new bash, minus bash -c true)"}
+            {isZh ? "Shell 启动" : "Shell startup"}
           </h3>
           <Card className="mb-8">
             <CardContent className="p-0 overflow-x-auto">
@@ -85,7 +85,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
           </Card>
 
           <h3 className="mb-3 text-lg font-semibold">
-            {isZh ? "已打开的 shell 里的命令" : "Commands in an already-open shell"}
+            {isZh ? "Shell 内命令" : "In-shell commands"}
           </h3>
           <Card>
             <CardContent className="p-0 overflow-x-auto">
@@ -120,8 +120,8 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
 
           <p className="mt-4 text-sm text-muted-foreground">
             {isZh
-              ? "暖 shell 启动：预热 5 次后采样 20 次，减去暖的 bash -c true（中位数 0.63 ms）。冷 shell 启动：20 次，每次先 sync 并丢掉页缓存，再开新 bash，减去同样条件下的 bash -c true（中位数 2.02 ms）。list / use / .nvmrc 的暖值是已初始化 shell 里预热 10 次、采样 40 次。冷的命令样本丢掉文件缓存，但 shell 进程还在。这次 n=20 或 40 时，p50 等于中位数。fnm 的文档化 init 已经激活 Node v22.14.0；暖运行里多一次 fnm use 是 2.50 ms，没有放进表里。这次 shell 启动（暖、冷）都是 fnm 低于 znvm，两者都低于 nvm。shell 内命令（暖、冷）是 znvm 更低。p95 和每个样本在 benchmarks/results/2026-10-22-cold-warm.json。更早一次只有暖启动中位数、外加单次冷样本，以及安装耗时，在 benchmarks/results/2026-10-22.json（安装 Node 22.13.1，含下载，3 次：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms，主要是网络）。"
-              : "Warm shell startup: 20 samples after 5 warmup, minus warm bash -c true (median 0.63 ms). Cold shell startup: 20 samples, each after sync and a page-cache drop, then a new bash, minus bash -c true measured the same way (median 2.02 ms). Warm list / use / .nvmrc: 40 samples after 10 warmup in an already-initialized shell. Cold command samples drop the file cache and keep that shell. At these sample counts, p50 equals the median. fnm's documented init already had Node v22.14.0 active; an extra warm fnm use was 2.50 ms and is not shown. On this run, warm and cold shell startup were lower for fnm than znvm, and both were lower than nvm. Warm and cold in-shell commands were lower for znvm. p95 and every sample: benchmarks/results/2026-10-22-cold-warm.json. An earlier warm-only run, one cold sample, and the install timing are in benchmarks/results/2026-10-22.json (Node 22.13.1, download included, 3 samples: znvm 1241 ms, fnm 2317 ms, nvm 2327 ms, mostly network)."
+              ? "暖启动 20 次（预热 5 次），减去 bash -c true（0.63 ms）。冷启动 20 次，每次丢掉页缓存，减去 bash -c true（2.02 ms）。命令：暖 40 次，冷 20 次。这次 shell 启动 fnm 更快；list、use、.nvmrc 是 znvm 更快。样本：benchmarks/results/2026-10-22-cold-warm.json。"
+              : "Warm startup: 20 samples after 5 warmup, minus bash -c true (0.63 ms). Cold startup: 20 samples after a page-cache drop, minus bash -c true (2.02 ms). Commands: warm 40, cold 20. On this run fnm started the shell faster. znvm was faster at list, use, and .nvmrc. Samples: benchmarks/results/2026-10-22-cold-warm.json."
             }
           </p>
         </div>

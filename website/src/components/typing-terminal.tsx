@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type Line = { kind: "in" | "out"; text: string };
 
@@ -41,6 +41,7 @@ function useReducedMotion() {
 
 export function TypingTerminal() {
   const reduced = useReducedMotion();
+  const bodyRef = useRef<HTMLPreElement>(null);
   const total = script.reduce((sum, line) => sum + line.text.length, 0);
   const [shown, setShown] = useState(0);
 
@@ -64,16 +65,22 @@ export function TypingTerminal() {
 
   const transcript = script.map((line) => (line.kind === "in" ? `$ ${line.text}` : line.text)).join(". ");
 
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [shown, reduced]);
+
   return (
     <div>
-      <div className="term-frame" aria-hidden="true">
+      <div className="term-frame term-frame-fixed" aria-hidden="true">
         <div className="term-chrome">
           <span className="term-dot" />
           <span className="term-dot" />
           <span className="term-dot" />
           <span className="term-title">bash</span>
         </div>
-        <pre className="term-body">
+        <pre ref={bodyRef} className="term-body">
           {drawn.map((line, index) => (
             <div key={`${index}-${line.text}`}>
               {line.kind === "in" ? <span className="term-prompt">$ </span> : null}

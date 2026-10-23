@@ -19,15 +19,15 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "znvm - Zero-overhead Node Version Manager",
+    default: "znvm",
     template: "%s | znvm",
   },
-  description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default. Measured 2026-10-22 on Linux: warm shell startup 3.31 ms, cold 5.01 ms.",
-  keywords: ["znvm", "nvm", "fnm", "nvm-slow", "node version manager", "zig", "fast", "lightweight", "performance", "zero-overhead", "unix-philosophy", "minimalism", "性能", "零负担", "极简主义", "轻量级"],
+  description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
+  keywords: ["znvm", "nvm", "nrm", "node version manager", "zig", "npmmirror"],
   authors: [{ name: "charlzyx" }],
   openGraph: {
-    title: "znvm - Zero-overhead Node Version Manager",
-    description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default.",
+    title: "znvm",
+    description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
     type: "website",
     locale: "en_US",
     images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "znvm" }],
@@ -35,8 +35,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "znvm - Zero-overhead Node Version Manager",
-    description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default.",
+    title: "znvm",
+    description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
   },
 };
 
