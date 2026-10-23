@@ -154,7 +154,14 @@ export NVM_DIR="$HOME/.nvm"
 
 ## 给 Agent
 
-直接跑命令。没有 MCP 服务。技能文件是 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。
+直接跑命令。没有 MCP 服务。不额外安装就能读到用法：
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+两条命令都打印 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。二进制在编译时嵌入这个文件，所以命令输出和文件一致。也可以把它装成技能：
 
 ```bash
 npx skills add charlzyx/znvm

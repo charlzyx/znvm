@@ -39,6 +39,10 @@ pub fn main() !void {
     const args = flags.argv;
     agent.json_mode = flags.json;
     agent.yes_mode = flags.yes;
+    if (flags.llm) {
+        try agent.writeSkill();
+        return;
+    }
 
     const base_name = std.fs.path.basename(args[0]);
     const invoked_as_nvm = mem.eql(u8, base_name, "nvm");

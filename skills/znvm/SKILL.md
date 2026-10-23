@@ -2,12 +2,22 @@
 name: znvm
 description: >-
   Use when an agent installs or switches Node versions, npm registries, or
-  download mirrors with znvm. Covers .nvmrc, the China registry, an intranet
+  download mirrors with znvm. Run `nvm --llm` or `nrm --llm` to print this
+  guide from the binary. Covers .nvmrc, the China registry, an intranet
   @scope, Electron and Playwright mirrors, auto-pick, --json, and
-  non-interactive flags. Run the nvm and nrm CLI. There is no MCP server.
+  non-interactive flags. There is no MCP server.
 ---
 
 # znvm
+
+Print this guide from the binary. No skill install is required:
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+`nvm --llm` and `nrm --llm` write this file to stdout and exit. The binary embeds `skills/znvm/SKILL.md`, so the command and the file are the same text.
 
 znvm is the `nvm` binary. `nrm` is the same binary, selected by the command name. `nvm mirror` sets download hosts. Do not start an MCP server for this. Agents already have a shell.
 

@@ -810,6 +810,8 @@ base.update({
 })
 base.pop("NVM_DIR", None)
 base.pop("ZNVM_DIR", None)
+base.pop("CI", None)
+base.pop("NVM_NONINTERACTIVE", None)
 code, text, _ = run_pty(
     [bin_path],
     base,
@@ -1214,6 +1216,8 @@ master, slave = pty.openpty()
 env = os.environ.copy()
 env.update({"HOME": home, "NVM_DIR": nvm_dir, "LC_ALL": "C", "PATH": "/usr/bin:/bin"})
 env.pop("XDG_CONFIG_HOME", None)
+env.pop("CI", None)
+env.pop("NVM_NONINTERACTIVE", None)
 proc = subprocess.Popen([bin_path], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
 os.close(slave)
 data = b""
@@ -1443,6 +1447,14 @@ bash -c '
     fi
 ' _ "$SPLIT_HOME"
 echo -e "    ${GREEN}✓${NC} nvm and nrm commands stay separate"
+
+echo "  Testing --llm output..."
+"$ZNVM_BIN" --llm >"$NVM_ALIGN_TMP/llm-nvm.out"
+cmp -s "$NVM_ALIGN_TMP/llm-nvm.out" skills/znvm/SKILL.md
+"$EMPTY_ROOT/nrm-bin/nrm" --llm >"$NVM_ALIGN_TMP/llm-nrm.out"
+cmp -s "$NVM_ALIGN_TMP/llm-nrm.out" skills/znvm/SKILL.md
+cmp -s "$NVM_ALIGN_TMP/llm-nvm.out" "$NVM_ALIGN_TMP/llm-nrm.out"
+echo -e "    ${GREEN}✓${NC} --llm matches skills/znvm/SKILL.md"
 
 echo "  Testing --json output..."
 mkdir -p "$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/cache" "$ALIGN_ROOT/fail-curl" \

@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "znvm",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
+            .root_source_file = b.path("exe_root.zig"),
             .target = target,
             .optimize = optimize,
             .link_libc = true,
@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) void {
     // Add test step
     const tests = b.addTest(.{
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/tests.zig"),
+            .root_source_file = b.path("test_root.zig"),
             .target = target,
             .optimize = optimize,
         }),

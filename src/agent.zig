@@ -41,10 +41,20 @@ pub fn menuAllowed(stream: MenuStream) bool {
     return std.posix.isatty(fd);
 }
 
+pub const skill_text = @embedFile("../skills/znvm/SKILL.md");
+
+pub fn writeSkill() !void {
+    var buf: [8192]u8 = undefined;
+    var writer = std.fs.File.stdout().writerStreaming(&buf);
+    try writer.interface.writeAll(skill_text);
+    try writer.interface.flush();
+}
+
 pub const Flags = struct {
     argv: []const []const u8,
     json: bool,
     yes: bool,
+    llm: bool,
 };
 
 pub fn strip(allocator: mem.Allocator, args: []const []const u8) !Flags {
@@ -52,6 +62,7 @@ pub fn strip(allocator: mem.Allocator, args: []const []const u8) !Flags {
     errdefer out.deinit(allocator);
     var json = false;
     var yes = false;
+    var llm = false;
     var locked = false;
     for (args, 0..) |arg, index| {
         if (!locked and index > 0 and mem.eql(u8, arg, "--")) {
@@ -67,12 +78,17 @@ pub fn strip(allocator: mem.Allocator, args: []const []const u8) !Flags {
             yes = true;
             continue;
         }
+        if (!locked and index > 0 and mem.eql(u8, arg, "--llm")) {
+            llm = true;
+            continue;
+        }
         try out.append(allocator, arg);
     }
     return .{
         .argv = try out.toOwnedSlice(allocator),
         .json = json,
         .yes = yes,
+        .llm = llm,
     };
 }
 
@@ -269,6 +285,7 @@ test "strip keeps positionals and a double dash" {
     defer allocator.free(flags.argv);
     try std.testing.expect(flags.json);
     try std.testing.expect(!flags.yes);
+    try std.testing.expect(!flags.llm);
     try std.testing.expectEqualSlices(u8, "exec", flags.argv[1]);
     try std.testing.expectEqualSlices(u8, "--yes", flags.argv[4]);
 }

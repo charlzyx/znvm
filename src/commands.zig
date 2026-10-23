@@ -643,7 +643,7 @@ fn writeCwdNvmrc(allocator: mem.Allocator, ver: []const u8, silent: bool) !void 
 }
 
 fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
-    if (mem.eql(u8, arg, "--json") or mem.eql(u8, arg, "--yes")) return true;
+    if (mem.eql(u8, arg, "--json") or mem.eql(u8, arg, "--yes") or mem.eql(u8, arg, "--llm")) return true;
     if (mem.eql(u8, arg, "--silent")) {
         parsed.silent = true;
         return true;
@@ -802,6 +802,7 @@ pub fn printHelp() !void {
         \\  mirror [ls|use|set|reset|test]
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
+        \\  --llm                      print the agent guide and exit
         \\  --version, -v              print the znvm version
         \\  help, --help
         \\
@@ -826,6 +827,9 @@ pub fn printHelp() !void {
         \\Docker image mirrors are not set here.
         \\
         \\Agents:
+        \\  --llm prints the agent guide on stdout and exits. nvm --llm and nrm --llm
+        \\  print the same text as skills/znvm/SKILL.md. That is the zero-install
+        \\  way for an agent to learn this tool.
         \\  --json writes one JSON object to stdout for ls, ls-remote, current, which,
         \\  version, --version, mirror ls, and mirror test.
         \\  Other commands reject --json.
@@ -846,6 +850,9 @@ pub fn printNrmHelp() !void {
     try stdout(
         \\nrm - registry manager
         \\
+        \\nrm --llm prints the agent guide on stdout and exits.
+        \\It is the same text as nvm --llm and skills/znvm/SKILL.md.
+        \\
         \\Commands:
         \\  ls
         \\  use <name|auto>
@@ -857,6 +864,7 @@ pub fn printNrmHelp() !void {
         \\  scope add <@scope> <url>
         \\  scope del <@scope>
         \\  help
+        \\  --llm
         \\  --version, -v
         \\
         \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.

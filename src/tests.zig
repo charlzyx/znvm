@@ -18,6 +18,12 @@ test "agent module is linked" {
     try testing.expect(!agent.truthy("0"));
 }
 
+test "embedded skill matches skills/znvm/SKILL.md" {
+    const file = try std.fs.cwd().readFileAlloc(testing.allocator, "skills/znvm/SKILL.md", 1024 * 1024);
+    defer testing.allocator.free(file);
+    try testing.expectEqualSlices(u8, file, agent.skill_text);
+}
+
 // Test utilities
 fn createTestAllocator() std.mem.Allocator {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

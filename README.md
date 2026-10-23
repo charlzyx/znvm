@@ -178,7 +178,14 @@ Open a new terminal, or `source` that profile. The command is `nvm`. Versions li
 
 ## Agents
 
-Run the CLI. There is no MCP server. The agent skill is [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md).
+Run the CLI. There is no MCP server. The zero-install way to learn the tool is:
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+Both print [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md). The binary embeds that file, so the command and the file match. To load it as an agent skill instead:
 
 ```bash
 npx skills add charlzyx/znvm

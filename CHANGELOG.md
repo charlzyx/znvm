@@ -10,6 +10,7 @@
 ### Added
 
 - `--json` writes one JSON object to stdout for `nvm ls`, `nvm ls-remote` (including `--lts`), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. A `--json` error is `{"error":"...","exit":N}` on stderr, stdout is empty, and the exit code is unchanged.
+- `nvm --llm` and `nrm --llm` print `skills/znvm/SKILL.md` on stdout and exit. The file is embedded in the binary, so the command and the file match. That is the zero-install way for an agent to learn the tool.
 - Menus open only when stdin and the menu stream are terminals. `--yes`, `NVM_NONINTERACTIVE=1`, and a non-empty `CI` skip them. `NO_COLOR` stays plain ASCII. `--guide-step` still draws on stderr.
 - `skills/znvm/SKILL.md` is an agent skill for `nvm`, `nrm`, and `nvm mirror`. There is no MCP server.
 
