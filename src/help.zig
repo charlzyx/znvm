@@ -36,7 +36,7 @@ pub fn printNvm(program_name: []const u8) !void {
             \\  install-latest-npm      安装 npm@latest
             \\  cache dir|clear         缓存目录或清空
             \\  deactivate              退出当前版本
-            \\  guide                   打开菜单
+            \\  guide, interactive      打开菜单
             \\  registry [子命令]       源和 scope
             \\  mirror [ls|use|set|reset|test]  下载镜像
             \\  env                     打印 shell 配置
@@ -78,7 +78,7 @@ pub fn printNvm(program_name: []const u8) !void {
         \\  install-latest-npm      install npm@latest
         \\  cache dir|clear         cache path or clear
         \\  deactivate              drop the active version
-        \\  guide                   open the menu
+        \\  guide, interactive      open the menu
         \\  registry [sub]          registry and scopes
         \\  mirror [ls|use|set|reset|test]  download mirrors
         \\  env                     print shell setup

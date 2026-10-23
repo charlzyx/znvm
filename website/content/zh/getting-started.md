@@ -20,7 +20,7 @@ curl -fsSL https://znvm.dev/install.sh | bash
 nvm
 Node versions go in ~/.nvm.
 
-> Downloading nvm v2.8.3 (x86_64-linux)...
+> Downloading nvm v2.9.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
