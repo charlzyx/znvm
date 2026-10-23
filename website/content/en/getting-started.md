@@ -6,6 +6,44 @@ A **Node.js version manager** built with Zig. After install, the commands are `n
 
 In a terminal, `nvm` with no arguments opens an interactive guide (`nvm guide` does the same). Without a terminal, it prints a short notice and exits.
 
+## For agents
+
+The zero-install way to learn znvm is the binary itself:
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+Both print the guide in `skills/znvm/SKILL.md` and exit. The binary embeds that file, so the command and the file match.
+
+```bash
+npx skills add charlzyx/znvm
+```
+
+If that client cannot install a skill, copy `skills/znvm/SKILL.md` into its skills directory.
+
+There is no MCP server. `nvm` and `nrm` are already a shell CLI. An MCP server would only wrap the same binary.
+
+`nvm` selects Node versions. `nrm` selects npm registries and `@scope` routes. `nvm mirror` selects download hosts for Electron, Playwright, and the other tools. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
+
+`--json` writes one JSON object to stdout for `nvm ls`, `nvm ls-remote` (including `--lts`), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. An error is `{"error":"...","exit":N}` on stderr. Stdout is empty, and the exit code matches text mode: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file.
+
+With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`, `nvm ls --json` prints:
+
+```json
+{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
+```
+
+Menus open only when stdin and the menu stream are terminals. `--yes`, `NVM_NONINTERACTIVE=1` (`true` and `yes` too), and a non-empty `CI` keep them closed. `NO_COLOR` stays plain ASCII. `--guide-step` draws the menu on stderr.
+
+If `nvm` is not found:
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+```
+
 ## Installation
 
 ### Quick Install (Recommended)
@@ -20,7 +58,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.6.0 (x86_64-linux)...
+> Downloading nvm v2.7.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc

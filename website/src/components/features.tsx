@@ -22,6 +22,10 @@ const features = {
       title: "Download mirrors",
       body: "nvm mirror use china writes the Node dist host and the download hosts for Electron, Playwright, Cypress, puppeteer, sharp, node-sass, and the other common tools. official clears them. nvm mirror test measures in parallel. nvm mirror use auto keeps the faster side of each tool. Scope routes stay put. Nothing runs on install. The nvm guide lists this as Mirrors.",
     },
+    {
+      title: "For agents",
+      body: "nvm --llm prints the usage guide. nrm --llm prints the same text. --json prints one object for versions, registries, and mirrors. Menus stay closed when CI is set, or with --yes or NVM_NONINTERACTIVE=1. There is no MCP server.",
+    },
   ],
   zh: [
     {
@@ -43,6 +47,10 @@ const features = {
     {
       title: "下载镜像",
       body: "nvm mirror use china 写入 Node 发行包地址，以及 Electron、Playwright、Cypress、puppeteer、sharp、node-sass 和其他常见工具的下载地址。official 会清掉它们。nvm mirror test 并行测量。nvm mirror use auto 为每个工具留下更快的一边。scope 保持不动。安装时不会测量。nvm 的引导菜单里这一项是「下载镜像」。",
+    },
+    {
+      title: "给 Agent",
+      body: "nvm --llm 打印用法说明。nrm --llm 打印同一段文字。--json 为版本、源和下载镜像各打一个 JSON 对象。CI 已设置，或者带上 --yes 或 NVM_NONINTERACTIVE=1 时，菜单不会打开。没有 MCP 服务。",
     },
   ],
 };
