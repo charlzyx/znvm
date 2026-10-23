@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Github, Zap } from "lucide-react";
+import { Menu, Github } from "lucide-react";
+import { LogoMark } from "@/components/logo-mark";
 
 interface NavLink {
   href: string;
@@ -35,7 +36,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center">
         {/* Logo */}
         <Link href={homeHref} className="mr-6 flex items-center space-x-2 flex-shrink-0">
-          <Zap className="h-6 w-6 text-node" />
+          <LogoMark className="h-6 w-6" />
           <span className="font-bold text-xl">znvm</span>
         </Link>
 
@@ -95,7 +96,7 @@ function MobileNav({ isZh }: { isZh: boolean }) {
     <div className="flex flex-col space-y-4 p-4">
       {/* Logo */}
       <Link href={homeHref} className="flex items-center space-x-2">
-        <Zap className="h-5 w-5 text-node" />
+        <LogoMark className="h-5 w-5" />
         <span className="font-bold">znvm</span>
       </Link>
 

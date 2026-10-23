@@ -4,6 +4,8 @@ import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
+const siteUrl = "https://znvm.dev";
+
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -15,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "znvm - Zero-overhead Node Version Manager",
     template: "%s | znvm",
@@ -27,6 +30,8 @@ export const metadata: Metadata = {
     description: "Node.js version manager built with Zig. Uses nvm's version layout and npmmirror by default.",
     type: "website",
     locale: "en_US",
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "znvm" }],
+    url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
