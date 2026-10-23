@@ -107,7 +107,7 @@ export const MdxComponents = {
 
   // Table
   table: ({ children }: ComponentProps) => (
-    <div className="my-6 w-full overflow-y-auto">
+    <div className="my-6 w-full overflow-x-auto">
       <table className="w-full border-collapse">
         {children}
       </table>
@@ -134,7 +134,7 @@ export const MdxComponents = {
     </th>
   ),
   td: ({ children }: ComponentProps) => (
-    <td className="px-4 py-2">
+    <td className="px-4 py-2 align-top [overflow-wrap:anywhere]">
       {children}
     </td>
   ),

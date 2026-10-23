@@ -820,8 +820,8 @@ pub fn printHelp() !void {
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
         \\use, ls, and current on this command always select Node versions.
         \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
-        \\mirror sets the Node dist host and download mirrors for Electron, Playwright,
-        \\Cypress, puppeteer, sharp, node-sass, and other tools.
+        \\mirror ls prints every supported download host. china writes those npmmirror
+        \\hosts, including Node, Electron, Playwright, puppeteer, and sharp.
         \\It writes npm, pnpm, and yarn v1 keys, plus $NVM_DIR/binaries.env.
         \\A new shell sources that file. Scope routes are not changed.
         \\Docker image mirrors are not set here.
@@ -2047,7 +2047,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.7.0\n", .{});
+    try stderr("znvm version: v2.8.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

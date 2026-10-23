@@ -11,7 +11,7 @@ const guide = @import("guide.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.7.0";
+const ZNVM_VERSION = "v2.8.0";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {

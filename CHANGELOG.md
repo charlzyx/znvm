@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.8.0] - 2026-10-23
+
+### Added
+
+- `nvm mirror ls` prints every supported download host. `china` also writes sqlite3, canvas, grpc, grpc-tools, nodejieba, xprofiler, gdal-async, ali-zeromq, and ali-usb_ctl. Each key is the env or npmrc name that package's installer reads, and the URL is the npmmirror path that installer requests.
+- The README, the site docs, and `skills/znvm/SKILL.md` list every host with its env and npmrc key. Packages that cnpm switches by rewriting files, and packages with no verified host env or a mismatched path, stay unset.
+
 ## [v2.7.0] - 2026-10-23
 
 ### Added
@@ -296,6 +303,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.8.0]: https://github.com/charlzyx/znvm/compare/v2.7.0...v2.8.0
 [v2.7.0]: https://github.com/charlzyx/znvm/compare/v2.6.0...v2.7.0
 [v2.6.0]: https://github.com/charlzyx/znvm/compare/v2.5.1...v2.6.0
 [v2.5.1]: https://github.com/charlzyx/znvm/compare/v2.5.0...v2.5.1

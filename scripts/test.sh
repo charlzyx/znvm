@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.7.0 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.8.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.7.0" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.8.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.7.0, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.8.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.7.0" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.8.0" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.7.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -382,7 +382,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.7.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -457,7 +457,7 @@ UPGRADE_OUT=$(env -i \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.7.0"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.0"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved the previous $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Linked $UPGRADE_HOME/.nvm/nrm -> nvm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -467,7 +467,7 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.7.0" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.0" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
@@ -532,9 +532,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.7.0"
+printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.0"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.7.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -659,12 +659,12 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.7.0"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.8.0"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Linked $PLAIN_UP/.local/bin/nrm -> znvm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.7.0" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.0" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
@@ -1084,6 +1084,22 @@ fi
 mirror_run ls >"$NVM_ALIGN_TMP/cmd.out"
 grep -q '^profile official$' "$NVM_ALIGN_TMP/cmd.out"
 grep -q '  electron (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  sqlite3 (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  canvas (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  grpc (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  grpc-tools (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  nodejieba (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  xprofiler (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  gdal-async (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  ali-zeromq (unset)' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  ali-usb_ctl (unset)' "$NVM_ALIGN_TMP/cmd.out"
+mirror_run ls --json >"$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"sqlite3"' "$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"canvas"' "$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"grpc-tools"' "$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"ali-usb_ctl"' "$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"playwright"' "$NVM_ALIGN_TMP/mirror.json"
+grep -q '"name":"puppeteer"' "$NVM_ALIGN_TMP/mirror.json"
 mirror_run use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 grep -q "The mirrors have been changed to 'china'." "$NVM_ALIGN_TMP/cmd.out"
 grep -q "Wrote $NRM_NVM/binaries.env" "$NVM_ALIGN_TMP/cmd.err"
@@ -1100,6 +1116,21 @@ grep -q "export SASS_BINARY_SITE='https://cdn.npmmirror.com/binaries/node-sass'"
 grep -q "export PUPPETEER_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/chrome-for-testing'" "$NRM_NVM/binaries.env"
 grep -q "export RE2_DOWNLOAD_SKIP_PATH='true'" "$NRM_NVM/binaries.env"
 grep -q "export npm_config_sharp_libvips_binary_host='https://cdn.npmmirror.com/binaries/sharp-libvips'" "$NRM_NVM/binaries.env"
+grep -q 'sqlite3_binary_host=https://cdn.npmmirror.com/binaries/sqlite3' "$NRM_HOME/.npmrc"
+grep -q 'canvas_binary_host=https://cdn.npmmirror.com/binaries/canvas' "$NRM_HOME/.npmrc"
+grep -q 'grpc_node_binary_host_mirror=https://cdn.npmmirror.com/binaries' "$NRM_HOME/.npmrc"
+grep -q 'grpc_tools_binary_host_mirror=https://cdn.npmmirror.com/binaries' "$NRM_HOME/.npmrc"
+grep -q 'nodejieba_binary_host_mirror=https://cdn.npmmirror.com/binaries/nodejieba' "$NRM_HOME/.npmrc"
+grep -q 'xprofiler_binary_host_mirror=https://cdn.npmmirror.com/binaries/xprofiler' "$NRM_HOME/.npmrc"
+grep -q 'gdal_binary_host_mirror=https://cdn.npmmirror.com/binaries/node-gdal-async' "$NRM_HOME/.npmrc"
+grep -q 'zmq_binary_host_mirror=https://cdn.npmmirror.com/binaries/ali-zeromq' "$NRM_HOME/.npmrc"
+grep -q 'usb_ctrl_binary_host_mirror=https://cdn.npmmirror.com/binaries/ali-usb_ctl' "$NRM_HOME/.npmrc"
+grep -q "export npm_config_sqlite3_binary_host='https://cdn.npmmirror.com/binaries/sqlite3'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_canvas_binary_host='https://cdn.npmmirror.com/binaries/canvas'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_grpc_node_binary_host_mirror='https://cdn.npmmirror.com/binaries'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_grpc_tools_binary_host_mirror='https://cdn.npmmirror.com/binaries'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_gdal_binary_host_mirror='https://cdn.npmmirror.com/binaries/node-gdal-async'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_usb_ctrl_binary_host_mirror='https://cdn.npmmirror.com/binaries/ali-usb_ctl'" "$NRM_NVM/binaries.env"
 grep -q '# nvm binaries begin' "$NRM_NVM/binaries.env"
 if grep -q 'znvm' "$NRM_NVM/binaries.env"; then
     echo "binaries.env mentioned znvm" >&2
@@ -1496,8 +1527,8 @@ json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
 test "$(json_nvm current --json)" = '{"version":"none"}'
 test "$(json_nvm version --json)" = '{"version":"none"}'
-test "$(json_nvm --version --json)" = '{"version":"v2.7.0"}'
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.7.0"}'
+test "$(json_nvm --version --json)" = '{"version":"v2.8.0"}'
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.8.0"}'
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1522,7 +1553,7 @@ set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
 json_nvm help | grep -q 'NVM_NONINTERACTIVE'
-nrm_run --version --json | grep -q '"version":"v2.7.0"'
+nrm_run --version --json | grep -q '"version":"v2.8.0"'
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1534,7 +1565,7 @@ env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C PATH="$FAKE_
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"registries":[{"name":"npm","ok":True,"seconds":"0.400"}]}' "$NVM_ALIGN_TMP/cmd.out"
 mirror_run reset >/dev/null
 mirror_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
-python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); e=[x for x in d["mirrors"] if x["name"]=="electron"][0]; p=[x for x in d["mirrors"] if x["name"]=="playwright"][0]; assert d["profile"]=="official" and e["url"] is None and p["url"] is None and len(d["mirrors"])==26' "$NVM_ALIGN_TMP/cmd.out"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); e=[x for x in d["mirrors"] if x["name"]=="electron"][0]; p=[x for x in d["mirrors"] if x["name"]=="playwright"][0]; s=[x for x in d["mirrors"] if x["name"]=="sqlite3"][0]; assert d["profile"]=="official" and e["url"] is None and p["url"] is None and s["url"] is None and len(d["mirrors"])==35' "$NVM_ALIGN_TMP/cmd.out"
 env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C PATH="$FAKE_CURL_DIR:/usr/bin:/bin" "$ZNVM_BIN" mirror test electron --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"mirrors":[{"name":"electron","china":{"ok":True,"seconds":"0.050"},"official":{"ok":True,"seconds":"0.400"}}]}' "$NVM_ALIGN_TMP/cmd.out"
 echo -e "    ${GREEN}✓${NC} --json output OK"

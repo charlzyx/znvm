@@ -52,7 +52,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.7.0 (x86_64-linux)...
+> Downloading nvm v2.8.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -151,7 +151,51 @@ nvm mirror reset
 nvm mirror test
 ```
 
-`china` writes npmmirror hosts for Node, Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common tools. `official` clears them. `auto` keeps the faster side of each tool. npm, pnpm, and yarn v1 keys go in their rc files. Env values go in `$NVM_DIR/binaries.env`, sourced by `nvm.sh`. `reset` removes that file and the `# nvm binaries` block. Scopes stay. Nothing runs on install.
+`nvm mirror ls` prints every supported name. `china` writes these hosts.
+
+| name | covers | env / npmrc |
+| --- | --- | --- |
+| electron | Electron | `ELECTRON_MIRROR`, npmrc `electron_mirror` |
+| electron-builder | electron-builder binaries | `ELECTRON_BUILDER_BINARIES_MIRROR`, npmrc `electron_builder_binaries_mirror` |
+| playwright | Chromium, Firefox, and WebKit browser downloads | `PLAYWRIGHT_DOWNLOAD_HOST` |
+| cypress | Cypress zip | `CYPRESS_DOWNLOAD_PATH_TEMPLATE` |
+| puppeteer | Chrome for Testing and chrome-headless-shell | `PUPPETEER_DOWNLOAD_HOST`, `PUPPETEER_DOWNLOAD_BASE_URL`, `PUPPETEER_CHROME_DOWNLOAD_BASE_URL`, `PUPPETEER_CHROME_HEADLESS_SHELL_DOWNLOAD_BASE_URL` |
+| node-sass | node-sass | `SASS_BINARY_SITE`, npmrc `sass_binary_site` |
+| sharp | sharp prebuild | `npm_config_sharp_binary_host`, npmrc `sharp_binary_host` |
+| libvips | libvips for sharp | `npm_config_sharp_libvips_binary_host`, npmrc `sharp_libvips_binary_host` |
+| node | Node dist | `NODEJS_ORG_MIRROR`, `NVM_NODEJS_ORG_MIRROR` |
+| chromedriver | ChromeDriver | `CHROMEDRIVER_CDNURL` |
+| edgedriver | EdgeDriver | `EDGEDRIVER_CDNURL` |
+| operadriver | OperaDriver | `OPERADRIVER_CDNURL` |
+| phantomjs | PhantomJS | `PHANTOMJS_CDNURL` |
+| node-swc | SWC | `SWC_BINARY_SITE` |
+| nwjs | NW.js | `NWJS_URLBASE` |
+| sentry-cli | sentry-cli | `SENTRYCLI_CDNURL` |
+| saucectl | saucectl | `SAUCECTL_INSTALL_BINARY_MIRROR` |
+| node-re2 | node-re2 | `RE2_DOWNLOAD_MIRROR`, `RE2_DOWNLOAD_SKIP_PATH` |
+| prisma | Prisma engines | `PRISMA_ENGINES_MIRROR` |
+| better-sqlite3 | better-sqlite3 prebuild | `npm_config_better_sqlite3_binary_host`, npmrc `better_sqlite3_binary_host` |
+| isolated-vm | isolated-vm prebuild | `npm_config_isolated_vm_binary_host`, npmrc `isolated_vm_binary_host` |
+| keytar | keytar prebuild | `npm_config_keytar_binary_host`, npmrc `keytar_binary_host` |
+| robotjs | robotjs prebuild | `npm_config_robotjs_binary_host`, npmrc `robotjs_binary_host` |
+| gl | headless-gl prebuild | `npm_config_gl_binary_host`, npmrc `gl_binary_host` |
+| corepack | Corepack npm registry | `COREPACK_NPM_REGISTRY` |
+| ripgrep | ripgrep-prebuilt | `RIPGREP_PREBUILT_BINARIES_MIRROR` |
+| sqlite3 | sqlite3 prebuild | `npm_config_sqlite3_binary_host`, npmrc `sqlite3_binary_host` |
+| canvas | node-canvas prebuild | `npm_config_canvas_binary_host`, npmrc `canvas_binary_host` |
+| grpc | grpc native binding (module `grpc_node`) | `npm_config_grpc_node_binary_host_mirror`, npmrc `grpc_node_binary_host_mirror` |
+| grpc-tools | grpc-tools binaries | `npm_config_grpc_tools_binary_host_mirror`, npmrc `grpc_tools_binary_host_mirror` |
+| nodejieba | nodejieba prebuild | `npm_config_nodejieba_binary_host_mirror`, npmrc `nodejieba_binary_host_mirror` |
+| xprofiler | xprofiler prebuild | `npm_config_xprofiler_binary_host_mirror`, npmrc `xprofiler_binary_host_mirror` |
+| gdal-async | node-gdal-async prebuild (module `gdal`) | `npm_config_gdal_binary_host_mirror`, npmrc `gdal_binary_host_mirror` |
+| ali-zeromq | zeromq binding (module `zmq`) | `npm_config_zmq_binary_host_mirror`, npmrc `zmq_binary_host_mirror` |
+| ali-usb_ctl | usb_ctrl binding | `npm_config_usb_ctrl_binary_host_mirror`, npmrc `usb_ctrl_binary_host_mirror` |
+
+Not set. cnpm rewrites package files (`replaceHost` / `replaceHostFiles`), and no config key redirects the download: jpegtran-bin, cwebp-bin, zopflipng-bin, optipng-bin, mozjpeg, gifsicle, pngquant-bin, pngcrush-bin, jpeg-recompress-bin, advpng-bin, pngout-bin, jpegoptim-bin, flow-bin, @tensorflow/tfjs-node.
+
+Not set. The installer has no verified host env, or the mirror path does not match that installer: @journeyapps/sqlcipher, leveldown, utf-8-validate, argon2, fsevents, couchbase, wrtc, skia-canvas, libpg-query, @ali/s2.
+
+`official` clears them. `auto` keeps the faster side of each tool. npm, pnpm, and yarn v1 keys go in their rc files. Env values go in `$NVM_DIR/binaries.env`, sourced by `nvm.sh`. `reset` removes that file and the `# nvm binaries` block. Scopes stay. Nothing runs on install.
 
 Clearing the Node mirror falls back to the usual host. Force nodejs.org with `nvm mirror set node https://nodejs.org/dist`.
 
