@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { LogoMark } from "@/components/logo-mark";
-import { Separator } from "@/components/ui/separator";
 
 interface FooterProps {
   lang?: "en" | "zh";
@@ -12,7 +11,7 @@ export function Footer({ lang = "en" }: FooterProps) {
   const isZh = lang === "zh";
 
   return (
-    <footer className="border-t bg-muted/50">
+    <footer className="border-t-2 border-border bg-muted/50">
       <div className="container py-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
@@ -87,7 +86,7 @@ export function Footer({ lang = "en" }: FooterProps) {
           </div>
         </div>
 
-        <Separator className="my-8" />
+        <div className="my-8 h-0.5 bg-border" />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>

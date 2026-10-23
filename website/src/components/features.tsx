@@ -60,16 +60,18 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
   const items = zh ? features.zh : features.en;
 
   return (
-    <section className="border-b border-border py-20 sm:py-28">
+    <section className="border-b-2 border-border py-16 sm:py-24">
       <div className="container">
-        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+        <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
           {zh ? "功能" : "Features"}
         </h2>
-        <div className="mt-12 grid border border-border md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-12 border-2 border-border">
           {items.map((item) => (
-            <article key={item.title} className="border border-border bg-card p-8 sm:p-10">
-              <h3 className="text-2xl font-semibold text-node-bright">{item.title}</h3>
-              <p className="mt-4 text-base leading-7 text-muted-foreground">{item.body}</p>
+            <article key={item.title} className="grid min-w-0 border-b-2 border-border last:border-b-0 md:grid-cols-[18rem_1fr]">
+              <h3 className="border-b-2 border-border p-6 text-3xl font-black tracking-tight text-node-bright sm:p-8 md:border-r-2 md:border-b-0">
+                {item.title}
+              </h3>
+              <p className="max-w-[65ch] px-6 pb-8 text-lg leading-7 text-foreground [overflow-wrap:anywhere] sm:px-8 md:py-8">{item.body}</p>
             </article>
           ))}
         </div>

@@ -6,7 +6,7 @@
 
 ## 测量
 
-配对中位数，2026-10-22 15:38–15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。znvm ReleaseSafe，3.73 MiB，未 strip。方法：`benchmarks/measure.py`。样本：`benchmarks/results/2026-10-22-cold-warm.json`。冷启动每次丢掉页缓存，共 20 次。冷命令在已打开的 shell 里丢掉文件缓存。
+配对中位数，2026-10-22 15:38-15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。znvm ReleaseSafe，3.73 MiB，未 strip。方法：`benchmarks/measure.py`。样本：`benchmarks/results/2026-10-22-cold-warm.json`。冷启动每次丢掉页缓存，共 20 次。冷命令在已打开的 shell 里丢掉文件缓存。
 
 | 管理器 | 暖启动 | 冷启动 | list 暖 | list 冷 | use 暖 | use 冷 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

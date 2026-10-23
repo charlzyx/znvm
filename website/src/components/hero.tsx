@@ -10,15 +10,14 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
 
   return (
     <section className="relative overflow-hidden border-b-4 border-zig">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(51,153,51,0.22),transparent_55%)]" />
-      <div className="container relative py-20 sm:py-28 lg:py-32">
-        <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-16">
-          <div>
+      <div className="container relative pt-16 pb-20 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32">
+        <div className="grid min-w-0 items-center gap-14 lg:grid-cols-2 lg:gap-16">
+          <div className="min-w-0">
             <p className="zig-mark">{zh ? "用 Zig 构建" : "Built with Zig"}</p>
-            <h1 className="mt-6 text-6xl font-bold leading-none tracking-tighter sm:text-7xl lg:text-8xl">
+            <h1 className="mt-6 font-black leading-[0.85] tracking-[-0.045em] text-[clamp(4.5rem,9vw,9rem)]">
               znvm
             </h1>
-            <p className="mt-6 max-w-xl text-xl text-muted-foreground sm:text-2xl">
+            <p className="mt-6 max-w-[65ch] text-xl text-foreground sm:text-2xl">
               {zh
                 ? "命令是 nvm 和 nrm。版本在 ~/.nvm。Node 从 npmmirror 下载。"
                 : "Commands are nvm and nrm. Versions live in ~/.nvm. Node downloads come from npmmirror."}

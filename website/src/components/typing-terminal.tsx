@@ -72,8 +72,8 @@ export function TypingTerminal() {
   }, [shown, reduced]);
 
   return (
-    <div>
-      <div className="term-frame term-frame-fixed" aria-hidden="true">
+    <div className="min-w-0">
+      <div className="term-frame term-frame-fixed" data-ui="terminal" aria-hidden="true">
         <div className="term-chrome">
           <span className="term-dot" />
           <span className="term-dot" />

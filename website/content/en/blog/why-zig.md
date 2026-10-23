@@ -6,7 +6,7 @@ On this Linux VM, in-shell commands were faster than nvm and fnm. Shell startup 
 
 ## Measurements
 
-Paired medians, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. znvm ReleaseSafe, 3.73 MiB, not stripped. Method: `benchmarks/measure.py`. Samples: `benchmarks/results/2026-10-22-cold-warm.json`. Cold startup drops the page cache before each of 20 samples. Cold commands drop the file cache inside an already-open shell.
+Paired medians, 2026-10-22 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. znvm ReleaseSafe, 3.73 MiB, not stripped. Method: `benchmarks/measure.py`. Samples: `benchmarks/results/2026-10-22-cold-warm.json`. Cold startup drops the page cache before each of 20 samples. Cold commands drop the file cache inside an already-open shell.
 
 | Manager | Warm startup | Cold startup | list warm | list cold | use warm | use cold |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

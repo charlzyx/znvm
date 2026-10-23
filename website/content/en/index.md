@@ -10,7 +10,7 @@ Warm / cold shell startup on 2026-10-22: znvm 3.31 / 5.01 ms, fnm 1.58 / 4.70 ms
 
 ## Speed
 
-One run, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. `benchmarks/measure.py`. znvm ReleaseSafe. Samples: `benchmarks/results/2026-10-22-cold-warm.json`.
+One run, 2026-10-22 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. `benchmarks/measure.py`. znvm ReleaseSafe. Samples: `benchmarks/results/2026-10-22-cold-warm.json`.
 
 | Manager | Warm startup | Cold startup | list warm | list cold | use warm | use cold | .nvmrc warm | .nvmrc cold |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

@@ -10,7 +10,7 @@ Zig 写的 `nvm` 和 `nrm`。版本在 `~/.nvm`。下载用 npmmirror。不带�
 
 ## 速度
 
-同一次运行，2026-10-22 15:38–15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。`benchmarks/measure.py`。znvm ReleaseSafe。样本：`benchmarks/results/2026-10-22-cold-warm.json`。
+同一次运行，2026-10-22 15:38-15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。`benchmarks/measure.py`。znvm ReleaseSafe。样本：`benchmarks/results/2026-10-22-cold-warm.json`。
 
 | 管理器 | 暖启动 | 冷启动 | list 暖 | list 冷 | use 暖 | use 冷 | .nvmrc 暖 | .nvmrc 冷 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

@@ -14,6 +14,9 @@ build
 *.swp
 *~
 
+# Taste-skill audit output (not part of the site)
+.taste-skill/
+
 # Generated from skills/znvm/SKILL.md
 website/public/llm.txt
 website/public/llms.txt
