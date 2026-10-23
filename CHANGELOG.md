@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.8.2] - 2026-10-23
+
+### Changed
+
+- Built with Zig 0.17.0. Commands, exit codes, and text output stay the same.
+
 ## [v2.8.1] - 2026-10-23
 
 ### Added
@@ -309,6 +315,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.8.2]: https://github.com/charlzyx/znvm/compare/v2.8.1...v2.8.2
 [v2.8.1]: https://github.com/charlzyx/znvm/compare/v2.8.0...v2.8.1
 [v2.8.0]: https://github.com/charlzyx/znvm/compare/v2.7.0...v2.8.0
 [v2.7.0]: https://github.com/charlzyx/znvm/compare/v2.6.0...v2.7.0

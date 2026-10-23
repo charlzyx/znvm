@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const util = @import("util.zig");
+const host = @import("host.zig");
 
 pub var json_mode: bool = false;
 pub var yes_mode: bool = false;
@@ -26,26 +27,26 @@ pub fn forcesNoninteractive(ci: ?[]const u8, flag: ?[]const u8, yes: bool) bool 
 }
 
 pub fn noninteractive() bool {
-    return forcesNoninteractive(std.posix.getenv("CI"), std.posix.getenv("NVM_NONINTERACTIVE"), yes_mode);
+    return forcesNoninteractive(host.getenv("CI"), host.getenv("NVM_NONINTERACTIVE"), yes_mode);
 }
 
 pub const MenuStream = enum { stdout, stderr };
 
 pub fn menuAllowed(stream: MenuStream) bool {
     if (noninteractive()) return false;
-    if (!std.posix.isatty(std.posix.STDIN_FILENO)) return false;
-    const fd: i32 = switch (stream) {
-        .stdout => std.posix.STDOUT_FILENO,
-        .stderr => std.posix.STDERR_FILENO,
+    if (!host.isTty(.stdin())) return false;
+    const file: std.Io.File = switch (stream) {
+        .stdout => .stdout(),
+        .stderr => .stderr(),
     };
-    return std.posix.isatty(fd);
+    return host.isTty(file);
 }
 
 pub const skill_text = @embedFile("../skills/znvm/SKILL.md");
 
 pub fn writeSkill() !void {
     var buf: [8192]u8 = undefined;
-    var writer = std.fs.File.stdout().writerStreaming(&buf);
+    var writer = std.Io.File.stdout().writerStreaming(host.io(), &buf);
     try writer.interface.writeAll(skill_text);
     try writer.interface.flush();
 }
@@ -58,7 +59,7 @@ pub const Flags = struct {
 };
 
 pub fn strip(allocator: mem.Allocator, args: []const []const u8) !Flags {
-    var out: std.ArrayList([]const u8) = .{};
+    var out: std.ArrayList([]const u8) = .empty;
     errdefer out.deinit(allocator);
     var json = false;
     var yes = false;
@@ -126,17 +127,16 @@ pub fn explain(message: []const u8) error{Explained} {
 }
 
 fn formatError(buf: []u8, code: u8, message: []const u8) ![]u8 {
-    var stream = std.io.fixedBufferStream(buf);
-    const writer = stream.writer();
+    var writer: std.Io.Writer = .fixed(buf);
     try writer.writeAll("{\"error\":");
-    try writeQuoted(writer, message);
+    try writeQuoted(&writer, message);
     try writer.writeAll(",\"exit\":");
     try writer.print("{d}", .{code});
     try writer.writeAll("}");
-    return stream.getWritten();
+    return writer.buffered();
 }
 
-fn writeQuoted(writer: anytype, text: []const u8) !void {
+fn writeQuoted(writer: *std.Io.Writer, text: []const u8) !void {
     try writer.writeByte('"');
     for (text) |char| switch (char) {
         '"' => try writer.writeAll("\\\""),
@@ -153,8 +153,8 @@ fn writeQuoted(writer: anytype, text: []const u8) !void {
 
 pub const Sink = struct {
     allocator: mem.Allocator,
-    buf: std.ArrayList(u8) = .{},
-    started: std.ArrayList(bool) = .{},
+    buf: std.ArrayList(u8) = .empty,
+    started: std.ArrayList(bool) = .empty,
     expect_value: bool = false,
 
     pub fn init(allocator: mem.Allocator) Sink {

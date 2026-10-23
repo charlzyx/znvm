@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const mem = std.mem;
 const fs = std.fs;
 const process = std.process;
@@ -51,7 +52,7 @@ const ParsedArgs = struct {
     offline: bool = false,
     save: bool = false,
     skip_default_packages: bool = false,
-    positionals: std.ArrayList([]const u8) = .{},
+    positionals: std.ArrayList([]const u8) = .empty,
 
     fn deinit(self: *ParsedArgs, allocator: mem.Allocator) void {
         self.positionals.deinit(allocator);
@@ -61,7 +62,7 @@ const ParsedArgs = struct {
 const FlagMode = enum { strict, command };
 
 fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
-    var quoted = std.ArrayList(u8){};
+    var quoted : std.ArrayList(u8) = .empty;
     errdefer quoted.deinit(allocator);
 
     try quoted.append(allocator, '\'');
@@ -89,10 +90,10 @@ fn underManagedPrefix(entry: []const u8, root: []const u8) bool {
 fn pathEntryIsManaged(allocator: mem.Allocator, config: ZnvmConfig, entry: []const u8) !bool {
     for (config.managed_roots) |root| {
         if (underManagedPrefix(entry, root)) return true;
-        const real_root = fs.realpathAlloc(allocator, root) catch continue;
+        const real_root = host.realpathAlloc(allocator, root) catch continue;
         defer allocator.free(real_root);
         if (underManagedPrefix(entry, real_root)) return true;
-        const real_entry = fs.realpathAlloc(allocator, entry) catch continue;
+        const real_entry = host.realpathAlloc(allocator, entry) catch continue;
         defer allocator.free(real_entry);
         if (underManagedPrefix(real_entry, real_root)) return true;
     }
@@ -123,7 +124,7 @@ fn newVersionDir(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) 
 
 fn nodeBinaryIn(allocator: mem.Allocator, dir_path: []const u8) !?[]u8 {
     const node = try fs.path.join(allocator, &.{ dir_path, "bin", "node" });
-    if (fs.accessAbsolute(node, .{})) {
+    if (std.Io.Dir.accessAbsolute(host.io(), node, .{})) {
         return node;
     } else |_| {
         allocator.free(node);
@@ -160,7 +161,7 @@ fn versionHome(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) ![
 }
 
 fn pathEntries(allocator: mem.Allocator) !?[]const u8 {
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     defer env_map.deinit();
     const path_env = env_map.get("PATH") orelse return null;
     return try allocator.dupe(u8, path_env);
@@ -179,8 +180,8 @@ fn getCurrentVersionFromPath(allocator: mem.Allocator, config: ZnvmConfig) !?[]u
         if (dir.len == 0) continue;
         const node_path = try fs.path.join(allocator, &.{ dir, "node" });
         defer allocator.free(node_path);
-        fs.accessAbsolute(node_path, .{}) catch continue;
-        const real_path = std.fs.realpathAlloc(allocator, node_path) catch continue;
+        std.Io.Dir.accessAbsolute(host.io(), node_path, .{}) catch continue;
+        const real_path = host.realpathAlloc(allocator, node_path) catch continue;
         defer allocator.free(real_path);
         if (try managedVersionFromRealPath(allocator, config, real_path)) |ver| return ver;
     }
@@ -196,8 +197,8 @@ fn findSystemNode(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
         if (dir.len == 0) continue;
         const node_path = try fs.path.join(allocator, &.{ dir, "node" });
         defer allocator.free(node_path);
-        fs.accessAbsolute(node_path, .{}) catch continue;
-        const real_path = std.fs.realpathAlloc(allocator, node_path) catch continue;
+        std.Io.Dir.accessAbsolute(host.io(), node_path, .{}) catch continue;
+        const real_path = host.realpathAlloc(allocator, node_path) catch continue;
         errdefer allocator.free(real_path);
         if (try managedVersionFromRealPath(allocator, config, real_path)) |ver| {
             allocator.free(ver);
@@ -217,7 +218,7 @@ fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8
     const npm_bin_path = if (config.npm_prefix) |prefix| try fs.path.join(allocator, &.{ prefix, "bin" }) else null;
     defer if (npm_bin_path) |path| allocator.free(path);
 
-    var list = std.ArrayList(u8){};
+    var list : std.ArrayList(u8) = .empty;
     errdefer list.deinit(allocator);
     if (npm_bin_path) |path| {
         try list.appendSlice(allocator, path);
@@ -236,7 +237,7 @@ fn pathWithVersion(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8
 }
 
 fn pathWithoutVersions(allocator: mem.Allocator, config: ZnvmConfig, current_path: []const u8) ![]u8 {
-    var list = std.ArrayList(u8){};
+    var list : std.ArrayList(u8) = .empty;
     errdefer list.deinit(allocator);
     var it = mem.splitScalar(u8, current_path, ':');
     while (it.next()) |entry| {
@@ -248,7 +249,7 @@ fn pathWithoutVersions(allocator: mem.Allocator, config: ZnvmConfig, current_pat
 }
 
 fn currentPath(allocator: mem.Allocator) ![]u8 {
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     defer env_map.deinit();
     return allocator.dupe(u8, env_map.get("PATH") orelse "");
 }
@@ -258,7 +259,7 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     defer allocator.free(home);
     const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
     defer allocator.free(node_bin);
-    fs.accessAbsolute(node_bin, .{}) catch {
+    std.Io.Dir.accessAbsolute(host.io(), node_bin, .{}) catch {
         try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
         process.exit(1);
     };
@@ -323,13 +324,13 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
 }
 
 fn putEnv(allocator: mem.Allocator, key: [:0]const u8, value: []const u8) void {
-    const owned = allocator.dupeZ(u8, value) catch return;
+    const owned = allocator.dupeSentinel(u8, value, 0) catch return;
     defer allocator.free(owned);
     _ = setenv(key, owned.ptr, 1);
 }
 
 fn ensureDir(path: []const u8) !void {
-    fs.makeDirAbsolute(path) catch |err| {
+    std.Io.Dir.createDirAbsolute(host.io(), path, .default_dir) catch |err| {
         if (err != error.PathAlreadyExists) return err;
     };
 }
@@ -349,12 +350,12 @@ fn aliasFilePath(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8)
 }
 
 fn readSmallFile(allocator: mem.Allocator, path: []const u8) !?[]u8 {
-    const file = fs.openFileAbsolute(path, .{}) catch |err| {
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch |err| {
         if (err == error.FileNotFound) return null;
         return err;
     };
-    defer file.close();
-    const content = try file.readToEndAlloc(allocator, 8192);
+    defer file.close(host.io());
+    const content = try host.readToEndAlloc(file, allocator, 8192);
     const trimmed = mem.trim(u8, content, " \t\n\r");
     if (trimmed.len == 0) {
         allocator.free(content);
@@ -395,17 +396,17 @@ fn setAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8, targ
     const path = try aliasFilePath(allocator, config, name);
     defer allocator.free(path);
     {
-        const file = try fs.createFileAbsolute(path, .{});
-        defer file.close();
-        try file.writeAll(target);
+        const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+        defer file.close(host.io());
+        try host.writeAll(file, target);
     }
 
     if (mem.eql(u8, name, "default")) {
         const legacy = try fs.path.join(allocator, &.{ config.root_dir, "default" });
         defer allocator.free(legacy);
-        const file = try fs.createFileAbsolute(legacy, .{});
-        defer file.close();
-        try file.writeAll(target);
+        const file = try std.Io.Dir.createFileAbsolute(host.io(), legacy, .{});
+        defer file.close(host.io());
+        try host.writeAll(file, target);
     }
 }
 
@@ -414,7 +415,7 @@ fn deleteAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8) !
     var removed = false;
     const path = try aliasFilePath(allocator, config, name);
     defer allocator.free(path);
-    if (fs.deleteFileAbsolute(path)) {
+    if (std.Io.Dir.deleteFileAbsolute(host.io(), path)) {
         removed = true;
     } else |err| {
         if (err != error.FileNotFound) return err;
@@ -422,7 +423,7 @@ fn deleteAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8) !
     if (mem.eql(u8, name, "default")) {
         const legacy = try fs.path.join(allocator, &.{ config.root_dir, "default" });
         defer allocator.free(legacy);
-        if (fs.deleteFileAbsolute(legacy)) {
+        if (std.Io.Dir.deleteFileAbsolute(host.io(), legacy)) {
             removed = true;
         } else |err| {
             if (err != error.FileNotFound) return err;
@@ -437,7 +438,7 @@ const AliasRecord = struct {
 };
 
 fn loadAliases(allocator: mem.Allocator, config: ZnvmConfig) ![]AliasRecord {
-    var list = std.ArrayList(AliasRecord){};
+    var list : std.ArrayList(AliasRecord) = .empty;
     errdefer {
         for (list.items) |item| {
             allocator.free(item.name);
@@ -450,11 +451,11 @@ fn loadAliases(allocator: mem.Allocator, config: ZnvmConfig) ![]AliasRecord {
     defer allocator.free(alias_dir);
     var saw_default = false;
 
-    if (fs.openDirAbsolute(alias_dir, .{ .iterate = true })) |dir_open| {
+    if (std.Io.Dir.openDirAbsolute(host.io(), alias_dir, .{ .iterate = true })) |dir_open| {
         var dir = dir_open;
-        defer dir.close();
+        defer dir.close(host.io());
         var it = dir.iterate();
-        while (try it.next()) |entry| {
+        while (try it.next(host.io())) |entry| {
             if (entry.kind != .file or !validAliasName(entry.name)) continue;
             const target = try readAlias(allocator, config, entry.name) orelse continue;
             errdefer allocator.free(target);
@@ -578,10 +579,10 @@ fn resolveLocalOrExit(allocator: mem.Allocator, config: ZnvmConfig, spec: []cons
 }
 
 fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
-    var dir = try fs.cwd().realpathAlloc(allocator, ".");
+    var dir = try host.cwdPath(allocator);
     while (true) {
         const candidate = try fs.path.join(allocator, &.{ dir, filename });
-        if (fs.accessAbsolute(candidate, .{})) {
+        if (std.Io.Dir.accessAbsolute(host.io(), candidate, .{})) {
             allocator.free(dir);
             return candidate;
         } else |_| {
@@ -596,7 +597,7 @@ fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
             allocator.free(dir);
             return null;
         }
-        const parent = try allocator.dupe(u8, parent_slice);
+        const parent = try allocator.dupeSentinel(u8, parent_slice, 0);
         allocator.free(dir);
         dir = parent;
     }
@@ -631,14 +632,14 @@ fn readNvmrcSpec(allocator: mem.Allocator, silent: bool) !?[]u8 {
 }
 
 fn writeCwdNvmrc(allocator: mem.Allocator, ver: []const u8, silent: bool) !void {
-    const cwd = try fs.cwd().realpathAlloc(allocator, ".");
+    const cwd = try host.cwdPath(allocator);
     defer allocator.free(cwd);
     const path = try fs.path.join(allocator, &.{ cwd, ".nvmrc" });
     defer allocator.free(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(ver);
-    try file.writeAll("\n");
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, ver);
+    try host.writeAll(file, "\n");
     if (!silent) try stderr("Wrote version number ({s}) to .nvmrc\n", .{ver});
 }
 
@@ -986,14 +987,14 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     const root_dir = try shellQuote(allocator, config.root_dir);
     defer allocator.free(root_dir);
 
-    var optional = std.ArrayList(u8){};
+    var optional : std.ArrayList(u8) = .empty;
     defer optional.deinit(allocator);
     if (config.npm_prefix) |prefix| {
         const npm_bin_path = try fs.path.join(allocator, &.{ prefix, "bin" });
         defer allocator.free(npm_bin_path);
         const path = try currentPath(allocator);
         defer allocator.free(path);
-        var path_list = std.ArrayList(u8){};
+        var path_list : std.ArrayList(u8) = .empty;
         defer path_list.deinit(allocator);
         try path_list.appendSlice(allocator, npm_bin_path);
         var path_it = mem.splitScalar(u8, path, ':');
@@ -1010,7 +1011,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     }
     const optional_text = optional.items;
 
-    const nvm_exe_raw = std.fs.selfExePathAlloc(allocator) catch try allocator.dupe(u8, "nvm");
+    const nvm_exe_raw: []const u8 = if (std.process.executablePathAlloc(host.io(), allocator)) |path| path else |_| try allocator.dupe(u8, "nvm");
     defer allocator.free(nvm_exe_raw);
     const nvm_exe = try shellQuote(allocator, nvm_exe_raw);
     defer allocator.free(nvm_exe);
@@ -1199,7 +1200,7 @@ fn aliasTargetIsUsable(allocator: mem.Allocator, config: ZnvmConfig, target: []c
 }
 
 fn ensureTree(allocator: mem.Allocator, path: []const u8) !void {
-    var acc = std.ArrayList(u8){};
+    var acc : std.ArrayList(u8) = .empty;
     defer acc.deinit(allocator);
     var start: usize = 0;
     if (path.len > 0 and path[0] == '/') {
@@ -1216,9 +1217,9 @@ fn ensureTree(allocator: mem.Allocator, path: []const u8) !void {
 }
 
 fn fileNonEmpty(path: []const u8) bool {
-    const file = fs.openFileAbsolute(path, .{}) catch return false;
-    defer file.close();
-    const stat = file.stat() catch return false;
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch return false;
+    defer file.close(host.io());
+    const stat = file.stat(host.io()) catch return false;
     return stat.size > 0;
 }
 
@@ -1237,20 +1238,20 @@ fn readPackageName(allocator: mem.Allocator, path: []const u8) !?[]u8 {
 }
 
 fn listGlobalPackages(allocator: mem.Allocator, version_dir: []const u8) ![][]u8 {
-    var list = std.ArrayList([]u8){};
+    var list : std.ArrayList([]u8) = .empty;
     errdefer {
         for (list.items) |item| allocator.free(item);
         list.deinit(allocator);
     }
     const modules = try fs.path.join(allocator, &.{ version_dir, "lib", "node_modules" });
     defer allocator.free(modules);
-    var dir = fs.openDirAbsolute(modules, .{ .iterate = true }) catch |err| {
+    var dir = std.Io.Dir.openDirAbsolute(host.io(), modules, .{ .iterate = true }) catch |err| {
         if (err == error.FileNotFound) return list.toOwnedSlice(allocator);
         return err;
     };
-    defer dir.close();
+    defer dir.close(host.io());
     var it = dir.iterate();
-    while (try it.next()) |entry| {
+    while (try it.next(host.io())) |entry| {
         if (entry.kind != .directory) continue;
         if (mem.eql(u8, entry.name, "npm") or mem.eql(u8, entry.name, "corepack") or mem.eql(u8, entry.name, ".bin")) continue;
         if (entry.name.len == 0 or entry.name[0] == '.') continue;
@@ -1268,21 +1269,21 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
     defer allocator.free(home);
     const npm = try fs.path.join(allocator, &.{ home, "bin", "npm" });
     defer allocator.free(npm);
-    fs.accessAbsolute(npm, .{}) catch {
+    std.Io.Dir.accessAbsolute(host.io(), npm, .{}) catch {
         try stderr("npm was not found for {s}.\n", .{ver});
         process.exit(1);
     };
     const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
     defer allocator.free(bin_path);
 
-    var argv = std.ArrayList([]const u8){};
+    var argv : std.ArrayList([]const u8) = .empty;
     defer argv.deinit(allocator);
     try argv.append(allocator, npm);
     try argv.append(allocator, "install");
     try argv.append(allocator, "-g");
     for (packages) |pkg| try argv.append(allocator, pkg);
 
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     defer env_map.deinit();
     const inherited = env_map.get("PATH") orelse "";
     const path_value = try std.fmt.allocPrint(allocator, "{s}:{s}", .{ bin_path, inherited });
@@ -1291,17 +1292,12 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
     if (config.npm_prefix) |prefix| {
         try env_map.put("NPM_CONFIG_PREFIX", prefix);
     } else {
-        env_map.remove("NPM_CONFIG_PREFIX");
+        _ = env_map.swapRemove("NPM_CONFIG_PREFIX");
     }
 
-    var child = process.Child.init(argv.items, allocator);
-    child.env_map = &env_map;
-    child.stdin_behavior = .Inherit;
-    child.stdout_behavior = .Inherit;
-    child.stderr_behavior = .Inherit;
-    const term = try child.spawnAndWait();
+    const term = try host.spawnWait(argv.items, &env_map, .inherit);
     const ok = switch (term) {
-        .Exited => |code| code == 0,
+        .exited => |code| code == 0,
         else => false,
     };
     if (!ok) {
@@ -1349,7 +1345,7 @@ fn installDefaultPackages(allocator: mem.Allocator, config: ZnvmConfig, ver: []c
     const content = try readSmallFile(allocator, path) orelse return;
     defer allocator.free(content);
 
-    var specs = std.ArrayList([]u8){};
+    var specs : std.ArrayList([]u8) = .empty;
     defer {
         for (specs.items) |item| allocator.free(item);
         specs.deinit(allocator);
@@ -1429,17 +1425,14 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try ensureTree(allocator, install_path);
 
         const argv = &[_][]const u8{ "tar", "-xzf", tar_path, "-C", install_path, "--strip-components=1" };
-        var child = process.Child.init(argv, allocator);
-        child.stdout_behavior = .Ignore;
-        child.stderr_behavior = .Inherit;
-        const term = try child.spawnAndWait();
+        const term = try host.spawnWait(argv, null, .ignore);
         const extracted = switch (term) {
-            .Exited => |code| code == 0,
+            .exited => |code| code == 0,
             else => false,
         };
         if (!extracted) {
             try stderr("Extraction failed.\n", .{});
-            fs.deleteTreeAbsolute(install_path) catch {};
+            host.deleteTreeAbsolute(install_path) catch {};
             process.exit(1);
         }
         if (!parsed.silent) try stderr("Installed {s}\n", .{ver});
@@ -1615,7 +1608,7 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
     };
     defer index.deinit();
 
-    var matched = std.ArrayList(version.NodeEntry){};
+    var matched : std.ArrayList(version.NodeEntry) = .empty;
     defer matched.deinit(allocator);
     for (index.value) |entry| {
         if (!version.isInstallable(entry, config.os, config.arch)) continue;
@@ -1688,7 +1681,7 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
                 process.exit(1);
             };
             defer allocator.free(path);
-            try fs.deleteTreeAbsolute(path);
+            try host.deleteTreeAbsolute(path);
             try stderr("Uninstalled {s}\n", .{ver});
             if (active) |value| {
                 if (mem.eql(u8, value, ver)) try emitDeactivate(allocator, config, true, "");
@@ -1822,7 +1815,7 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
             defer allocator.free(home);
             const node = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node);
-            fs.accessAbsolute(node, .{}) catch failFmt(1, "Version '{s}' is installed but bin/node is missing.", .{ver});
+            std.Io.Dir.accessAbsolute(host.io(), node, .{}) catch failFmt(1, "Version '{s}' is installed but bin/node is missing.", .{ver});
             try emitWhich(allocator, ver, node);
         },
     }
@@ -1877,13 +1870,13 @@ pub fn cmdVersionRemote(allocator: mem.Allocator, args: []const []const u8, conf
 
 fn exitWith(term: process.Child.Term) noreturn {
     switch (term) {
-        .Exited => |code| process.exit(code),
+        .exited => |code| process.exit(code),
         else => process.exit(1),
     }
 }
 
 fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: []const []const u8, silent: bool) !noreturn {
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     defer env_map.deinit();
     const inherited = env_map.get("PATH") orelse "";
     const path_storage = switch (hit) {
@@ -1895,9 +1888,9 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
 
     switch (hit) {
         .system => {
-            env_map.remove("ZNVM_CURRENT");
-            env_map.remove("NVM_BIN");
-            env_map.remove("NVM_INC");
+            _ = env_map.swapRemove("ZNVM_CURRENT");
+            _ = env_map.swapRemove("NVM_BIN");
+            _ = env_map.swapRemove("NVM_INC");
             if (!silent) try stderr("Running system node\n", .{});
         },
         .version => |ver| {
@@ -1905,7 +1898,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             defer allocator.free(home);
             const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node_bin);
-            fs.accessAbsolute(node_bin, .{}) catch {
+            std.Io.Dir.accessAbsolute(host.io(), node_bin, .{}) catch {
                 try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
                 process.exit(1);
             };
@@ -1917,7 +1910,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             if (config.npm_prefix) |prefix| {
                 try env_map.put("NPM_CONFIG_PREFIX", prefix);
             } else {
-                env_map.remove("NPM_CONFIG_PREFIX");
+                _ = env_map.swapRemove("NPM_CONFIG_PREFIX");
             }
             try env_map.put("NVM_BIN", bin_path);
             try env_map.put("NVM_INC", inc_path);
@@ -1925,12 +1918,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
         },
     }
 
-    var child = process.Child.init(argv, allocator);
-    child.env_map = &env_map;
-    child.stdin_behavior = .Inherit;
-    child.stdout_behavior = .Inherit;
-    child.stderr_behavior = .Inherit;
-    const term = try child.spawnAndWait();
+    const term = try host.spawnWait(argv, &env_map, .inherit);
     exitWith(term);
 }
 
@@ -1986,7 +1974,7 @@ pub fn cmdRun(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     };
     defer allocator.free(node_bin);
 
-    var argv = std.ArrayList([]const u8){};
+    var argv : std.ArrayList([]const u8) = .empty;
     defer argv.deinit(allocator);
     try argv.append(allocator, node_bin);
     try argv.appendSlice(allocator, prepared.args);
@@ -2041,7 +2029,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
         return;
     }
     if (mem.eql(u8, action, "clear")) {
-        fs.deleteTreeAbsolute(cache_dir) catch {};
+        host.deleteTreeAbsolute(cache_dir) catch {};
         try ensureDir(cache_dir);
         try stdout("{s} cache cleared.\n", .{program_name});
         return;
@@ -2053,7 +2041,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.8.1\n", .{});
+    try stderr("znvm version: v2.8.2\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

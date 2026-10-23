@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const json = std.json;
 const mem = std.mem;
 const fs = std.fs;
@@ -221,23 +222,23 @@ pub fn resolveRemoteArtifact(entries: []const NodeEntry, query: []const u8, os: 
 fn writeIndexCache(path: []const u8, body: []const u8) !void {
     if (fs.path.dirname(path)) |dir| {
         if (fs.path.dirname(dir)) |root| {
-            fs.makeDirAbsolute(root) catch |err| {
+            std.Io.Dir.createDirAbsolute(host.io(), root, .default_dir) catch |err| {
                 if (err != error.PathAlreadyExists) return err;
             };
         }
-        fs.makeDirAbsolute(dir) catch |err| {
+        std.Io.Dir.createDirAbsolute(host.io(), dir, .default_dir) catch |err| {
             if (err != error.PathAlreadyExists) return err;
         };
     }
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body);
 }
 
 fn readIndexCache(allocator: mem.Allocator, path: []const u8) ![]u8 {
-    const file = try fs.openFileAbsolute(path, .{});
-    defer file.close();
-    return file.readToEndAlloc(allocator, 10 * 1024 * 1024);
+    const file = try std.Io.Dir.openFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    return host.readToEndAlloc(file, allocator, 10 * 1024 * 1024);
 }
 
 fn fetchIndexBody(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
@@ -247,14 +248,10 @@ fn fetchIndexBody(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
     defer allocator.free(cache_path);
 
     const argv = &[_][]const u8{ "curl", "-fsSL", index_url };
-    if (process.Child.run(.{
-        .allocator = allocator,
-        .argv = argv,
-        .max_output_bytes = 10 * 1024 * 1024,
-    })) |result| {
+    if (host.run(allocator, argv, 10 * 1024 * 1024)) |result| {
         defer allocator.free(result.stderr);
         const ok = switch (result.term) {
-            .Exited => |code| code == 0 and result.stdout.len > 0,
+            .exited => |code| code == 0 and result.stdout.len > 0,
             else => false,
         };
         if (ok) {
@@ -310,15 +307,12 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
 
 pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []const u8) !void {
     const argv = &[_][]const u8{ "curl", "-sSL", "-o", dest_path, url };
-    const result = try process.Child.run(.{
-        .allocator = allocator,
-        .argv = argv,
-    });
+    const result = try host.run(allocator, argv, 50 * 1024);
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
 
     const downloaded = switch (result.term) {
-        .Exited => |code| code == 0,
+        .exited => |code| code == 0,
         else => false,
     };
     if (!downloaded) return error.DownloadFailed;
@@ -338,22 +332,22 @@ fn alreadyListed(list: []const []const u8, name: []const u8) bool {
 }
 
 pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]const []const u8 {
-    var list = std.ArrayList([]const u8){};
+    var list : std.ArrayList([]const u8) = .empty;
 
     for (config.scan_dirs) |dir_path| {
-        var dir = fs.openDirAbsolute(dir_path, .{ .iterate = true }) catch |err| {
+        var dir = std.Io.Dir.openDirAbsolute(host.io(), dir_path, .{ .iterate = true }) catch |err| {
             if (err == error.FileNotFound) continue;
             return err;
         };
-        defer dir.close();
+        defer dir.close(host.io());
 
         var it = dir.iterate();
-        while (try it.next()) |entry| {
+        while (try it.next(host.io())) |entry| {
             if (entry.kind != .directory or !mem.startsWith(u8, entry.name, "v")) continue;
             if (alreadyListed(list.items, entry.name)) continue;
             const node_path = try fs.path.join(allocator, &.{ dir_path, entry.name, "bin", "node" });
             defer allocator.free(node_path);
-            fs.accessAbsolute(node_path, .{}) catch continue;
+            std.Io.Dir.accessAbsolute(host.io(), node_path, .{}) catch continue;
             try list.append(allocator, try allocator.dupe(u8, entry.name));
         }
     }

@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          version: 0.17.0
 
       - name: Build
         run: zig build -Doptimize=ReleaseSafe
@@ -31,7 +31,7 @@ jobs:
 
       - name: Setup Node
         if: runner.os == 'Linux'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
 

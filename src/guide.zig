@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const mem = std.mem;
 const fs = std.fs;
 const process = std.process;
@@ -21,7 +22,7 @@ const Pick = union(enum) { quit, back, index: usize };
 const page_size: usize = 15;
 
 pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
-    if (!std.posix.isatty(std.posix.STDIN_FILENO)) return;
+    if (!host.isTty(.stdin())) return;
     const zh = preferZh(allocator);
     while (true) {
         switch (try submenu(allocator, config, zh, 9)) {
@@ -229,7 +230,7 @@ pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
 }
 
 fn preferZh(allocator: mem.Allocator) bool {
-    var env = process.getEnvMap(allocator) catch return false;
+    var env = host.envMap(allocator) catch return false;
     defer env.deinit();
     const keys = [_][]const u8{ "LC_ALL", "LC_MESSAGES", "LANG" };
     for (keys) |key| {
@@ -246,7 +247,7 @@ fn text(zh: bool, en: []const u8, zh_text: []const u8) []const u8 {
 }
 
 fn readLine(allocator: mem.Allocator) !?[]u8 {
-    var list: std.ArrayList(u8) = .{};
+    var list: std.ArrayList(u8) = .empty;
     errdefer list.deinit(allocator);
     var byte: [1]u8 = undefined;
     while (true) {
@@ -282,7 +283,7 @@ const tty = struct {
     var hooked: bool = false;
     var depth: u8 = 0;
     var previous: [4]posix.Sigaction = undefined;
-    const sigs = [_]u8{ posix.SIG.HUP, posix.SIG.INT, posix.SIG.QUIT, posix.SIG.TERM };
+    const sigs = [_]posix.SIG{ .HUP, .INT, .QUIT, .TERM };
 
     fn enter() !void {
         if (depth == 0) try enable();
@@ -336,18 +337,16 @@ const tty = struct {
         hooked = true;
     }
 
-    fn onSignal(sig: i32) callconv(.c) void {
+    fn onSignal(sig: posix.SIG) callconv(.c) void {
         restoreTermios();
         depth = 0;
-        if (sig <= 0 or sig > 255) return;
-        const n: u8 = @intCast(sig);
         if (hooked) {
             hooked = false;
             inline for (sigs, 0..) |want, i| {
-                if (want == n) posix.sigaction(n, &previous[i], null);
+                if (want == sig) posix.sigaction(sig, &previous[i], null);
             }
         }
-        posix.raise(n) catch {};
+        posix.raise(sig) catch {};
     }
 };
 
@@ -425,7 +424,7 @@ fn paintMenu(title: []const u8, labels: []const []const u8, back_label: []const 
         .labels = labels,
         .back = back_label,
         .cursor = cursor,
-        .color = select.colorEnabled(posix.getenv("NO_COLOR"), posix.getenv("TERM")),
+        .color = select.colorEnabled(host.getenv("NO_COLOR"), host.getenv("TERM")),
         .status = status,
         .up = up,
     });
@@ -685,11 +684,12 @@ fn running(zh: bool, command: []const u8) !void {
 }
 
 fn show(comptime func: anytype, args: anytype) !void {
-    if (std.posix.isatty(std.posix.STDOUT_FILENO)) return @call(.auto, func, args);
-    const saved = try std.posix.dup(std.posix.STDOUT_FILENO);
-    defer std.posix.close(saved);
-    try std.posix.dup2(std.posix.STDERR_FILENO, std.posix.STDOUT_FILENO);
-    defer std.posix.dup2(saved, std.posix.STDOUT_FILENO) catch {};
+    if (host.isTty(.stdout())) return @call(.auto, func, args);
+    const saved = std.c.dup(std.posix.STDOUT_FILENO);
+    if (saved < 0) return error.DupFailed;
+    defer _ = std.c.close(saved);
+    if (std.c.dup2(std.posix.STDERR_FILENO, std.posix.STDOUT_FILENO) < 0) return error.DupFailed;
+    defer _ = std.c.dup2(saved, std.posix.STDOUT_FILENO);
     return @call(.auto, func, args);
 }
 
@@ -776,7 +776,7 @@ fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !vo
 fn remoteLabels(allocator: mem.Allocator, config: ZnvmConfig) ![][]u8 {
     const index = try version.loadRemoteIndex(allocator, config);
     defer index.deinit();
-    var list: std.ArrayList([]u8) = .{};
+    var list: std.ArrayList([]u8) = .empty;
     errdefer {
         for (list.items) |item| allocator.free(item);
         list.deinit(allocator);
@@ -838,13 +838,13 @@ fn pickIndex(allocator: mem.Allocator, zh: bool, labels: anytype) !Pick {
 }
 
 fn createNvmrc(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
-    const cwd = try fs.cwd().realpathAlloc(allocator, ".");
+    const cwd = try host.cwdPath(allocator);
     defer allocator.free(cwd);
     const path = try fs.path.join(allocator, &.{ cwd, ".nvmrc" });
     defer allocator.free(path);
-    if (fs.openFileAbsolute(path, .{})) |file| {
-        defer file.close();
-        const body = try file.readToEndAlloc(allocator, 8192);
+    if (std.Io.Dir.openFileAbsolute(host.io(), path, .{})) |file| {
+        defer file.close(host.io());
+        const body = try host.readToEndAlloc(file, allocator, 8192);
         defer allocator.free(body);
         try stderr("{s} {s}\n", .{ text(zh, ".nvmrc already exists:", ".nvmrc 已存在:"), mem.trim(u8, body, " \t\r\n") });
         return;

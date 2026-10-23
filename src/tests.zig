@@ -23,15 +23,9 @@ test "agent module is linked" {
 }
 
 test "embedded skill matches skills/znvm/SKILL.md" {
-    const file = try std.fs.cwd().readFileAlloc(testing.allocator, "skills/znvm/SKILL.md", 1024 * 1024);
+    const file = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, "skills/znvm/SKILL.md", testing.allocator, .limited(1024 * 1024));
     defer testing.allocator.free(file);
     try testing.expectEqualSlices(u8, file, agent.skill_text);
-}
-
-// Test utilities
-fn createTestAllocator() std.mem.Allocator {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    return gpa.allocator();
 }
 
 // ============================================
@@ -191,7 +185,7 @@ test "path: extract version from PATH" {
 
 test "version list: sorting by semantic version" {
     const allocator = std.testing.allocator;
-    var versions = std.ArrayList([]const u8){};
+    var versions : std.ArrayList([]const u8) = .empty;
     defer versions.deinit(allocator);
 
     try versions.append(allocator, "v22.0.0");
