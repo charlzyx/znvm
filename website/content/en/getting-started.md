@@ -43,8 +43,12 @@ export NVM_DIR="$HOME/.nvm"
 ### Install
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` is the same script.
+
+Had the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.
 
 When it finishes, it prints:
 

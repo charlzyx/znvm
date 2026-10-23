@@ -43,8 +43,12 @@ export NVM_DIR="$HOME/.nvm"
 ### 安装命令
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` 是同一个脚本。
+
+装过原版 NVM？旧的 nvm.sh 和 shell 里的加载行可以清掉，交给 Agent 处理就行。
 
 结束后会打印：
 

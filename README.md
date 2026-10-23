@@ -22,8 +22,10 @@
 ## 📦 Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` is the same script.
 
 The script installs the `nvm` command, links `nrm` to that same binary, and writes `~/.nvm/nvm.sh`. Running it again is safe. When `nvm --version` already matches this release, the binary stays in place. When the version differs, the previous binary is kept as `nvm.bak` and replaced, and the script prints `ok Upgraded nvm vX -> vY`. It does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
 

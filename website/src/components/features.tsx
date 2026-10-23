@@ -8,7 +8,7 @@ const features = {
   en: [
     {
       title: "NVM",
-      body: "install-as-nvm.sh installs NVM and links NRM. Versions stay in ~/.nvm.",
+      body: "install.sh installs NVM and links NRM. Versions stay in ~/.nvm.",
     },
     {
       title: "npmmirror",
@@ -34,7 +34,7 @@ const features = {
   zh: [
     {
       title: "NVM",
-      body: "install-as-nvm.sh 装上 NVM，并链出 NRM。版本仍在 ~/.nvm。",
+      body: "install.sh 装上 NVM，并链出 NRM。版本仍在 ~/.nvm。",
     },
     {
       title: "npmmirror",

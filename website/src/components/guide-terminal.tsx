@@ -230,8 +230,8 @@ const menu: Group[] = [
         en: "Print the install-as-nvm.sh curl (does not run it)",
         zh: "指向官网 install-as-nvm.sh(打印 curl, 不替用户 curl)",
         command: null,
-        body: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash\n\nAfter it finishes, the command is nvm and versions live in ~/.nvm.",
-        bodyZh: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash\n\n结束后命令是 nvm, 版本在 ~/.nvm.",
+        body: "curl -fsSL https://znvm.dev/install.sh | bash\n\nAfter it finishes, the command is nvm and versions live in ~/.nvm.\nHad the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.",
+        bodyZh: "curl -fsSL https://znvm.dev/install.sh | bash\n\n结束后命令是 nvm, 版本在 ~/.nvm.\n装过原版 NVM? 旧的 nvm.sh 和 shell 里的加载行可以清掉, 交给 Agent 处理就行.",
         before: {
           en: "Install command (not run from this menu):\n",
           zh: "安装命令(这个菜单不会替你执行):\n",

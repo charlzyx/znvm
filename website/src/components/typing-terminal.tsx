@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 type Line = { kind: "in" | "out"; text: string };
 
 const script: Line[] = [
-  { kind: "in", text: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash" },
+  { kind: "in", text: "curl -fsSL https://znvm.dev/install.sh | bash" },
   { kind: "out", text: "nvm" },
   { kind: "out", text: "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node." },
   { kind: "out", text: "> Downloading nvm v2.8.0 (x86_64-linux)..." },

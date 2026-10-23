@@ -32,8 +32,12 @@ That reads `skills/znvm/SKILL.md` from `charlzyx/znvm`. If the client cannot ins
 Install the CLI, if `nvm` is missing:
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` is the same script.
+
+After install, check for leftovers from the original nvm (nvm-sh): an old `$NVM_DIR/nvm.sh`, `bash_completion`, `nvm-exec`, or `.git`, and duplicate `NVM_DIR` / `nvm.sh` or `bash_completion` lines in `~/.zshrc`, `~/.bashrc`, and `~/.profile`. Also check old global-package paths in `AGENTS.md`, `CLAUDE.md`, and launchd or systemd units. Ask the user before deleting or editing any of that.
 
 If the shell says command not found:
 
