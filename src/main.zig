@@ -1,17 +1,17 @@
 const std = @import("std");
 const mem = std.mem;
 const process = std.process;
-const heap = std.heap;
 
 const util = @import("util.zig");
 const config_mod = @import("config.zig");
 const commands = @import("commands.zig");
 const guide = @import("guide.zig");
+const host = @import("host.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.8.1";
+const ZNVM_VERSION = "v2.8.2";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -27,13 +27,12 @@ fn writeToolVersion(allocator: mem.Allocator) !void {
     try sink.flush();
 }
 
-pub fn main() !void {
-    var gpa = heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: process.Init.Minimal) !void {
+    host.bind(init);
+    const allocator = std.heap.c_allocator;
 
-    const raw_args = try process.argsAlloc(allocator);
-    defer process.argsFree(allocator, raw_args);
+    const raw_args = try init.args.toSlice(allocator);
+    defer allocator.free(raw_args);
     const flags = try agent.strip(allocator, raw_args);
     defer allocator.free(flags.argv);
     const args = flags.argv;

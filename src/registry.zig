@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const builtin = @import("builtin");
 const fs = std.fs;
 const mem = std.mem;
@@ -46,8 +47,8 @@ const builtin_registries = [_]Builtin{
 pub const Map = struct {
     default_url: ?[]u8 = null,
     current_name: ?[]u8 = null,
-    names: std.ArrayList(Named) = .{},
-    scopes: std.ArrayList(Scope) = .{},
+    names: std.ArrayList(Named) = .empty,
+    scopes: std.ArrayList(Scope) = .empty,
 
     pub fn deinit(self: *Map, allocator: mem.Allocator) void {
         if (self.default_url) |url| allocator.free(url);
@@ -407,7 +408,7 @@ pub fn listScopes(allocator: mem.Allocator, root: []const u8) !void {
 pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
     var map = try loadOrEmpty(allocator, root);
     defer map.deinit(allocator);
-    var entries: std.ArrayList(Named) = .{};
+    var entries: std.ArrayList(Named) = .empty;
     defer {
         for (entries.items) |item| {
             allocator.free(item.name);
@@ -501,7 +502,7 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
 fn collectEntries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !std.ArrayList(Named) {
     var map = try loadOrEmpty(allocator, root);
     defer map.deinit(allocator);
-    var entries: std.ArrayList(Named) = .{};
+    var entries: std.ArrayList(Named) = .empty;
     errdefer freeEntries(allocator, &entries);
     if (only) |raw| {
         const name = try normalizeName(raw);
@@ -601,7 +602,7 @@ fn printNameLine(map: *const Map, name: []const u8, url: []const u8) !void {
 }
 
 pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     try appendKept(allocator, &out, existing, map, managedNpm);
     if (map.default_url) |url| try appendLine(allocator, &out, "registry={s}", .{url});
@@ -612,7 +613,7 @@ pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const M
 }
 
 pub fn renderYarnrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     try appendKept(allocator, &out, existing, map, managedYarn);
     if (map.default_url) |url| {
@@ -633,7 +634,7 @@ pub fn renderYarnrc(allocator: mem.Allocator, existing: []const u8, map: *const 
 }
 
 pub fn renderYarnYml(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     var i: usize = 0;
     while (i < existing.len) {
@@ -686,7 +687,7 @@ pub fn renderYarnYml(allocator: mem.Allocator, existing: []const u8, map: *const
 }
 
 pub fn renderBunfig(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     var i: usize = 0;
     var section: []const u8 = "";
@@ -789,18 +790,18 @@ fn rewrite(
 fn writeRendered(allocator: mem.Allocator, path: []const u8, body: []u8) !void {
     defer allocator.free(body);
     try ensureParent(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body);
 }
 
 fn readOptional(allocator: mem.Allocator, path: []const u8) ![]u8 {
-    const file = fs.openFileAbsolute(path, .{}) catch |err| switch (err) {
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch |err| switch (err) {
         error.FileNotFound => return allocator.dupe(u8, ""),
         else => return err,
     };
-    defer file.close();
-    return file.readToEndAlloc(allocator, 1024 * 1024);
+    defer file.close(host.io());
+    return host.readToEndAlloc(file, allocator, 1024 * 1024);
 }
 
 const Files = struct {
@@ -915,13 +916,13 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
 
 fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try ensureParent(root);
-    var root_dir = try fs.openDirAbsolute("/", .{});
-    defer root_dir.close();
+    var root_dir = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
+    defer root_dir.close(host.io());
     const rel_root = if (root.len > 0 and root[0] == '/') root[1..] else root;
-    try root_dir.makePath(rel_root);
+    try root_dir.createDirPath(host.io(), rel_root);
     map.sort();
     map.sortNames();
-    var body: std.ArrayList(u8) = .{};
+    var body: std.ArrayList(u8) = .empty;
     defer body.deinit(allocator);
     try body.appendSlice(allocator, "{\n  \"default\": ");
     if (map.default_url) |url| {
@@ -964,13 +965,13 @@ fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try body.appendSlice(allocator, "  ]\n}\n");
     const path = try storePath(allocator, root);
     defer allocator.free(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body.items);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body.items);
 }
 
 const Env = struct {
-    map: process.EnvMap,
+    map: host.EnvMap,
     home: []const u8,
     xdg: ?[]const u8,
 
@@ -980,7 +981,7 @@ const Env = struct {
 };
 
 fn openEnv(allocator: mem.Allocator) !Env {
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     errdefer env_map.deinit();
     const home = env_map.get("HOME") orelse return error.NoHome;
     if (home.len == 0 or !fs.path.isAbsolute(home)) return error.NoHome;
@@ -991,11 +992,11 @@ fn openEnv(allocator: mem.Allocator) !Env {
 
 fn ensureParent(path: []const u8) !void {
     const parent = fs.path.dirname(path) orelse return;
-    var root = try fs.openDirAbsolute("/", .{});
-    defer root.close();
+    var root = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
+    defer root.close(host.io());
     const rel = if (parent.len > 0 and parent[0] == '/') parent[1..] else parent;
     if (rel.len == 0) return;
-    try root.makePath(rel);
+    try root.createDirPath(host.io(), rel);
 }
 
 fn appendKept(
@@ -1045,7 +1046,7 @@ fn appendLine(allocator: mem.Allocator, out: *std.ArrayList(u8), comptime fmt: [
 }
 
 fn quote(allocator: mem.Allocator, text: []const u8) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     try out.append(allocator, '"');
     for (text) |char| {

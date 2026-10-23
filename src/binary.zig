@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const builtin = @import("builtin");
 const fs = std.fs;
 const mem = std.mem;
@@ -18,7 +19,7 @@ fn report(message: []const u8) !void {
 const block_begin = "# nvm binaries begin";
 const block_end = "# nvm binaries end";
 const cache_ttl_secs: i64 = 6 * 60 * 60;
-const probe_stack: usize = 256 * 1024;
+const probe_stack: usize = 1024 * 1024;
 
 const Slot = enum { env, npm };
 
@@ -377,7 +378,7 @@ const Override = struct {
 
 const State = struct {
     mode: Mode = .official,
-    overrides: std.ArrayList(Override) = .{},
+    overrides: std.ArrayList(Override) = .empty,
 
     fn deinit(self: *State, allocator: mem.Allocator) void {
         for (self.overrides.items) |item| {
@@ -538,7 +539,7 @@ pub fn reset(allocator: mem.Allocator, root: []const u8) !void {
     try applyState(allocator, root, &state);
     const path = try statePath(allocator, root);
     defer allocator.free(path);
-    fs.deleteFileAbsolute(path) catch |err| switch (err) {
+    std.Io.Dir.deleteFileAbsolute(host.io(), path) catch |err| switch (err) {
         error.FileNotFound => {},
         else => return err,
     };
@@ -625,6 +626,8 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
 }
 
 pub fn probeParallel(allocator: mem.Allocator, urls: []const []const u8) ![]Sample {
+    host.beginThreads(allocator);
+    defer host.endThreads();
     const samples = try allocator.alloc(Sample, urls.len);
     errdefer allocator.free(samples);
     for (samples) |*sample| sample.* = .{};
@@ -653,7 +656,7 @@ pub fn cachedRegistries(allocator: mem.Allocator, root: []const u8, names: []con
         cache.deinit(allocator);
         allocator.destroy(cache);
     }
-    if (cache.registries_at == 0 or std.time.timestamp() - cache.registries_at >= cache_ttl_secs) return null;
+    if (cache.registries_at == 0 or host.unixSeconds() - cache.registries_at >= cache_ttl_secs) return null;
     const hits = try allocator.alloc(Hit, names.len);
     errdefer allocator.free(hits);
     for (names, 0..) |name, i| {
@@ -712,9 +715,7 @@ fn preferChina(china_ok: bool, china_s: []const u8, official_ok: bool, official_
 }
 
 fn probeWorker(url: []const u8, out: *Sample) void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    const allocator = std.heap.c_allocator;
     const argv = [_][]const u8{
         "curl",
         "-o",
@@ -728,18 +729,14 @@ fn probeWorker(url: []const u8, out: *Sample) void {
         "5",
         url,
     };
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = &argv,
-        .max_output_bytes = 64,
-    }) catch |err| {
+    const result = host.run(allocator, &argv, 64) catch |err| {
         if (err == error.FileNotFound) out.missing_curl = true;
         return;
     };
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     const exited = switch (result.term) {
-        .Exited => |code| code == 0,
+        .exited => |code| code == 0,
         else => false,
     };
     if (!exited) return;
@@ -801,11 +798,11 @@ const Payloads = struct {
 };
 
 fn renderPayloads(allocator: mem.Allocator, state: *const State) !Payloads {
-    var npm: std.ArrayList(u8) = .{};
+    var npm: std.ArrayList(u8) = .empty;
     errdefer npm.deinit(allocator);
-    var yarn: std.ArrayList(u8) = .{};
+    var yarn: std.ArrayList(u8) = .empty;
     errdefer yarn.deinit(allocator);
-    var env: std.ArrayList(u8) = .{};
+    var env: std.ArrayList(u8) = .empty;
     errdefer env.deinit(allocator);
     for (tools) |tool| {
         for (tool.binds) |bind| {
@@ -859,7 +856,7 @@ const Paths = struct {
     }
 };
 
-fn configPaths(allocator: mem.Allocator, env_map: process.EnvMap, root: []const u8) !Paths {
+fn configPaths(allocator: mem.Allocator, env_map: host.EnvMap, root: []const u8) !Paths {
     const home = env_map.get("HOME") orelse return error.NoHome;
     if (home.len == 0 or !fs.path.isAbsolute(home)) return error.NoHome;
     const xdg = env_map.get("XDG_CONFIG_HOME");
@@ -886,9 +883,9 @@ fn writeMarked(allocator: mem.Allocator, path: []const u8, payload: []const u8) 
     const body = try patchMarked(allocator, existing, payload);
     defer allocator.free(body);
     try ensureParent(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body);
     return true;
 }
 
@@ -896,7 +893,7 @@ const EnvWrite = enum { wrote, removed, unchanged };
 
 fn writeEnv(allocator: mem.Allocator, path: []const u8, payload: []const u8) !EnvWrite {
     if (payload.len == 0) {
-        fs.deleteFileAbsolute(path) catch |err| switch (err) {
+        std.Io.Dir.deleteFileAbsolute(host.io(), path) catch |err| switch (err) {
             error.FileNotFound => return .unchanged,
             else => return err,
         };
@@ -905,14 +902,14 @@ fn writeEnv(allocator: mem.Allocator, path: []const u8, payload: []const u8) !En
     const body = try std.fmt.allocPrint(allocator, "{s}\n{s}{s}\n", .{ block_begin, payload, block_end });
     defer allocator.free(body);
     try ensureParent(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body);
     return .wrote;
 }
 
 fn patchMarked(allocator: mem.Allocator, existing: []const u8, payload: []const u8) ![]u8 {
-    var kept: std.ArrayList(u8) = .{};
+    var kept: std.ArrayList(u8) = .empty;
     errdefer kept.deinit(allocator);
     var i: usize = 0;
     while (i < existing.len) {
@@ -932,7 +929,7 @@ fn patchMarked(allocator: mem.Allocator, existing: []const u8, payload: []const 
         try kept.append(allocator, '\n');
     }
     if (payload.len == 0) return kept.toOwnedSlice(allocator);
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     try out.appendSlice(allocator, block_begin);
     try out.append(allocator, '\n');
@@ -975,7 +972,7 @@ fn loadState(allocator: mem.Allocator, root: []const u8) !State {
 
 fn saveState(allocator: mem.Allocator, root: []const u8, state: *const State) !void {
     try ensureDir(root);
-    var body: std.ArrayList(u8) = .{};
+    var body: std.ArrayList(u8) = .empty;
     defer body.deinit(allocator);
     try body.print(allocator, "{{\n  \"mode\": \"{s}\",\n  \"values\": [\n", .{@tagName(state.mode)});
     var written: usize = 0;
@@ -996,9 +993,9 @@ fn saveState(allocator: mem.Allocator, root: []const u8, state: *const State) !v
     try body.appendSlice(allocator, "  ]\n}\n");
     const path = try statePath(allocator, root);
     defer allocator.free(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body.items);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body.items);
 }
 
 fn parseMode(raw: []const u8) Mode {
@@ -1039,8 +1036,8 @@ const CacheBin = struct {
 const Cache = struct {
     registries_at: i64 = 0,
     binaries_at: i64 = 0,
-    registries: std.ArrayList(CacheReg) = .{},
-    binaries: std.ArrayList(CacheBin) = .{},
+    registries: std.ArrayList(CacheReg) = .empty,
+    binaries: std.ArrayList(CacheBin) = .empty,
 
     fn deinit(self: *Cache, allocator: mem.Allocator) void {
         for (self.registries.items) |item| {
@@ -1121,7 +1118,7 @@ fn updateCache(allocator: mem.Allocator, root: []const u8, regs: ?[]const Row, b
         cache.deinit(allocator);
         allocator.destroy(cache);
     }
-    const now = std.time.timestamp();
+    const now = host.unixSeconds();
     if (regs) |rows| {
         for (cache.registries.items) |item| {
             allocator.free(item.name);
@@ -1163,7 +1160,7 @@ fn updateCache(allocator: mem.Allocator, root: []const u8, regs: ?[]const Row, b
 
 fn writeCache(allocator: mem.Allocator, root: []const u8, cache: *const Cache) !void {
     try ensureDir(root);
-    var body: std.ArrayList(u8) = .{};
+    var body: std.ArrayList(u8) = .empty;
     defer body.deinit(allocator);
     try body.print(allocator, "{{\n  \"registries_at\": {d},\n  \"binaries_at\": {d},\n  \"registries\": [\n", .{ cache.registries_at, cache.binaries_at });
     for (cache.registries.items, 0..) |item, i| {
@@ -1193,9 +1190,9 @@ fn writeCache(allocator: mem.Allocator, root: []const u8, cache: *const Cache) !
     try body.appendSlice(allocator, "  ]\n}\n");
     const path = try cachePath(allocator, root);
     defer allocator.free(path);
-    const file = try fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(body.items);
+    const file = try std.Io.Dir.createFileAbsolute(host.io(), path, .{});
+    defer file.close(host.io());
+    try host.writeAll(file, body.items);
 }
 
 const BinHit = struct {
@@ -1209,7 +1206,7 @@ fn cachedBinaries(allocator: mem.Allocator, root: []const u8) !?[]BinHit {
         cache.deinit(allocator);
         allocator.destroy(cache);
     }
-    if (cache.binaries_at == 0 or std.time.timestamp() - cache.binaries_at >= cache_ttl_secs) return null;
+    if (cache.binaries_at == 0 or host.unixSeconds() - cache.binaries_at >= cache_ttl_secs) return null;
     const hits = try allocator.alloc(BinHit, tools.len * 2);
     errdefer allocator.free(hits);
     for (tools, 0..) |tool, n| {
@@ -1288,16 +1285,16 @@ fn normalizeUrl(raw: []const u8) ![]const u8 {
     return url;
 }
 
-fn openHome(allocator: mem.Allocator) !process.EnvMap {
-    return process.getEnvMap(allocator);
+fn openHome(allocator: mem.Allocator) !host.EnvMap {
+    return host.envMap(allocator);
 }
 
 fn ensureDir(path: []const u8) !void {
-    var root = try fs.openDirAbsolute("/", .{});
-    defer root.close();
+    var root = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
+    defer root.close(host.io());
     const rel = if (path.len > 0 and path[0] == '/') path[1..] else path;
     if (rel.len == 0) return;
-    try root.makePath(rel);
+    try root.createDirPath(host.io(), rel);
 }
 
 fn ensureParent(path: []const u8) !void {
@@ -1306,12 +1303,12 @@ fn ensureParent(path: []const u8) !void {
 }
 
 fn readOptional(allocator: mem.Allocator, path: []const u8) ![]u8 {
-    const file = fs.openFileAbsolute(path, .{}) catch |err| switch (err) {
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch |err| switch (err) {
         error.FileNotFound => return allocator.dupe(u8, ""),
         else => return err,
     };
-    defer file.close();
-    return file.readToEndAlloc(allocator, 1024 * 1024);
+    defer file.close(host.io());
+    return host.readToEndAlloc(file, allocator, 1024 * 1024);
 }
 
 fn appendLine(allocator: mem.Allocator, out: *std.ArrayList(u8), comptime fmt: []const u8, args: anytype) !void {
@@ -1322,7 +1319,7 @@ fn appendLine(allocator: mem.Allocator, out: *std.ArrayList(u8), comptime fmt: [
 }
 
 fn quote(allocator: mem.Allocator, text: []const u8) ![]u8 {
-    var out: std.ArrayList(u8) = .{};
+    var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(allocator);
     try out.append(allocator, '"');
     for (text) |char| {

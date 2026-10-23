@@ -1,4 +1,5 @@
 const std = @import("std");
+const host = @import("host.zig");
 const builtin = @import("builtin");
 const process = std.process;
 const fs = std.fs;
@@ -74,7 +75,7 @@ fn addOwned(allocator: mem.Allocator, list: *std.ArrayList([]const u8), path: []
 }
 
 pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
-    var env_map = try process.getEnvMap(allocator);
+    var env_map = try host.envMap(allocator);
     defer env_map.deinit();
 
     const home = env_map.get("HOME") orelse ".";
@@ -84,12 +85,12 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     const versions_dir = try fs.path.join(allocator, &.{ root_dir, "versions", "node" });
     errdefer allocator.free(versions_dir);
 
-    var scan = std.ArrayList([]const u8){};
+    var scan : std.ArrayList([]const u8) = .empty;
     errdefer {
         for (scan.items) |dir| allocator.free(dir);
         scan.deinit(allocator);
     }
-    var managed = std.ArrayList([]const u8){};
+    var managed : std.ArrayList([]const u8) = .empty;
     errdefer {
         for (managed.items) |dir| allocator.free(dir);
         managed.deinit(allocator);

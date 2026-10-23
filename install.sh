@@ -10,7 +10,7 @@ if [ "${1:-}" != "--uninstall" ]; then
 fi
 
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.8.1"
+ZNVM_VERSION="v2.8.2"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"

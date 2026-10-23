@@ -20,7 +20,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.8.0 (x86_64-linux)...
+> Downloading nvm v2.8.2 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
