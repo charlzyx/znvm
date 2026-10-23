@@ -75,12 +75,6 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
           <p className="mt-2 text-lg text-muted-foreground">
             {isZh ? "shell 热启动，2026-10-22" : "Warm shell startup, 2026-10-22"}
           </p>
-          <p className="mt-4 max-w-[65ch] text-base text-foreground">
-            {isZh
-              ? "15:38–15:40 UTC 的中位数。4 核 KVM（Intel Xeon），Ubuntu 24.04。benchmarks/measure.py。ZNVM ReleaseSafe，3.73 MiB。"
-              : "Medians, 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. benchmarks/measure.py. ZNVM ReleaseSafe, 3.73 MiB."
-            }
-          </p>
 
           <h3 className="mb-3 mt-14 text-2xl font-semibold">
             {isZh ? "Shell 启动" : "Shell startup"}
@@ -177,13 +171,6 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
               </Table>
             </CardContent>
           </Card>
-
-          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-muted-foreground">
-            {isZh
-              ? "热启动测 20 次（先预热 5 次），减去 bash -c true（0.63 ms）。冷启动测 20 次，每次丢掉页缓存，再减去 bash -c true（2.02 ms）。命令热启动 40 次，冷启动 20 次。这次 shell 启动 fnm 更快；list、use、.nvmrc 是 ZNVM 更快。样本：benchmarks/results/2026-10-22-cold-warm.json。"
-              : "Warm startup: 20 samples after 5 warmup, minus bash -c true (0.63 ms). Cold startup: 20 samples after a page-cache drop, minus bash -c true (2.02 ms). Commands: warm 40, cold 20. On this run fnm started the shell faster. ZNVM was faster at list, use, and .nvmrc. Samples: benchmarks/results/2026-10-22-cold-warm.json."
-            }
-          </p>
         </div>
       </div>
     </section>

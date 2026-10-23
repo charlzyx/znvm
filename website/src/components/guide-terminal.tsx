@@ -16,13 +16,6 @@ type Group = { en: string; zh: string; items: Leaf[] };
 const ver = "v20.11.0";
 const home = "/home/user";
 const root = `${home}/.nvm`;
-const wrote = [
-  `Wrote ${home}/.npmrc`,
-  `Wrote ${home}/.yarnrc`,
-  `Wrote ${home}/.yarnrc.yml`,
-  `Wrote ${home}/.config/pnpm/rc`,
-  `Wrote ${home}/.bunfig.toml`,
-].join("\n");
 
 function installBody(version: string) {
   return [
@@ -33,30 +26,6 @@ function installBody(version: string) {
     `Using ${version}`,
   ].join("\n");
 }
-
-const hooksEn = `bash uses ~/.bashrc. zsh uses ~/.zshrc:
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-The installer does not edit fish config. nvm.sh is a bash/zsh file, so fish cannot source it.
-You can still set the data directory in fish:
-
-set -gx NVM_DIR $HOME/.nvm
-
-Switch versions from the nvm function in bash or zsh.`;
-
-const hooksZh = `bash 写在 ~/.bashrc, zsh 写在 ~/.zshrc:
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-fish 不会被安装脚本修改. nvm.sh 是 bash/zsh 文件, fish 不能 source 它.
-在 fish 里可以设置数据目录:
-
-set -gx NVM_DIR $HOME/.nvm
-
-切换版本仍使用 bash 或 zsh 里的 nvm 函数.`;
 
 const menu: Group[] = [
   {
@@ -122,8 +91,8 @@ const menu: Group[] = [
     items: [
       { en: "Active version", zh: "当前激活版本", command: "nvm current", body: ver },
       {
-        en: "Path under NVM_DIR",
-        zh: "对应路径(NVM_DIR 下)",
+        en: "Node path",
+        zh: "node 路径",
         command: "nvm which current",
         body: `${root}/versions/node/${ver}/bin/node`,
       },
@@ -210,46 +179,17 @@ const menu: Group[] = [
         },
         body: `Uninstalled ${ver}`,
       },
-      {
-        en: "Confirm, then delete",
-        zh: "确认后再删",
-        command: "nvm uninstall <version>",
-        before: {
-          en: `  1  ${ver}\n  0  Back\n\n> 1\n\nDelete ${ver}\n  1  Yes, uninstall\n  2  Cancel\n  0  Back\n\n> 1`,
-          zh: `  1  ${ver}\n  0  返回\n\n> 1\n\n删除 ${ver}\n  1  确认删除\n  2  取消\n  0  返回\n\n> 1`,
-        },
-        body: `Uninstalled ${ver}`,
-      },
     ],
   },
   {
-    en: "Install / migrate (install-as-nvm)",
-    zh: "安装 / 迁移(install-as-nvm)",
+    en: "Install",
+    zh: "安装",
     items: [
       {
-        en: "Print the install-as-nvm.sh curl (does not run it)",
-        zh: "指向官网 install-as-nvm.sh(打印 curl, 不替用户 curl)",
+        en: "Install command",
+        zh: "安装命令",
         command: null,
-        body: "curl -fsSL https://znvm.dev/install.sh | bash\n\nAfter it finishes, the command is nvm and versions live in ~/.nvm.\nHad the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.",
-        bodyZh: "curl -fsSL https://znvm.dev/install.sh | bash\n\n结束后命令是 nvm, 版本在 ~/.nvm.\n装过原版 NVM? 旧的 nvm.sh 和 shell 里的加载行可以清掉, 交给 Agent 处理就行.",
-        before: {
-          en: "Install command (not run from this menu):\n",
-          zh: "安装命令(这个菜单不会替你执行):\n",
-        },
-      },
-      {
-        en: "Shell hooks (bashrc / zshrc / fish)",
-        zh: "说明 shell 钩子(bashrc / zshrc / fish)",
-        command: null,
-        body: hooksEn,
-        bodyZh: hooksZh,
-      },
-      {
-        en: "Default npmmirror / NVM_NODEJS_ORG_MIRROR",
-        zh: "说明默认 npmmirror / NVM_NODEJS_ORG_MIRROR",
-        command: null,
-        body: "The default download mirror is https://npmmirror.com/mirrors/node.\nSet NVM_NODEJS_ORG_MIRROR to use a different mirror.\nActive mirror: https://npmmirror.com/mirrors/node",
-        bodyZh: "默认下载镜像是 https://npmmirror.com/mirrors/node.\n设置 NVM_NODEJS_ORG_MIRROR 可以换成别的镜像.\n当前镜像: https://npmmirror.com/mirrors/node",
+        body: "curl -fsSL https://znvm.dev/install.sh | bash",
       },
     ],
   },
@@ -261,7 +201,7 @@ const menu: Group[] = [
         en: "View the current map",
         zh: "查看当前映射",
         command: "nvm registry show",
-        body: `No registry map in ${root}/registries.json\nSync writes:\n  ${home}/.npmrc\n  ${home}/.yarnrc\n  ${home}/.yarnrc.yml\n  ${home}/.config/pnpm/rc\n  ${home}/.bunfig.toml`,
+        body: "default https://registry.npmjs.org",
       },
       {
         en: "Add or edit a scope",
@@ -271,7 +211,7 @@ const menu: Group[] = [
           en: "Scope (for example @company)\n\n> @company\nRegistry URL\n\n> https://npm.company.example",
           zh: "scope(例如 @company)\n\n> @company\n源地址\n\n> https://npm.company.example",
         },
-        body: `default (not set)\n@company https://npm.company.example\n${wrote}`,
+        body: "default (not set)\n@company https://npm.company.example",
       },
       {
         en: "Delete a scope",
@@ -281,7 +221,7 @@ const menu: Group[] = [
           en: "Scope (for example @company)\n\n> @company",
           zh: "scope(例如 @company)\n\n> @company",
         },
-        body: `default (not set)\n${wrote}`,
+        body: "default (not set)",
       },
       {
         en: "Set the default registry",
@@ -291,25 +231,25 @@ const menu: Group[] = [
           en: "Default registry URL\n\n> https://registry.npmmirror.com",
           zh: "默认源地址\n\n> https://registry.npmmirror.com",
         },
-        body: `default https://registry.npmmirror.com\n${wrote}`,
+        body: "default https://registry.npmmirror.com",
       },
       {
         en: "China default, keep scopes",
         zh: "中国默认源, 保留 scope",
         command: "nvm registry china",
-        body: `default https://registry.npmmirror.com\n@company https://npm.company.example\n${wrote}`,
+        body: "default https://registry.npmmirror.com\n@company https://npm.company.example",
       },
       {
         en: "Sync npm, yarn, pnpm, and bun",
         zh: "同步 npm, yarn, pnpm, bun",
         command: "nvm registry sync",
-        body: `default https://registry.npmmirror.com\n@company https://npm.company.example\n${wrote}`,
+        body: "default https://registry.npmmirror.com\n@company https://npm.company.example",
       },
       {
         en: "Restore the official registry",
         zh: "恢复官方源",
         command: "nvm registry official",
-        body: `default https://registry.npmjs.org\n@company https://npm.company.example\n${wrote}`,
+        body: "default https://registry.npmjs.org\n@company https://npm.company.example",
       },
     ],
   },
@@ -511,9 +451,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
         <div>
           <h2 className="kicker">{zh ? "引导" : "Guide"}</h2>
           <p className="mt-3 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
-            {zh
-              ? "直接敲 nvm，上下键选择，回车确认。"
-              : "Run nvm. Up and down to move, Enter to confirm."}
+            {zh ? "不用记子命令。" : "Open it and pick."}
           </p>
           <div
             ref={frame}

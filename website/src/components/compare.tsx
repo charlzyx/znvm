@@ -33,11 +33,6 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
             <h2 className="kicker">
             {zh ? "对比" : "Compare"}
           </h2>
-          <p className="mt-4 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
-            {zh
-              ? "装一次就有 NVM 和 NRM。NRM 那一列是原来的源工具。下载地址用 nvm mirror。"
-              : "One install gives you NVM and NRM. The NRM column is the original registry tool. Download hosts use nvm mirror."}
-          </p>
           <div className="mt-10 border border-border md:hidden">
             {body.map((row) => (
               <article key={row[0]} className="border-b border-border p-5 last:border-b-0">
