@@ -27,7 +27,7 @@ export const MdxComponents = {
 
   // Headings
   h1: ({ children }: ComponentProps) => (
-    <h1 className="mt-2 scroll-m-20 text-4xl font-bold tracking-tight">
+    <h1 className="mt-2 scroll-m-20 text-4xl font-bold tracking-tight sm:text-5xl">
       {children}
     </h1>
   ),

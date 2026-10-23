@@ -27,23 +27,23 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
   const headers = zh ? ["", "nvm", "nrm", "znvm"] : ["", "nvm", "nrm", "znvm"];
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className="border-b border-white/10 py-20 sm:py-28">
       <div className="container">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <div>
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
             {zh ? "对比" : "Compare"}
           </h2>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
+          <p className="mt-4 max-w-3xl text-lg text-muted-foreground">
             {zh
               ? "一次安装有 nvm 和 nrm。nrm 列是原来的源工具。下载镜像是 nvm mirror。"
               : "One install provides nvm and nrm. The nrm column is the original registry tool. Download hosts are nvm mirror."}
           </p>
-          <div className="mt-8 overflow-x-auto border border-white/10">
-            <table className="w-full min-w-[36rem] text-left text-sm">
+          <div className="mt-12 overflow-x-auto border border-white/10">
+            <table className="w-full min-w-[40rem] text-left text-base">
               <thead className="bg-white/5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
                   {headers.map((header) => (
-                    <th key={header || "capability"} scope="col" className="px-4 py-3 font-medium">
+                    <th key={header || "capability"} scope="col" className="px-5 py-4 font-medium">
                       {header}
                     </th>
                   ))}
@@ -52,12 +52,12 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
               <tbody>
                 {body.map((row) => (
                   <tr key={row[0]} className="border-t border-white/10">
-                    <th scope="row" className="px-4 py-3 font-normal text-foreground">
+                    <th scope="row" className="px-5 py-4 font-normal text-foreground">
                       {row[0]}
                     </th>
-                    <td className="px-4 py-3 text-muted-foreground">{row[1]}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row[2]}</td>
-                    <td className="px-4 py-3 font-medium text-node-bright">{row[3]}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{row[1]}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{row[2]}</td>
+                    <td className="px-5 py-4 font-medium text-node-bright">{row[3]}</td>
                   </tr>
                 ))}
               </tbody>

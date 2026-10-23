@@ -13,7 +13,7 @@ export function Footer({ lang = "en" }: FooterProps) {
 
   return (
     <footer className="border-t bg-muted/50">
-      <div className="container py-12">
+      <div className="container py-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
@@ -21,9 +21,7 @@ export function Footer({ lang = "en" }: FooterProps) {
               <LogoMark className="h-5 w-5" />
               <span className="font-bold">znvm</span>
             </Link>
-            <p className="mt-4 text-sm text-muted-foreground">
-              {isZh ? "Zig 写的 nvm 和 nrm" : "nvm and nrm, written in Zig"}
-            </p>
+            <p className="zig-mark mt-5">{isZh ? "用 Zig 构建" : "Built with Zig"}</p>
           </div>
 
           {/* Links */}

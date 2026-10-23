@@ -110,8 +110,8 @@ export default async function PagePage({ params }: PageProps) {
   const { frontmatter, content } = parseFrontmatter(pageContent.source);
 
   return (
-    <article className="container py-10">
-      <div className="prose prose-slate dark:prose-invert mx-auto max-w-3xl">
+    <article className="container py-16 sm:py-20">
+      <div className="prose prose-slate dark:prose-invert mx-auto max-w-4xl">
         {frontmatter.title && <h1 className="mb-4">{frontmatter.title}</h1>}
         {frontmatter.description && (
           <p className="text-lg text-muted-foreground mb-8">{frontmatter.description}</p>

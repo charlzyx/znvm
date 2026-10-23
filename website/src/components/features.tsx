@@ -60,20 +60,20 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
   const items = zh ? features.zh : features.en;
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className="border-b border-white/10 py-20 sm:py-28">
       <div className="container">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
           {zh ? "功能" : "Features"}
         </h2>
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-12 grid border border-white/10 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <article key={item.title} className="border border-white/10 bg-white/[0.03] p-6">
-              <h3 className="text-sm font-semibold text-node-bright">{item.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.body}</p>
+            <article key={item.title} className="border border-white/10 bg-white/[0.03] p-8 sm:p-10">
+              <h3 className="text-2xl font-semibold text-node-bright">{item.title}</h3>
+              <p className="mt-4 text-base leading-7 text-muted-foreground">{item.body}</p>
             </article>
           ))}
         </div>
-        <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
+        <p className="mt-8 text-base text-muted-foreground">
           {zh
             ? "不设置 Docker 镜像。那要改 daemon 配置并重启。"
             : "Docker image mirrors are not set here. That needs a daemon config and a restart."}

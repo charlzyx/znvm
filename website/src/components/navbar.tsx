@@ -35,15 +35,15 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+      <div className="container flex h-16 items-center">
         {/* Logo */}
-        <Link href={homeHref} className="mr-6 flex items-center space-x-2 flex-shrink-0">
-          <LogoMark className="h-6 w-6" />
-          <span className="font-bold text-xl">znvm</span>
+        <Link href={homeHref} className="mr-8 flex items-center space-x-2 flex-shrink-0">
+          <LogoMark className="h-7 w-7" />
+          <span className="font-bold text-2xl">znvm</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-8 text-base font-medium">
           {navLinks.map((link) => (
             <Link
               key={link.href}

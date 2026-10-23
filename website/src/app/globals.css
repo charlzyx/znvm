@@ -11,6 +11,7 @@
   --font-mono: var(--font-mono), ui-monospace, monospace;
   --color-node: #339933;
   --color-node-bright: #9ed49e;
+  --color-zig: #f7a41d;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -147,10 +148,10 @@
 
   /* Headings */
   .prose h1 {
-    @apply text-3xl font-bold tracking-tight mt-8 mb-4 text-foreground;
+    @apply text-4xl font-bold tracking-tight mt-2 mb-6 text-foreground sm:text-5xl;
   }
   .prose h2 {
-    @apply text-2xl font-semibold tracking-tight mt-8 mb-4 text-foreground border-b border-border pb-2;
+    @apply text-2xl font-semibold tracking-tight mt-12 mb-4 text-foreground border-b border-border pb-2 sm:text-3xl;
   }
   .prose h3 {
     @apply text-xl font-semibold tracking-tight mt-6 mb-3 text-foreground;
@@ -230,44 +231,27 @@
     @apply italic;
   }
 
-  /* Container 居中样式 */
   .container {
     width: 100%;
+    max-width: 90rem;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      max-width: 640px;
-    }
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 
   @media (min-width: 768px) {
     .container {
-      max-width: 768px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      max-width: 1024px;
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
     }
   }
 
   @media (min-width: 1280px) {
     .container {
-      max-width: 1280px;
-    }
-  }
-
-  @media (min-width: 1536px) {
-    .container {
-      max-width: 1536px;
+      max-width: 110rem;
+      padding-left: 3.5rem;
+      padding-right: 3.5rem;
     }
   }
 }
@@ -284,7 +268,7 @@
 .term-frame-fixed {
   display: flex;
   flex-direction: column;
-  height: 26rem;
+  height: 36rem;
 }
 
 .term-frame-fixed .term-chrome {
@@ -300,8 +284,21 @@
 
 @media (max-width: 639px) {
   .term-frame-fixed {
-    height: 20rem;
+    height: 26rem;
   }
+}
+
+.zig-mark {
+  display: inline-flex;
+  align-items: center;
+  background: #f7a41d;
+  color: #1a1200;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 0.65rem 0.9rem;
 }
 
 .term-chrome {
@@ -309,7 +306,7 @@
   align-items: center;
   gap: 0.4rem;
   border-bottom: 1px solid rgb(255 255 255 / 8%);
-  padding: 0.7rem 0.9rem;
+  padding: 0.9rem 1.1rem;
 }
 
 .term-dot {
@@ -332,8 +329,8 @@
   padding: 1rem;
   overflow-x: auto;
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.82rem;
-  line-height: 1.65;
+  font-size: 1rem;
+  line-height: 1.7;
   color: oklch(0.93 0.01 80);
   white-space: pre-wrap;
 }

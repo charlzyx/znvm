@@ -464,20 +464,20 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   const backLabel = group === null ? (zh ? "退出" : "Exit") : zh ? "返回" : "Back";
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className="border-b border-white/10 py-20 sm:py-28">
       <div className="container">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <div>
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
             {zh ? "交互引导" : "Interactive guide"}
           </h2>
-          <p className="mt-4 text-muted-foreground">
+          <p className="mt-4 max-w-3xl text-lg text-muted-foreground">
             {zh
               ? "不带参数的 nvm 打开这个菜单。按数字。0 返回，在根菜单则退出。1 再回车打开第一项。1 再 0 打开下载镜像。"
               : "nvm with no arguments opens this menu. Press a number. 0 goes back, or exits on the root menu. 1 then Enter opens the first item. 1 then 0 opens Mirrors."}
           </p>
           <div
             ref={frame}
-            className="term-frame mt-8 outline-none focus-visible:ring-2 focus-visible:ring-node"
+            className="term-frame mt-12 outline-none focus-visible:ring-2 focus-visible:ring-node"
             tabIndex={0}
             role="group"
             aria-label={zh ? "nvm 交互引导演示" : "nvm interactive guide demo"}

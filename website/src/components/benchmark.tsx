@@ -39,22 +39,24 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
   const isZh = lang === "zh";
 
   return (
-    <section className="py-20">
+    <section className="py-20 sm:py-28">
       <div className="container">
-        <div className="mx-auto max-w-4xl">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {isZh ? "速度" : "Speed"}
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              {isZh
-                ? "2026-10-22 15:38–15:40 UTC，中位数。4 核 KVM（Intel Xeon），Ubuntu 24.04。benchmarks/measure.py。znvm ReleaseSafe，3.73 MiB。"
-                : "Medians, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
-              }
-            </p>
-          </div>
+        <div>
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            {isZh ? "速度" : "Speed"}
+          </h2>
+          <p className="mt-6 text-6xl font-bold tracking-tight text-zig sm:text-7xl">3.31 ms</p>
+          <p className="mt-2 text-lg text-muted-foreground">
+            {isZh ? "暖 shell 启动，2026-10-22" : "Warm shell startup, 2026-10-22"}
+          </p>
+          <p className="mt-4 max-w-3xl text-base text-muted-foreground">
+            {isZh
+              ? "15:38–15:40 UTC，中位数。4 核 KVM（Intel Xeon），Ubuntu 24.04。benchmarks/measure.py。znvm ReleaseSafe，3.73 MiB。"
+              : "Medians, 15:38–15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
+            }
+          </p>
 
-          <h3 className="mb-3 text-lg font-semibold">
+          <h3 className="mb-3 mt-14 text-2xl font-semibold">
             {isZh ? "Shell 启动" : "Shell startup"}
           </h3>
           <Card className="mb-8">
@@ -73,7 +75,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
                   {startup.map((row) => (
                     <TableRow key={row.name} className={row.highlight ? "bg-node/10" : ""}>
                       <NameCell name={row.name} highlight={row.highlight} />
-                      <TableCell className="text-right tabular-nums">{row.warm}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${row.highlight ? "text-lg font-semibold text-zig" : ""}`}>{row.warm}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.warmP95}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.cold}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.coldP95}</TableCell>
@@ -84,7 +86,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
             </CardContent>
           </Card>
 
-          <h3 className="mb-3 text-lg font-semibold">
+          <h3 className="mb-3 mt-12 text-2xl font-semibold">
             {isZh ? "Shell 内命令" : "In-shell commands"}
           </h3>
           <Card>
