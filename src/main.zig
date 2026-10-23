@@ -12,7 +12,7 @@ const i18n = @import("i18n.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.9.1";
+const ZNVM_VERSION = "v2.9.2";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {

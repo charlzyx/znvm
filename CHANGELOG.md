@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.9.2] - 2026-10-23
+
+### Fixed
+
+- Binary mirrors use plain environment variables in `$NVM_DIR/binaries.env` (for example `ELECTRON_MIRROR`, `SHARP_BINARY_HOST`) instead of unknown `.npmrc` keys that npm 11 warns on. Keys without a plain env alternative stay in the `# nvm binaries` npmrc block and are tagged `npmrc` in `nvm mirror ls`.
+
+### Changed
+
+- `nvm mirror use china` prints a one-line note when npmrc mirror keys remain.
+
 ## [v2.9.1] - 2026-10-23
 
 ### Changed
@@ -333,6 +343,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.9.2]: https://github.com/charlzyx/znvm/compare/v2.9.1...v2.9.2
 [v2.9.1]: https://github.com/charlzyx/znvm/compare/v2.9.0...v2.9.1
 [v2.9.0]: https://github.com/charlzyx/znvm/compare/v2.8.2...v2.9.0
 [v2.8.2]: https://github.com/charlzyx/znvm/compare/v2.8.1...v2.8.2

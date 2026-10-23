@@ -23,11 +23,9 @@ const block_end = "# nvm binaries end";
 const cache_ttl_secs: i64 = 6 * 60 * 60;
 const probe_stack: usize = 1024 * 1024;
 
-const Slot = enum { env, npm };
-
 const Bind = struct {
-    slot: Slot,
-    key: []const u8,
+    env: ?[]const u8 = null,
+    npm: ?[]const u8 = null,
     china: []const u8,
 };
 
@@ -44,8 +42,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/electron/",
         .official_probe = "https://github.com/electron/electron/releases/download/",
         .binds = &.{
-            .{ .slot = .env, .key = "ELECTRON_MIRROR", .china = "https://cdn.npmmirror.com/binaries/electron/" },
-            .{ .slot = .npm, .key = "electron_mirror", .china = "https://cdn.npmmirror.com/binaries/electron/" },
+            .{ .env = "ELECTRON_MIRROR", .china = "https://cdn.npmmirror.com/binaries/electron/" },
         },
     },
     .{
@@ -53,8 +50,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/electron-builder-binaries/",
         .official_probe = "https://github.com/electron-userland/electron-builder-binaries/releases/download/",
         .binds = &.{
-            .{ .slot = .env, .key = "ELECTRON_BUILDER_BINARIES_MIRROR", .china = "https://cdn.npmmirror.com/binaries/electron-builder-binaries/" },
-            .{ .slot = .npm, .key = "electron_builder_binaries_mirror", .china = "https://cdn.npmmirror.com/binaries/electron-builder-binaries/" },
+            .{ .env = "ELECTRON_BUILDER_BINARIES_MIRROR", .china = "https://cdn.npmmirror.com/binaries/electron-builder-binaries/" },
         },
     },
     .{
@@ -62,7 +58,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/playwright",
         .official_probe = "https://playwright.azureedge.net",
         .binds = &.{
-            .{ .slot = .env, .key = "PLAYWRIGHT_DOWNLOAD_HOST", .china = "https://cdn.npmmirror.com/binaries/playwright" },
+            .{ .env = "PLAYWRIGHT_DOWNLOAD_HOST", .china = "https://cdn.npmmirror.com/binaries/playwright" },
         },
     },
     .{
@@ -70,7 +66,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/cypress",
         .official_probe = "https://download.cypress.io",
         .binds = &.{
-            .{ .slot = .env, .key = "CYPRESS_DOWNLOAD_PATH_TEMPLATE", .china = "https://cdn.npmmirror.com/binaries/cypress/${version}/${platform}-${arch}/cypress.zip" },
+            .{ .env = "CYPRESS_DOWNLOAD_PATH_TEMPLATE", .china = "https://cdn.npmmirror.com/binaries/cypress/${version}/${platform}-${arch}/cypress.zip" },
         },
     },
     .{
@@ -78,10 +74,10 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/chrome-for-testing",
         .official_probe = "https://storage.googleapis.com",
         .binds = &.{
-            .{ .slot = .env, .key = "PUPPETEER_DOWNLOAD_HOST", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
-            .{ .slot = .env, .key = "PUPPETEER_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
-            .{ .slot = .env, .key = "PUPPETEER_CHROME_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
-            .{ .slot = .env, .key = "PUPPETEER_CHROME_HEADLESS_SHELL_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
+            .{ .env = "PUPPETEER_DOWNLOAD_HOST", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
+            .{ .env = "PUPPETEER_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
+            .{ .env = "PUPPETEER_CHROME_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
+            .{ .env = "PUPPETEER_CHROME_HEADLESS_SHELL_DOWNLOAD_BASE_URL", .china = "https://cdn.npmmirror.com/binaries/chrome-for-testing" },
         },
     },
     .{
@@ -89,8 +85,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/node-sass",
         .official_probe = "https://github.com/sass/node-sass/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "SASS_BINARY_SITE", .china = "https://cdn.npmmirror.com/binaries/node-sass" },
-            .{ .slot = .npm, .key = "sass_binary_site", .china = "https://cdn.npmmirror.com/binaries/node-sass" },
+            .{ .env = "SASS_BINARY_SITE", .china = "https://cdn.npmmirror.com/binaries/node-sass" },
         },
     },
     .{
@@ -98,8 +93,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/sharp",
         .official_probe = "https://github.com/lovell/sharp/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_sharp_binary_host", .china = "https://cdn.npmmirror.com/binaries/sharp" },
-            .{ .slot = .npm, .key = "sharp_binary_host", .china = "https://cdn.npmmirror.com/binaries/sharp" },
+            .{ .env = "SHARP_BINARY_HOST", .china = "https://cdn.npmmirror.com/binaries/sharp" },
         },
     },
     .{
@@ -107,8 +101,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/sharp-libvips",
         .official_probe = "https://github.com/lovell/sharp-libvips/releases/download/",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_sharp_libvips_binary_host", .china = "https://cdn.npmmirror.com/binaries/sharp-libvips" },
-            .{ .slot = .npm, .key = "sharp_libvips_binary_host", .china = "https://cdn.npmmirror.com/binaries/sharp-libvips" },
+            .{ .env = "SHARP_LIBVIPS_BINARY_HOST", .china = "https://cdn.npmmirror.com/binaries/sharp-libvips" },
         },
     },
     .{
@@ -116,8 +109,8 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/node",
         .official_probe = "https://nodejs.org/dist",
         .binds = &.{
-            .{ .slot = .env, .key = "NODEJS_ORG_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node" },
-            .{ .slot = .env, .key = "NVM_NODEJS_ORG_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node" },
+            .{ .env = "NODEJS_ORG_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node" },
+            .{ .env = "NVM_NODEJS_ORG_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node" },
         },
     },
     .{
@@ -125,7 +118,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/chromedriver",
         .official_probe = "https://googlechromelabs.github.io/chrome-for-testing",
         .binds = &.{
-            .{ .slot = .env, .key = "CHROMEDRIVER_CDNURL", .china = "https://cdn.npmmirror.com/binaries/chromedriver" },
+            .{ .env = "CHROMEDRIVER_CDNURL", .china = "https://cdn.npmmirror.com/binaries/chromedriver" },
         },
     },
     .{
@@ -133,7 +126,7 @@ const tools = [_]Tool{
         .china_probe = "https://npmmirror.com/mirrors/edgedriver",
         .official_probe = "https://msedgedriver.azureedge.net",
         .binds = &.{
-            .{ .slot = .env, .key = "EDGEDRIVER_CDNURL", .china = "https://npmmirror.com/mirrors/edgedriver" },
+            .{ .env = "EDGEDRIVER_CDNURL", .china = "https://npmmirror.com/mirrors/edgedriver" },
         },
     },
     .{
@@ -141,7 +134,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/operadriver",
         .official_probe = "https://github.com/operasoftware/operachromiumdriver/releases",
         .binds = &.{
-            .{ .slot = .env, .key = "OPERADRIVER_CDNURL", .china = "https://cdn.npmmirror.com/binaries/operadriver" },
+            .{ .env = "OPERADRIVER_CDNURL", .china = "https://cdn.npmmirror.com/binaries/operadriver" },
         },
     },
     .{
@@ -149,7 +142,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/phantomjs",
         .official_probe = "https://github.com/Medium/phantomjs/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "PHANTOMJS_CDNURL", .china = "https://cdn.npmmirror.com/binaries/phantomjs" },
+            .{ .env = "PHANTOMJS_CDNURL", .china = "https://cdn.npmmirror.com/binaries/phantomjs" },
         },
     },
     .{
@@ -157,7 +150,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/node-swc",
         .official_probe = "https://github.com/swc-project/swc/releases",
         .binds = &.{
-            .{ .slot = .env, .key = "SWC_BINARY_SITE", .china = "https://cdn.npmmirror.com/binaries/node-swc" },
+            .{ .env = "SWC_BINARY_SITE", .china = "https://cdn.npmmirror.com/binaries/node-swc" },
         },
     },
     .{
@@ -165,7 +158,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/nwjs/v",
         .official_probe = "https://dl.nwjs.io",
         .binds = &.{
-            .{ .slot = .env, .key = "NWJS_URLBASE", .china = "https://cdn.npmmirror.com/binaries/nwjs/v" },
+            .{ .env = "NWJS_URLBASE", .china = "https://cdn.npmmirror.com/binaries/nwjs/v" },
         },
     },
     .{
@@ -173,7 +166,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/sentry-cli",
         .official_probe = "https://downloads.sentry-cdn.com/sentry-cli",
         .binds = &.{
-            .{ .slot = .env, .key = "SENTRYCLI_CDNURL", .china = "https://cdn.npmmirror.com/binaries/sentry-cli" },
+            .{ .env = "SENTRYCLI_CDNURL", .china = "https://cdn.npmmirror.com/binaries/sentry-cli" },
         },
     },
     .{
@@ -181,7 +174,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/saucectl",
         .official_probe = "https://github.com/saucelabs/saucectl/releases",
         .binds = &.{
-            .{ .slot = .env, .key = "SAUCECTL_INSTALL_BINARY_MIRROR", .china = "https://cdn.npmmirror.com/binaries/saucectl" },
+            .{ .env = "SAUCECTL_INSTALL_BINARY_MIRROR", .china = "https://cdn.npmmirror.com/binaries/saucectl" },
         },
     },
     .{
@@ -189,8 +182,8 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/node-re2",
         .official_probe = "https://github.com/uhop/node-re2/releases",
         .binds = &.{
-            .{ .slot = .env, .key = "RE2_DOWNLOAD_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node-re2" },
-            .{ .slot = .env, .key = "RE2_DOWNLOAD_SKIP_PATH", .china = "true" },
+            .{ .env = "RE2_DOWNLOAD_MIRROR", .china = "https://cdn.npmmirror.com/binaries/node-re2" },
+            .{ .env = "RE2_DOWNLOAD_SKIP_PATH", .china = "true" },
         },
     },
     .{
@@ -198,7 +191,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/prisma",
         .official_probe = "https://binaries.prisma.sh",
         .binds = &.{
-            .{ .slot = .env, .key = "PRISMA_ENGINES_MIRROR", .china = "https://cdn.npmmirror.com/binaries/prisma" },
+            .{ .env = "PRISMA_ENGINES_MIRROR", .china = "https://cdn.npmmirror.com/binaries/prisma" },
         },
     },
     .{
@@ -206,8 +199,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/better-sqlite3",
         .official_probe = "https://github.com/WiseLibs/better-sqlite3/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_better_sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/better-sqlite3" },
-            .{ .slot = .npm, .key = "better_sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/better-sqlite3" },
+            .{ .npm = "better_sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/better-sqlite3" },
         },
     },
     .{
@@ -215,8 +207,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/isolated-vm",
         .official_probe = "https://github.com/laverdet/isolated-vm/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_isolated_vm_binary_host", .china = "https://cdn.npmmirror.com/binaries/isolated-vm" },
-            .{ .slot = .npm, .key = "isolated_vm_binary_host", .china = "https://cdn.npmmirror.com/binaries/isolated-vm" },
+            .{ .npm = "isolated_vm_binary_host", .china = "https://cdn.npmmirror.com/binaries/isolated-vm" },
         },
     },
     .{
@@ -224,8 +215,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/keytar",
         .official_probe = "https://github.com/atom/node-keytar/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_keytar_binary_host", .china = "https://cdn.npmmirror.com/binaries/keytar" },
-            .{ .slot = .npm, .key = "keytar_binary_host", .china = "https://cdn.npmmirror.com/binaries/keytar" },
+            .{ .npm = "keytar_binary_host", .china = "https://cdn.npmmirror.com/binaries/keytar" },
         },
     },
     .{
@@ -233,8 +223,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/robotjs",
         .official_probe = "https://github.com/octalmage/robotjs/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_robotjs_binary_host", .china = "https://cdn.npmmirror.com/binaries/robotjs" },
-            .{ .slot = .npm, .key = "robotjs_binary_host", .china = "https://cdn.npmmirror.com/binaries/robotjs" },
+            .{ .npm = "robotjs_binary_host", .china = "https://cdn.npmmirror.com/binaries/robotjs" },
         },
     },
     .{
@@ -242,8 +231,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/gl",
         .official_probe = "https://github.com/stackgl/headless-gl/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_gl_binary_host", .china = "https://cdn.npmmirror.com/binaries/gl" },
-            .{ .slot = .npm, .key = "gl_binary_host", .china = "https://cdn.npmmirror.com/binaries/gl" },
+            .{ .npm = "gl_binary_host", .china = "https://cdn.npmmirror.com/binaries/gl" },
         },
     },
     .{
@@ -251,7 +239,7 @@ const tools = [_]Tool{
         .china_probe = "https://registry.npmmirror.com",
         .official_probe = "https://registry.npmjs.org",
         .binds = &.{
-            .{ .slot = .env, .key = "COREPACK_NPM_REGISTRY", .china = "https://registry.npmmirror.com" },
+            .{ .env = "COREPACK_NPM_REGISTRY", .china = "https://registry.npmmirror.com" },
         },
     },
     .{
@@ -259,7 +247,7 @@ const tools = [_]Tool{
         .china_probe = "https://registry.npmmirror.com/-/binary/ripgrep-prebuilt",
         .official_probe = "https://github.com/microsoft/ripgrep-prebuilt/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "RIPGREP_PREBUILT_BINARIES_MIRROR", .china = "https://registry.npmmirror.com/-/binary/ripgrep-prebuilt" },
+            .{ .env = "RIPGREP_PREBUILT_BINARIES_MIRROR", .china = "https://registry.npmmirror.com/-/binary/ripgrep-prebuilt" },
         },
     },
     .{
@@ -267,8 +255,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/sqlite3",
         .official_probe = "https://github.com/TryGhost/node-sqlite3/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/sqlite3" },
-            .{ .slot = .npm, .key = "sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/sqlite3" },
+            .{ .npm = "sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/sqlite3" },
         },
     },
     .{
@@ -276,8 +263,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/canvas",
         .official_probe = "https://github.com/Automattic/node-canvas/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_canvas_binary_host", .china = "https://cdn.npmmirror.com/binaries/canvas" },
-            .{ .slot = .npm, .key = "canvas_binary_host", .china = "https://cdn.npmmirror.com/binaries/canvas" },
+            .{ .npm = "canvas_binary_host", .china = "https://cdn.npmmirror.com/binaries/canvas" },
         },
     },
     .{
@@ -285,8 +271,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/grpc",
         .official_probe = "https://node-precompiled-binaries.grpc.io",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_grpc_node_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
-            .{ .slot = .npm, .key = "grpc_node_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+            .{ .npm = "grpc_node_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
         },
     },
     .{
@@ -294,8 +279,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/grpc-tools",
         .official_probe = "https://node-precompiled-binaries.grpc.io",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_grpc_tools_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
-            .{ .slot = .npm, .key = "grpc_tools_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+            .{ .npm = "grpc_tools_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
         },
     },
     .{
@@ -303,8 +287,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/nodejieba",
         .official_probe = "https://github.com/yanyiwu/nodejieba/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_nodejieba_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/nodejieba" },
-            .{ .slot = .npm, .key = "nodejieba_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/nodejieba" },
+            .{ .npm = "nodejieba_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/nodejieba" },
         },
     },
     .{
@@ -312,8 +295,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/xprofiler",
         .official_probe = "https://github.com/X-Profiler/xprofiler/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_xprofiler_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/xprofiler" },
-            .{ .slot = .npm, .key = "xprofiler_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/xprofiler" },
+            .{ .npm = "xprofiler_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/xprofiler" },
         },
     },
     .{
@@ -321,8 +303,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/node-gdal-async",
         .official_probe = "https://github.com/mmomtchev/node-gdal-async/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_gdal_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/node-gdal-async" },
-            .{ .slot = .npm, .key = "gdal_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/node-gdal-async" },
+            .{ .npm = "gdal_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/node-gdal-async" },
         },
     },
     .{
@@ -330,8 +311,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/ali-zeromq",
         .official_probe = "https://github.com/looksgood/zeromq.js/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_zmq_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-zeromq" },
-            .{ .slot = .npm, .key = "zmq_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-zeromq" },
+            .{ .npm = "zmq_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-zeromq" },
         },
     },
     .{
@@ -339,8 +319,7 @@ const tools = [_]Tool{
         .china_probe = "https://cdn.npmmirror.com/binaries/ali-usb_ctl",
         .official_probe = "https://github.com/looksgood/ali-usb_ctl/releases/download",
         .binds = &.{
-            .{ .slot = .env, .key = "npm_config_usb_ctrl_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-usb_ctl" },
-            .{ .slot = .npm, .key = "usb_ctrl_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-usb_ctl" },
+            .{ .npm = "usb_ctrl_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-usb_ctl" },
         },
     },
 };
@@ -488,9 +467,29 @@ pub fn list(allocator: mem.Allocator, root: []const u8) !void {
         if (url.len == 0) {
             try i18n.out(messages.unset_mirror, .{tool.name});
         } else {
-            try stdout("* {s} {s}\n", .{ tool.name, url });
+            const npmrc: []const u8 = if (toolUsesNpmrc(&state, tool)) " npmrc" else "";
+            try stdout("* {s} {s}{s}\n", .{ tool.name, url, npmrc });
         }
     }
+}
+
+fn toolUsesNpmrc(state: *const State, tool: Tool) bool {
+    for (tool.binds) |bind| {
+        if (bind.npm != null and bind.env == null and bindValue(state, tool, bind) != null) return true;
+    }
+    return false;
+}
+
+fn npmrcMirrorKeyCount(state: *const State) usize {
+    var count: usize = 0;
+    for (tools) |tool| {
+        for (tool.binds) |bind| {
+            if (bind.npm == null) continue;
+            if (bindValue(state, tool, bind) == null) continue;
+            count += 1;
+        }
+    }
+    return count;
 }
 
 fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
@@ -498,7 +497,13 @@ fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
     defer state.deinit(allocator);
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    if (!agent.mirror_quiet) try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
+    if (!agent.mirror_quiet) {
+        try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
+        if (mode == .china) {
+            const n = npmrcMirrorKeyCount(&state);
+            if (n > 0) try i18n.out(messages.mirror_npmrc_warn, .{n});
+        }
+    }
 }
 
 fn preset(allocator: mem.Allocator, root: []const u8) !void {
@@ -869,14 +874,12 @@ fn renderPayloads(allocator: mem.Allocator, state: *const State) !Payloads {
     for (tools) |tool| {
         for (tool.binds) |bind| {
             const value = bindValue(state, tool, bind) orelse continue;
-            switch (bind.slot) {
-                .npm => {
-                    try appendLine(allocator, &npm, "{s}={s}", .{ bind.key, value });
-                    const quoted = try quote(allocator, value);
-                    defer allocator.free(quoted);
-                    try appendLine(allocator, &yarn, "{s} {s}", .{ bind.key, quoted });
-                },
-                .env => try appendLine(allocator, &env, "export {s}='{s}'", .{ bind.key, value }),
+            if (bind.env) |key| try appendLine(allocator, &env, "export {s}='{s}'", .{ key, value });
+            if (bind.npm) |key| {
+                try appendLine(allocator, &npm, "{s}={s}", .{ key, value });
+                const quoted = try quote(allocator, value);
+                defer allocator.free(quoted);
+                try appendLine(allocator, &yarn, "{s} {s}", .{ key, quoted });
             }
         }
     }
@@ -1421,11 +1424,10 @@ test "binary marker round trip keeps registry lines" {
         \\//registry.npmjs.org/:_authToken=secret
         \\
     ;
-    const patched = try patchMarked(allocator, existing, "electron_mirror=https://cdn.npmmirror.com/binaries/electron/\nsharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips\n");
+    const patched = try patchMarked(allocator, existing, "sqlite3_binary_host=https://cdn.npmmirror.com/binaries/sqlite3\n");
     defer allocator.free(patched);
     try expectHas(patched, "# nvm binaries begin\n");
-    try expectHas(patched, "electron_mirror=https://cdn.npmmirror.com/binaries/electron/\n");
-    try expectHas(patched, "sharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips\n");
+    try expectHas(patched, "sqlite3_binary_host=https://cdn.npmmirror.com/binaries/sqlite3\n");
     try expectHas(patched, "fund=false\n");
     try expectHas(patched, "registry=https://registry.npmjs.org\n");
     try expectHas(patched, "@company:registry=https://npm.company.example\n");
@@ -1433,7 +1435,7 @@ test "binary marker round trip keeps registry lines" {
     const cleared = try patchMarked(allocator, patched, "");
     defer allocator.free(cleared);
     try expectMissing(cleared, "nvm binaries");
-    try expectMissing(cleared, "electron_mirror");
+    try expectMissing(cleared, "sqlite3_binary_host");
     try expectHas(cleared, "fund=false\n");
     try expectHas(cleared, "registry=https://registry.npmjs.org\n");
     try expectHas(cleared, "@company:registry=https://npm.company.example\n");
@@ -1445,25 +1447,17 @@ test "china profile renders env and npm keys" {
     const state = State{ .mode = .china };
     const payloads = try renderPayloads(allocator, &state);
     defer payloads.deinit(allocator);
-    try expectHas(payloads.npm, "electron_mirror=https://cdn.npmmirror.com/binaries/electron/\n");
-    try expectHas(payloads.npm, "sharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips\n");
-    try expectHas(payloads.npm, "sass_binary_site=https://cdn.npmmirror.com/binaries/node-sass\n");
-    try expectHas(payloads.yarn, "electron_mirror \"https://cdn.npmmirror.com/binaries/electron/\"\n");
+    try expectMissing(payloads.npm, "electron_mirror=");
+    try expectMissing(payloads.npm, "sass_binary_site=");
+    try expectMissing(payloads.npm, "sharp_binary_host=");
     try expectHas(payloads.env, "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'\n");
     try expectHas(payloads.env, "export PLAYWRIGHT_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/playwright'\n");
     try expectHas(payloads.env, "export CYPRESS_DOWNLOAD_PATH_TEMPLATE='https://cdn.npmmirror.com/binaries/cypress/${version}/${platform}-${arch}/cypress.zip'\n");
     try expectHas(payloads.env, "export PUPPETEER_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/chrome-for-testing'\n");
     try expectHas(payloads.env, "export SASS_BINARY_SITE='https://cdn.npmmirror.com/binaries/node-sass'\n");
-    try expectHas(payloads.env, "export npm_config_sharp_libvips_binary_host='https://cdn.npmmirror.com/binaries/sharp-libvips'\n");
-    try expectHas(payloads.env, "export npm_config_sqlite3_binary_host='https://cdn.npmmirror.com/binaries/sqlite3'\n");
-    try expectHas(payloads.env, "export npm_config_canvas_binary_host='https://cdn.npmmirror.com/binaries/canvas'\n");
-    try expectHas(payloads.env, "export npm_config_grpc_node_binary_host_mirror='https://cdn.npmmirror.com/binaries'\n");
-    try expectHas(payloads.env, "export npm_config_grpc_tools_binary_host_mirror='https://cdn.npmmirror.com/binaries'\n");
-    try expectHas(payloads.env, "export npm_config_nodejieba_binary_host_mirror='https://cdn.npmmirror.com/binaries/nodejieba'\n");
-    try expectHas(payloads.env, "export npm_config_xprofiler_binary_host_mirror='https://cdn.npmmirror.com/binaries/xprofiler'\n");
-    try expectHas(payloads.env, "export npm_config_gdal_binary_host_mirror='https://cdn.npmmirror.com/binaries/node-gdal-async'\n");
-    try expectHas(payloads.env, "export npm_config_zmq_binary_host_mirror='https://cdn.npmmirror.com/binaries/ali-zeromq'\n");
-    try expectHas(payloads.env, "export npm_config_usb_ctrl_binary_host_mirror='https://cdn.npmmirror.com/binaries/ali-usb_ctl'\n");
+    try expectHas(payloads.env, "export SHARP_BINARY_HOST='https://cdn.npmmirror.com/binaries/sharp'\n");
+    try expectHas(payloads.env, "export SHARP_LIBVIPS_BINARY_HOST='https://cdn.npmmirror.com/binaries/sharp-libvips'\n");
+    try expectMissing(payloads.env, "npm_config_");
     try expectHas(payloads.npm, "sqlite3_binary_host=https://cdn.npmmirror.com/binaries/sqlite3\n");
     try expectHas(payloads.npm, "canvas_binary_host=https://cdn.npmmirror.com/binaries/canvas\n");
     try expectHas(payloads.npm, "grpc_node_binary_host_mirror=https://cdn.npmmirror.com/binaries\n");
