@@ -8,7 +8,7 @@ const script: Line[] = [
   { kind: "in", text: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash" },
   { kind: "out", text: "nvm" },
   { kind: "out", text: "Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node." },
-  { kind: "out", text: "> Downloading nvm v2.5.0 (x86_64-linux)..." },
+  { kind: "out", text: "> Downloading nvm v2.5.1 (x86_64-linux)..." },
   { kind: "out", text: "ok Linked /home/user/.nvm/nrm -> nvm" },
   { kind: "out", text: "ok Wrote /home/user/.nvm/nvm.sh" },
   { kind: "out", text: "> Added nvm startup to /home/user/.bashrc" },

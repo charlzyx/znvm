@@ -20,7 +20,7 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.0 (x86_64-linux)...
+> Downloading nvm v2.5.1 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -40,7 +40,7 @@ Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
-`source` 那一行是脚本实际改过的配置文件（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。脚本可以重复执行：不会重复写入这段配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。
+`source` 那一行是脚本实际改过的配置文件（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。脚本可以重复执行。如果 `nvm --version` 已经是这一版，就保留现有二进制；如果版本不同，会把旧文件留作 `nvm.bak` 再替换。不会重复写入这段配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。
 
 ### 安装器做了什么
 

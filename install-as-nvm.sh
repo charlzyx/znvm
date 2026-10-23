@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Install the nvm command.
 #
-# Safe to run more than once. Node versions stay in ~/.nvm/versions/node and
-# are not deleted. A previous nvm.sh that is not this setup is copied once to
-# nvm.sh.bak. This script does not install shell completion.
+# Safe to run more than once. An existing nvm binary is replaced when its
+# --version differs from this release. The previous file is kept as nvm.bak.
+# Node versions stay in ~/.nvm/versions/node and are not deleted. A previous
+# nvm.sh that is not this setup is copied once to nvm.sh.bak. This script does
+# not install shell completion.
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.5.0"
+ZNVM_VERSION="v2.5.1"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
@@ -57,10 +59,40 @@ choose_bin_dir() {
     printf '%s\n' "$NVM_COMPAT_DIR"
 }
 
-download_binary() {
-    local dest="$1"
-    local os arch target version url
+installed_version() {
+    local exe="$1"
+    local out
+    out=""
+    if [ -x "$exe" ] && [ ! -d "$exe" ]; then
+        # bash 3.2 exits the shell when a command substitution fails under set -e.
+        set +e
+        out=$("$exe" --version 2>/dev/null | head -n 1)
+        set -e
+    fi
+    printf '%s\n' "$out" | tr -d '\r'
+}
 
+resolve_download_version() {
+    local version
+    version=""
+    if [ -n "${ZNVM_VERSION_ARG:-}" ]; then
+        version="$ZNVM_VERSION_ARG"
+    elif [ "$ZNVM_VERSION" != "main" ]; then
+        version="$ZNVM_VERSION"
+    else
+        set +e
+        version=$(curl -fsSL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+        set -e
+    fi
+    if [ -z "$version" ]; then
+        echo "error: Could not determine which nvm version to download." >&2
+        exit 1
+    fi
+    printf '%s\n' "$version"
+}
+
+download_target() {
+    local os arch target
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
     arch="$(uname -m)"
     target=""
@@ -77,25 +109,18 @@ download_binary() {
             target="x86_64-linux-musl"
         fi
     fi
-
     if [ -z "$target" ]; then
         echo "error: No pre-compiled nvm binary for ${os}/${arch}." >&2
         exit 1
     fi
+    printf '%s\n' "$target"
+}
 
-    if [ -n "${ZNVM_VERSION_ARG:-}" ]; then
-        version="$ZNVM_VERSION_ARG"
-    elif [ "$ZNVM_VERSION" != "main" ]; then
-        version="$ZNVM_VERSION"
-    else
-        version="$(curl -fsSL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
-    fi
-
-    if [ -z "$version" ]; then
-        echo "error: Could not determine which nvm version to download." >&2
-        exit 1
-    fi
-
+fetch_binary() {
+    local dest="$1"
+    local version="$2"
+    local target url
+    target="$(download_target)" || exit 1
     url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
     echo "> Downloading nvm $version ($target)..." >&2
     if ! curl -fL --retry 3 -o "$dest" "$url"; then
@@ -106,8 +131,40 @@ download_binary() {
     chmod +x "$dest"
 }
 
+backup_and_replace() {
+    local dest="$1"
+    local staged="$2"
+    local old_ver="$3"
+    local new_ver="$4"
+    local backup
+    backup="${dest}.bak"
+
+    if [ -d "$dest" ]; then
+        rm -f "$staged"
+        echo "Refusing to replace directory $dest" >&2
+        exit 1
+    fi
+
+    if [ ! -e "$backup" ]; then
+        if [ -L "$dest" ]; then
+            cp -pL "$dest" "$backup" 2>/dev/null || cp -p "$dest" "$backup"
+        else
+            cp -p "$dest" "$backup"
+        fi
+        echo "> Saved the previous $dest as $backup" >&2
+    else
+        echo "ok Previous copy already exists at $backup" >&2
+    fi
+    mv -f "$staged" "$dest"
+    chmod +x "$dest"
+    if [ -z "$old_ver" ]; then
+        old_ver="unknown"
+    fi
+    echo "ok Upgraded nvm $old_ver -> $new_ver" >&2
+}
+
 install_binary() {
-    local dest_dir dest
+    local dest_dir dest old_ver new_ver staged
 
     if [ -n "${ZNVM_BIN_SRC:-}" ]; then
         if [ ! -f "$ZNVM_BIN_SRC" ]; then
@@ -117,26 +174,45 @@ install_binary() {
         dest_dir="${ZNVM_INSTALL_BIN_DIR:-$NVM_COMPAT_DIR}"
         mkdir -p "$dest_dir"
         dest="$dest_dir/nvm"
+        new_ver="$(installed_version "$ZNVM_BIN_SRC")" || exit 1
+        if [ -x "$dest" ] && [ ! -d "$dest" ]; then
+            old_ver="$(installed_version "$dest")"
+            if [ -n "$new_ver" ] && [ "$old_ver" = "$new_ver" ]; then
+                echo "ok nvm is already installed at $dest" >&2
+                printf '%s\n' "$dest"
+                return
+            fi
+            staged="$(mktemp "$dest_dir/.nvm-new.XXXXXX")" || exit 1
+            cp "$ZNVM_BIN_SRC" "$staged"
+            chmod +x "$staged"
+            backup_and_replace "$dest" "$staged" "$old_ver" "$new_ver"
+            printf '%s\n' "$dest"
+            return
+        fi
         cp "$ZNVM_BIN_SRC" "$dest"
         chmod +x "$dest"
         printf '%s\n' "$dest"
         return
     fi
 
-    if [ -n "${ZNVM_INSTALL_BIN_DIR:-}" ] && [ -x "$ZNVM_INSTALL_BIN_DIR/nvm" ]; then
-        printf '%s\n' "$ZNVM_INSTALL_BIN_DIR/nvm"
-        return
-    fi
-
     dest_dir="$(choose_bin_dir)"
     mkdir -p "$dest_dir"
     dest="$dest_dir/nvm"
-    if [ -x "$dest" ]; then
-        echo "ok nvm is already installed at $dest" >&2
+    new_ver="$(resolve_download_version)" || exit 1
+    if [ -x "$dest" ] && [ ! -d "$dest" ]; then
+        old_ver="$(installed_version "$dest")"
+        if [ "$old_ver" = "$new_ver" ]; then
+            echo "ok nvm is already installed at $dest" >&2
+            printf '%s\n' "$dest"
+            return
+        fi
+        staged="$(mktemp "$dest_dir/.nvm-new.XXXXXX")" || exit 1
+        fetch_binary "$staged" "$new_ver"
+        backup_and_replace "$dest" "$staged" "$old_ver" "$new_ver"
         printf '%s\n' "$dest"
         return
     fi
-    download_binary "$dest"
+    fetch_binary "$dest" "$new_ver"
     printf '%s\n' "$dest"
 }
 

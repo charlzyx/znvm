@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.5.0 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.5.1 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.5.0" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.5.1" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.5.0, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.5.1, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.5.0" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.5.1" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.5.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.5.1" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -381,7 +381,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.5.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.5.1" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -389,6 +389,159 @@ bash -c '
     if type znvm >/dev/null 2>&1; then echo "znvm leaked into the shell" >&2; exit 1; fi
 ' _ "$INSTALL_HOME"
 echo -e "    ${GREEN}✓${NC} install-as-nvm.sh OK"
+
+echo "  Testing install-as-nvm.sh upgrades an older binary..."
+REAL_BIN="$(cd "$(dirname "$ZNVM_BIN")" && pwd)/$(basename "$ZNVM_BIN")"
+write_old_binary() {
+    cat > "$1" <<'EOF'
+#!/bin/sh
+if [ "$1" = "--version" ]; then
+    echo v2.3.0
+    exit 0
+fi
+if [ "$1" = "ls" ]; then
+    echo v20.11.0
+    exit 0
+fi
+echo old
+exit 0
+EOF
+    chmod +x "$1"
+}
+write_fake_curl() {
+    mkdir -p "$1"
+    if [ "$3" = "fail" ]; then
+        cat > "$1/curl" <<EOF
+#!/bin/sh
+echo fail >> "$2"
+exit 1
+EOF
+    else
+        cat > "$1/curl" <<EOF
+#!/bin/sh
+echo called >> "$2"
+out=""
+while [ \$# -gt 0 ]; do
+    case "\$1" in
+        -o)
+            out="\$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+if [ -z "\$out" ]; then
+    echo "fake curl missing -o" >&2
+    exit 1
+fi
+cp "$REAL_BIN" "\$out"
+chmod +x "\$out"
+EOF
+    fi
+    chmod +x "$1/curl"
+}
+UPGRADE_HOME="$NVM_ALIGN_TMP/upgrade-home"
+mkdir -p "$UPGRADE_HOME/.nvm/versions/node/v1.2.3"
+echo keep-upgrade > "$UPGRADE_HOME/.nvm/versions/node/v1.2.3/marker"
+write_old_binary "$UPGRADE_HOME/.nvm/nvm"
+touch "$UPGRADE_HOME/.bashrc"
+CURL_DIR="$NVM_ALIGN_TMP/fake-curl"
+CURL_MARK="$NVM_ALIGN_TMP/curl-calls"
+: > "$CURL_MARK"
+write_fake_curl "$CURL_DIR" "$CURL_MARK" copy
+UPGRADE_OUT=$(env -i \
+    HOME="$UPGRADE_HOME" \
+    PATH="$CURL_DIR:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.5.1"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved the previous $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Linked $UPGRADE_HOME/.nvm/nrm -> nvm"
+if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
+    echo "upgrade output mentioned znvm or completion" >&2
+    printf '%s\n' "$UPGRADE_OUT" >&2
+    exit 1
+fi
+test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
+ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
+if [ "$ver" != "v2.5.1" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
+test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
+NRM_LS=$(env -i HOME="$UPGRADE_HOME" PATH="/usr/bin:/bin" "$UPGRADE_HOME/.nvm/nrm" ls)
+printf '%s\n' "$NRM_LS" | grep -q "taobao https://registry.npmmirror.com/"
+if printf '%s\n' "$NRM_LS" | grep -q 'v20.11.0'; then
+    echo "nrm ls still listed a Node version" >&2
+    printf '%s\n' "$NRM_LS" >&2
+    exit 1
+fi
+test "$(cat "$UPGRADE_HOME/.nvm/versions/node/v1.2.3/marker")" = "keep-upgrade"
+test "$(grep -c '^called$' "$CURL_MARK")" -eq 1
+SECOND_OUT=$(env -i \
+    HOME="$UPGRADE_HOME" \
+    PATH="$CURL_DIR:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$SECOND_OUT" | grep -q "ok nvm is already installed at $UPGRADE_HOME/.nvm/nvm"
+if printf '%s\n' "$SECOND_OUT" | grep -q 'Upgraded'; then
+    echo "matching version was upgraded again" >&2
+    exit 1
+fi
+test "$(grep -c '^called$' "$CURL_MARK")" -eq 1
+ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "second run replaced nvm.bak: $ver" >&2; exit 1; fi
+if printf '%s\n' "$SECOND_OUT" | grep -q 'znvm\|completion'; then
+    echo "second upgrade output mentioned znvm or completion" >&2
+    exit 1
+fi
+FAIL_HOME="$NVM_ALIGN_TMP/upgrade-fail-home"
+mkdir -p "$FAIL_HOME/.nvm"
+write_old_binary "$FAIL_HOME/.nvm/nvm"
+touch "$FAIL_HOME/.bashrc"
+FAIL_CURL="$NVM_ALIGN_TMP/fake-curl-fail"
+FAIL_MARK="$NVM_ALIGN_TMP/curl-fail-calls"
+: > "$FAIL_MARK"
+write_fake_curl "$FAIL_CURL" "$FAIL_MARK" fail
+set +e
+FAIL_OUT=$(env -i \
+    HOME="$FAIL_HOME" \
+    PATH="$FAIL_CURL:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install-as-nvm.sh 2>&1)
+FAIL_ST=$?
+set -e
+if [ "$FAIL_ST" -eq 0 ]; then
+    echo "failed download exited 0" >&2
+    printf '%s\n' "$FAIL_OUT" >&2
+    exit 1
+fi
+ver=$("$FAIL_HOME/.nvm/nvm" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "failed download replaced nvm: $ver" >&2; exit 1; fi
+test ! -e "$FAIL_HOME/.nvm/nvm.bak"
+test -z "$(find "$FAIL_HOME/.nvm" -name '.nvm-new.*' -print)"
+SRC_HOME="$NVM_ALIGN_TMP/upgrade-src-home"
+mkdir -p "$SRC_HOME/.nvm"
+write_old_binary "$SRC_HOME/.nvm/nvm"
+touch "$SRC_HOME/.bashrc"
+SRC_OUT=$(env -i \
+    HOME="$SRC_HOME" \
+    PATH="/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    ZNVM_BIN_SRC="$REAL_BIN" \
+    bash ./install-as-nvm.sh 2>&1)
+printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.5.1"
+ver=$("$SRC_HOME/.nvm/nvm" --version)
+if [ "$ver" != "v2.5.1" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
+if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
+    echo "ZNVM_BIN_SRC upgrade output mentioned znvm or completion" >&2
+    printf '%s\n' "$SRC_OUT" >&2
+    exit 1
+fi
+echo -e "    ${GREEN}✓${NC} install-as-nvm.sh upgrade OK"
 
 echo "  Testing nrm link, foreign nrm, and uninstall..."
 FOREIGN_HOME="$NVM_ALIGN_TMP/foreign-home"
@@ -489,6 +642,76 @@ if grep -q 'znvm env' "$PLAIN_HOME/.bashrc"; then
     exit 1
 fi
 echo -e "    ${GREEN}✓${NC} install.sh uninstall OK"
+
+echo "  Testing install.sh upgrades an older binary..."
+PLAIN_UP="$NVM_ALIGN_TMP/plain-upgrade-home"
+mkdir -p "$PLAIN_UP/.local/bin" "$PLAIN_UP/.znvm/versions"
+echo keep-plain > "$PLAIN_UP/.znvm/versions/marker"
+write_old_binary "$PLAIN_UP/.local/bin/znvm"
+touch "$PLAIN_UP/.bashrc"
+PLAIN_CURL="$NVM_ALIGN_TMP/plain-fake-curl"
+PLAIN_MARK="$NVM_ALIGN_TMP/plain-curl-calls"
+: > "$PLAIN_MARK"
+write_fake_curl "$PLAIN_CURL" "$PLAIN_MARK" copy
+PLAIN_UP_OUT=$(env -i \
+    HOME="$PLAIN_UP" \
+    PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install.sh 2>&1)
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.5.1"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Linked $PLAIN_UP/.local/bin/nrm -> znvm"
+test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
+ver=$("$PLAIN_UP/.local/bin/znvm" --version)
+if [ "$ver" != "v2.5.1" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
+PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
+printf '%s\n' "$PLAIN_NRM_LS" | grep -q "taobao https://registry.npmmirror.com/"
+if printf '%s\n' "$PLAIN_NRM_LS" | grep -q 'v20.11.0'; then
+    echo "install.sh nrm ls still listed a Node version" >&2
+    printf '%s\n' "$PLAIN_NRM_LS" >&2
+    exit 1
+fi
+test "$(cat "$PLAIN_UP/.znvm/versions/marker")" = "keep-plain"
+test "$(grep -c '^called$' "$PLAIN_MARK")" -eq 1
+PLAIN_SECOND=$(env -i \
+    HOME="$PLAIN_UP" \
+    PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install.sh 2>&1)
+printf '%s\n' "$PLAIN_SECOND" | grep -q "ok znvm is already installed at $PLAIN_UP/.local/bin/znvm"
+if printf '%s\n' "$PLAIN_SECOND" | grep -q 'Upgraded'; then
+    echo "install.sh upgraded a matching version" >&2
+    exit 1
+fi
+test "$(grep -c '^called$' "$PLAIN_MARK")" -eq 1
+PLAIN_FAIL="$NVM_ALIGN_TMP/plain-fail-home"
+mkdir -p "$PLAIN_FAIL/.local/bin"
+write_old_binary "$PLAIN_FAIL/.local/bin/znvm"
+touch "$PLAIN_FAIL/.bashrc"
+PLAIN_FAIL_CURL="$NVM_ALIGN_TMP/plain-fake-curl-fail"
+PLAIN_FAIL_MARK="$NVM_ALIGN_TMP/plain-curl-fail"
+: > "$PLAIN_FAIL_MARK"
+write_fake_curl "$PLAIN_FAIL_CURL" "$PLAIN_FAIL_MARK" fail
+set +e
+PLAIN_FAIL_OUT=$(env -i \
+    HOME="$PLAIN_FAIL" \
+    PATH="$PLAIN_FAIL_CURL:$PLAIN_FAIL/.local/bin:/usr/bin:/bin" \
+    SHELL="/bin/bash" \
+    bash ./install.sh 2>&1)
+PLAIN_FAIL_ST=$?
+set -e
+if [ "$PLAIN_FAIL_ST" -eq 0 ]; then
+    echo "install.sh failed download exited 0" >&2
+    printf '%s\n' "$PLAIN_FAIL_OUT" >&2
+    exit 1
+fi
+ver=$("$PLAIN_FAIL/.local/bin/znvm" --version)
+if [ "$ver" != "v2.3.0" ]; then echo "install.sh failed download replaced znvm: $ver" >&2; exit 1; fi
+test ! -e "$PLAIN_FAIL/.local/bin/znvm.bak"
+test -z "$(find "$PLAIN_FAIL/.local/bin" -name '.znvm-new.*' -print)"
+echo -e "    ${GREEN}✓${NC} install.sh upgrade OK"
 
 echo "  Testing interactive guide..."
 GUIDE_BIN="$ZNVM_BIN"
