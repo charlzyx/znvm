@@ -6,8 +6,22 @@ const util = @import("util.zig");
 const version = @import("version.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
 
+const agent = @import("agent.zig");
+
 const stdout = util.stdout;
 const stderr = util.stderr;
+
+fn failFmt(code: u8, comptime fmt: []const u8, args: anytype) noreturn {
+    var buf: [512]u8 = undefined;
+    const message = std.fmt.bufPrint(&buf, fmt, args) catch "error";
+    agent.fail(code, message);
+}
+
+fn na() !noreturn {
+    if (agent.json_mode) agent.fail(3, "N/A");
+    try stdout("N/A\n", .{});
+    process.exit(3);
+}
 
 extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
 extern "c" fn unsetenv(name: [*:0]const u8) c_int;
@@ -557,16 +571,10 @@ fn resolveLocalSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []const 
 
 fn resolveLocalOrExit(allocator: mem.Allocator, config: ZnvmConfig, spec: []const u8, lts_flag: ?[]const u8) !LocalHit {
     const hit = resolveLocalSpec(allocator, config, spec, lts_flag, 0) catch |err| switch (err) {
-        error.AliasCycle => {
-            try stderr("The alias \"{s}\" leads to an infinite loop. Aborting.\n", .{spec});
-            process.exit(8);
-        },
+        error.AliasCycle => failFmt(8, "The alias \"{s}\" leads to an infinite loop. Aborting.", .{spec}),
         else => return err,
     };
-    return hit orelse {
-        try stderr("Version '{s}' is not installed. Run '{s} install {s}' first.\n", .{ spec, program_name, spec });
-        process.exit(1);
-    };
+    return hit orelse failFmt(1, "Version '{s}' is not installed. Run '{s} install {s}' first.", .{ spec, program_name, spec });
 }
 
 fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
@@ -635,6 +643,7 @@ fn writeCwdNvmrc(allocator: mem.Allocator, ver: []const u8, silent: bool) !void 
 }
 
 fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
+    if (mem.eql(u8, arg, "--json") or mem.eql(u8, arg, "--yes") or mem.eql(u8, arg, "--llm")) return true;
     if (mem.eql(u8, arg, "--silent")) {
         parsed.silent = true;
         return true;
@@ -645,10 +654,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--lts=")) {
         const name = arg["--lts=".len..];
-        if (name.len == 0) {
-            try stderr("Option \"--lts=\" needs an LTS name.\n", .{});
-            process.exit(55);
-        }
+        if (name.len == 0) failFmt(55, "Option \"--lts=\" needs an LTS name.", .{});
         parsed.lts = name;
         return true;
     }
@@ -658,10 +664,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--alias=")) {
         const name = arg["--alias=".len..];
-        if (name.len == 0) {
-            try stderr("Option \"--alias=\" needs a name.\n", .{});
-            process.exit(55);
-        }
+        if (name.len == 0) failFmt(55, "Option \"--alias=\" needs a name.", .{});
         parsed.alias_to = name;
         return true;
     }
@@ -703,16 +706,12 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
         null;
     if (reinstall_flag) |prefix| {
         const name = arg[prefix.len..];
-        if (name.len == 0) {
-            try stderr("Option \"{s}\" needs a version.\n", .{prefix});
-            process.exit(55);
-        }
+        if (name.len == 0) failFmt(55, "Option \"{s}\" needs a version.", .{prefix});
         parsed.reinstall_from = name;
         return true;
     }
     if (mem.eql(u8, arg, "--reinstall-packages-from") or mem.eql(u8, arg, "--copy-packages-from")) {
-        try stderr("Option \"{s}\" needs =version.\n", .{arg});
-        process.exit(55);
+        failFmt(55, "Option \"{s}\" needs =version.", .{arg});
     }
     return false;
 }
@@ -734,8 +733,7 @@ fn parseArgs(allocator: mem.Allocator, args: []const []const u8, mode: FlagMode)
                 while (index < args.len) : (index += 1) try parsed.positionals.append(allocator, args[index]);
                 break;
             }
-            try stderr("Unsupported option \"{s}\".\n", .{arg});
-            process.exit(55);
+            failFmt(55, "Unsupported option \"{s}\".", .{arg});
         }
         try parsed.positionals.append(allocator, arg);
         if (mode == .command) {
@@ -804,6 +802,7 @@ pub fn printHelp() !void {
         \\  mirror [ls|use|set|reset|test]
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
+        \\  --llm                      print the agent guide and exit
         \\  --version, -v              print the znvm version
         \\  help, --help
         \\
@@ -827,12 +826,32 @@ pub fn printHelp() !void {
         \\A new shell sources that file. Scope routes are not changed.
         \\Docker image mirrors are not set here.
         \\
+        \\Agents:
+        \\  --llm prints the agent guide on stdout and exits. nvm --llm and nrm --llm
+        \\  print the same text as skills/znvm/SKILL.md. That is the zero-install
+        \\  way for an agent to learn this tool.
+        \\  --json writes one JSON object to stdout for ls, ls-remote, current, which,
+        \\  version, --version, mirror ls, and mirror test.
+        \\  Other commands reject --json.
+        \\  A --json error is {{"error":"...","exit":N}} on stderr, and stdout is empty.
+        \\  --yes and NVM_NONINTERACTIVE=1 (also true or yes) never open a menu.
+        \\  A non-empty CI does the same. NVM_NONINTERACTIVE=0 does not.
+        \\  Menus need a terminal on stdin and on the menu stream.
+        \\  --guide-step draws on stderr, so a piped stdout still works in a terminal.
+        \\  NO_COLOR stays plain ASCII. Output has no color sequences.
+        \\  Exit codes: 0 success, 1 usage or failure, 2 the guide quit,
+        \\  3 no matching version, 8 an alias loop, 55 an unsupported option,
+        \\  127 system node missing or a missing version file.
+        \\
     , .{ program_name, program_name, program_name, program_name });
 }
 
 pub fn printNrmHelp() !void {
     try stdout(
         \\nrm - registry manager
+        \\
+        \\nrm --llm prints the agent guide on stdout and exits.
+        \\It is the same text as nvm --llm and skills/znvm/SKILL.md.
         \\
         \\Commands:
         \\  ls
@@ -845,6 +864,7 @@ pub fn printNrmHelp() !void {
         \\  scope add <@scope> <url>
         \\  scope del <@scope>
         \\  help
+        \\  --llm
         \\  --version, -v
         \\
         \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.
@@ -854,6 +874,10 @@ pub fn printNrmHelp() !void {
         \\Download mirrors are the nvm mirror command.
         \\With no arguments in a terminal, nrm opens a menu for registries, scopes, and tests.
         \\Without a terminal it prints this help.
+        \\--yes, NVM_NONINTERACTIVE=1 (also true or yes), and a non-empty CI do the same.
+        \\--json writes one JSON object to stdout for ls, current, test, and scope ls.
+        \\A --json error is {{"error":"...","exit":N}} on stderr, and stdout is empty.
+        \\NO_COLOR stays plain ASCII.
         \\nvm registry edits the same map.
         \\
     , .{});
@@ -1086,16 +1110,10 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
 }
 
 fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, usage: []const u8, silent: bool) ![]u8 {
-    if (parsed.positionals.items.len > 1) {
-        try stderr("{s}\n", .{usage});
-        process.exit(1);
-    }
+    if (parsed.positionals.items.len > 1) failFmt(1, "{s}", .{usage});
     if (parsed.lts) |name| return ltsSpec(allocator, name);
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
-    return try readNvmrcSpec(allocator, silent) orelse {
-        try stderr("{s}\nNo .nvmrc or .node-version file found.\n", .{usage});
-        process.exit(127);
-    };
+    return try readNvmrcSpec(allocator, silent) orelse failFmt(127, "{s}\nNo .nvmrc or .node-version file found.", .{usage});
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -1439,22 +1457,97 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
     try emitExports(allocator, config, ver, parsed.silent);
 }
 
+fn isActive(active: ?[]const u8, ver: []const u8) bool {
+    const current = active orelse return false;
+    return mem.eql(u8, current, ver);
+}
+
+fn writeListed(sink: *agent.Sink, ver: []const u8, current: bool) !void {
+    try sink.beginObject();
+    try sink.fieldString("version", ver);
+    try sink.fieldBool("current", current);
+    try sink.endObject();
+}
+
+fn listJson(allocator: mem.Allocator, config: ZnvmConfig, parsed: *const ParsedArgs, installed: []const []const u8, active: ?[]const u8) !void {
+    const system_node = if (active == null) try findSystemNode(allocator, config) else null;
+    defer if (system_node) |path| allocator.free(path);
+    const system_active = system_node != null;
+
+    var sink = agent.Sink.init(allocator);
+    defer sink.deinit();
+    try sink.beginObject();
+    if (active) |ver| {
+        try sink.fieldString("current", ver);
+    } else if (system_active) {
+        try sink.fieldString("current", "system");
+    } else {
+        try sink.fieldNull("current");
+    }
+    try sink.key("versions");
+    try sink.beginArray();
+    var shown: usize = 0;
+    if (parsed.positionals.items.len == 1) {
+        const pattern = parsed.positionals.items[0];
+        const query = version.parseVersionQuery(pattern, parsed.lts);
+        if (query.prefix.len > 0 and query.special == .none and query.lts == null) {
+            for (installed) |ver| {
+                if (ver.len < 2 or ver[0] != 'v') continue;
+                if (!version.matchesVersionPrefix(ver[1..], query.prefix)) continue;
+                try writeListed(&sink, ver, isActive(active, ver));
+                shown += 1;
+            }
+        } else if (resolveLocalSpec(allocator, config, pattern, parsed.lts, 0) catch null) |hit| {
+            defer hit.deinit(allocator);
+            switch (hit) {
+                .version => |ver| {
+                    try writeListed(&sink, ver, isActive(active, ver));
+                    shown += 1;
+                },
+                .system => {
+                    try writeListed(&sink, "system", system_active);
+                    shown += 1;
+                },
+            }
+        }
+    } else {
+        for (installed) |ver| {
+            try writeListed(&sink, ver, isActive(active, ver));
+            shown += 1;
+        }
+    }
+    try sink.endArray();
+    try sink.key("aliases");
+    try sink.beginArray();
+    if (parsed.positionals.items.len == 0 and !parsed.no_alias) {
+        const aliases = try loadAliases(allocator, config);
+        defer freeAliases(allocator, aliases);
+        for (aliases) |item| {
+            try sink.beginObject();
+            try sink.fieldString("name", item.name);
+            try sink.fieldString("target", item.target);
+            try sink.endObject();
+        }
+    }
+    try sink.endArray();
+    try sink.endObject();
+    if (parsed.positionals.items.len == 1 and shown == 0) agent.fail(3, "N/A");
+    try sink.flush();
+}
+
 pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) {
-        try stderr("Usage: {s} ls [version]\n", .{program_name});
-        process.exit(1);
-    }
+    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} ls [version]", .{program_name});
     if (parsed.no_alias and parsed.positionals.items.len > 0) {
-        try stderr("`--no-alias` is not supported when a version is provided.\n", .{});
-        process.exit(55);
+        failFmt(55, "`--no-alias` is not supported when a version is provided.", .{});
     }
 
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
     const current = try getCurrentVersionFromPath(allocator, config);
     defer if (current) |value| allocator.free(value);
+    if (agent.json_mode) return listJson(allocator, config, &parsed, installed, current);
 
     var shown: usize = 0;
     if (parsed.positionals.items.len == 1) {
@@ -1480,10 +1573,7 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
                 },
             }
         }
-        if (shown == 0) {
-            try stdout("N/A\n", .{});
-            process.exit(3);
-        }
+        if (shown == 0) try na();
         return;
     }
 
@@ -1507,22 +1597,15 @@ fn printVersionLine(ver: []const u8, current: ?[]const u8) !void {
 pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) {
-        try stderr("Usage: {s} ls-remote [version]\n", .{program_name});
-        process.exit(1);
-    }
+    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} ls-remote [version]", .{program_name});
     const raw = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else "";
     var query = version.parseVersionQuery(raw, parsed.lts);
-    if (query.special == .current or query.special == .system or query.special == .default) {
-        try stdout("N/A\n", .{});
-        process.exit(3);
-    }
+    if (query.special == .current or query.special == .system or query.special == .default) try na();
     if (query.special == .latest) query.special = .none;
     const list_all = query.special == .none and query.lts == null and query.prefix.len == 0;
 
     const index = version.loadRemoteIndex(allocator, config) catch |err| {
-        try stderr("error: Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
-        process.exit(1);
+        failFmt(1, "error: Failed to fetch Node.js index ({s})", .{@errorName(err)});
     };
     defer index.deinit();
 
@@ -1535,10 +1618,7 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
         _ = std.SemanticVersion.parse(entry.version[1..]) catch continue;
         try matched.append(allocator, entry);
     }
-    if (matched.items.len == 0) {
-        try stdout("N/A\n", .{});
-        process.exit(3);
-    }
+    if (matched.items.len == 0) try na();
     const Sorter = struct {
         fn less(_: void, lhs: version.NodeEntry, rhs: version.NodeEntry) bool {
             const left = std.SemanticVersion.parse(lhs.version[1..]) catch return false;
@@ -1547,6 +1627,27 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
         }
     };
     mem.sort(version.NodeEntry, matched.items, {}, Sorter.less);
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.key("versions");
+        try sink.beginArray();
+        for (matched.items) |entry| {
+            try sink.beginObject();
+            try sink.fieldString("version", entry.version);
+            if (version.entryLtsName(entry)) |name| {
+                try sink.fieldString("lts", name);
+            } else {
+                try sink.fieldNull("lts");
+            }
+            try sink.endObject();
+        }
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+        return;
+    }
     for (matched.items) |entry| {
         if (version.entryLtsName(entry)) |name| {
             try stdout("{s}    (LTS: {s})\n", .{ entry.version, name });
@@ -1653,19 +1754,46 @@ pub fn cmdDefault(allocator: mem.Allocator, args: []const []const u8, config: Zn
     try stderr("default -> {s}\n", .{target});
 }
 
+fn emitVersionLabel(allocator: mem.Allocator, label: []const u8) !void {
+    if (!agent.json_mode) {
+        try stdout("{s}\n", .{label});
+        return;
+    }
+    var sink = agent.Sink.init(allocator);
+    defer sink.deinit();
+    try sink.beginObject();
+    try sink.fieldString("version", label);
+    try sink.endObject();
+    try sink.flush();
+}
+
+fn emitWhich(allocator: mem.Allocator, ver: []const u8, path: []const u8) !void {
+    if (!agent.json_mode) {
+        try stdout("{s}\n", .{path});
+        return;
+    }
+    var sink = agent.Sink.init(allocator);
+    defer sink.deinit();
+    try sink.beginObject();
+    try sink.fieldString("version", ver);
+    try sink.fieldString("path", path);
+    try sink.endObject();
+    try sink.flush();
+}
+
 pub fn cmdCurrent(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     _ = args;
     if (try getCurrentVersionFromPath(allocator, config)) |ver| {
         defer allocator.free(ver);
-        try stdout("{s}\n", .{ver});
+        try emitVersionLabel(allocator, ver);
         return;
     }
     if (try findSystemNode(allocator, config)) |node| {
         allocator.free(node);
-        try stdout("system\n", .{});
+        try emitVersionLabel(allocator, "system");
         return;
     }
-    try stdout("none\n", .{});
+    try emitVersionLabel(allocator, "none");
 }
 
 pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -1679,23 +1807,17 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     defer hit.deinit(allocator);
     switch (hit) {
         .system => {
-            const node = try findSystemNode(allocator, config) orelse {
-                try stderr("System version of node not found.\n", .{});
-                process.exit(127);
-            };
+            const node = try findSystemNode(allocator, config) orelse failFmt(127, "System version of node not found.", .{});
             defer allocator.free(node);
-            try stdout("{s}\n", .{node});
+            try emitWhich(allocator, "system", node);
         },
         .version => |ver| {
             const home = try versionHome(allocator, config, ver);
             defer allocator.free(home);
             const node = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node);
-            fs.accessAbsolute(node, .{}) catch {
-                try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
-                process.exit(1);
-            };
-            try stdout("{s}\n", .{node});
+            fs.accessAbsolute(node, .{}) catch failFmt(1, "Version '{s}' is installed but bin/node is missing.", .{ver});
+            try emitWhich(allocator, ver, node);
         },
     }
 }
@@ -1707,29 +1829,22 @@ pub fn cmdVersion(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try cmdCurrent(allocator, args, config);
         return;
     }
-    if (parsed.positionals.items.len > 1) {
-        try stderr("Usage: {s} version [version]\n", .{program_name});
-        process.exit(1);
-    }
+    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} version [version]", .{program_name});
     const spec = if (parsed.lts) |name| try ltsSpec(allocator, name) else try allocator.dupe(u8, parsed.positionals.items[0]);
     defer allocator.free(spec);
     const hit = resolveLocalSpec(allocator, config, spec, null, 0) catch |err| switch (err) {
-        error.AliasCycle => {
-            try stderr("The alias \"{s}\" leads to an infinite loop. Aborting.\n", .{spec});
-            process.exit(8);
-        },
+        error.AliasCycle => failFmt(8, "The alias \"{s}\" leads to an infinite loop. Aborting.", .{spec}),
         else => return err,
     };
     if (hit) |resolved| {
         defer resolved.deinit(allocator);
         switch (resolved) {
-            .system => try stdout("system\n", .{}),
-            .version => |ver| try stdout("{s}\n", .{ver}),
+            .system => try emitVersionLabel(allocator, "system"),
+            .version => |ver| try emitVersionLabel(allocator, ver),
         }
         return;
     }
-    try stdout("N/A\n", .{});
-    process.exit(3);
+    try na();
 }
 
 pub fn cmdVersionRemote(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -1932,7 +2047,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.6.0\n", .{});
+    try stderr("znvm version: v2.7.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

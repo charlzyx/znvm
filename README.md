@@ -176,6 +176,39 @@ export NVM_DIR="$HOME/.nvm"
 
 Open a new terminal, or `source` that profile. The command is `nvm`. Versions live in `$NVM_DIR/versions/node`.
 
+## Agents
+
+Run the CLI. There is no MCP server. The zero-install way to learn the tool is:
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+Both print [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md). The binary embeds that file, so the command and the file match. To load it as an agent skill instead:
+
+```bash
+npx skills add charlzyx/znvm
+```
+
+If that client cannot install a skill, copy `skills/znvm/SKILL.md` into its skills directory.
+
+`nvm` selects Node versions. `nrm` selects npm registries and `@scope` routes. `nvm mirror` selects download hosts for Electron, Playwright, and the other tools. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
+
+Menus open only when stdin and the menu stream are terminals, `CI` is unset or empty, and neither `--yes` nor `NVM_NONINTERACTIVE=1` (also `true` or `yes`) is set. `NO_COLOR` stays plain ASCII. `--guide-step` draws on stderr.
+
+`--json` writes one object to stdout for `ls`, `ls-remote`, `current`, `which`, `version`, `--version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. An error is `{"error":"...","exit":N}` on stderr, stdout is empty, and the exit code is the same as text mode: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file. Guide quit is 2.
+
+`nvm ls --json` with v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`:
+
+```json
+{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
+```
+
+`current` is the active version, `"system"`, or `null`. A version filter or `--no-alias` leaves `aliases` empty. `nvm ls-remote --json` uses `{"versions":[{"version":"v20.11.0","lts":"Iron"}]}` (`lts` is `null` when the release is not LTS). `nvm which --json` is `{"version":"v20.11.0","path":".../bin/node"}`. `nrm current --json` is `{"name":"taobao","url":"https://registry.npmmirror.com/"}` or `{"name":null,"url":null}`. `nrm test --json` keeps curl's time string: `{"registries":[{"name":"npm","ok":true,"seconds":"0.400"}]}` (`seconds` is `null` when `ok` is false). `nvm mirror ls --json` is `{"profile":"official","mirrors":[{"name":"electron","url":null}]}`. `nvm mirror test electron --json` reports `china` and `official`, each with `ok` and `seconds`.
+
+If `nvm` is not found: `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"`. A new shell also sources `$NVM_DIR/binaries.env`.
+
 ## 📊 Benchmarks
 
 Paired warm and cold medians from [`benchmarks/measure.py`](benchmarks/measure.py), **2026-10-22 15:38:50Z–15:40:25Z**. Hardware: 4-vCPU KVM guest, Intel Xeon (lscpu model name `Intel(R) Xeon(R) Processor`), Ubuntu 24.04.5. znvm was ReleaseSafe, 3,910,296 bytes (3.73 MiB, not stripped). Compared with nvm v0.40.3 (`nvm.sh` 150,227 bytes) and fnm 1.39.0 (7,374,576 bytes). Installed versions: v22.14.0 (default) and v20.19.0. PATH was the tool directory plus `/usr/bin:/bin`. Raw samples: [`benchmarks/results/2026-10-22-cold-warm.json`](benchmarks/results/2026-10-22-cold-warm.json).

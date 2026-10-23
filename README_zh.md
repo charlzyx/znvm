@@ -152,6 +152,39 @@ export NVM_DIR="$HOME/.nvm"
 
 新开一个终端，或 `source` 那个配置文件。之后的命令是 `nvm`。版本在 `$NVM_DIR/versions/node`。
 
+## 给 Agent
+
+直接跑命令。没有 MCP 服务。不额外安装就能读到用法：
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+两条命令都打印 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。二进制在编译时嵌入这个文件，所以命令输出和文件一致。也可以把它装成技能：
+
+```bash
+npx skills add charlzyx/znvm
+```
+
+如果当前客户端不能安装技能，就把 `skills/znvm/SKILL.md` 复制到它的技能目录。
+
+`nvm` 管 Node 版本。`nrm` 管 npm 源和 `@scope`。`nvm mirror` 管 Electron、Playwright 这些工具的下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，没有再读 `.node-version`。
+
+菜单只在 stdin 和菜单所在的输出都是终端、`CI` 为空、并且没有 `--yes` 或 `NVM_NONINTERACTIVE=1`（`true` 和 `yes` 同样生效）时才出现。`NO_COLOR` 保持纯 ASCII。`--guide-step` 把菜单画在 stderr。
+
+`--json` 给 `ls`、`ls-remote`、`current`、`which`、`version`、`--version`、`nrm ls`、`nrm current`、`nrm test`、`nrm scope ls`、`nvm mirror ls` 和 `nvm mirror test` 在 stdout 打一个 JSON 对象。错误是 stderr 上的 `{"error":"...","exit":N}`，stdout 为空，退出码与文本模式相同：0 成功，1 用法或失败，3 没有匹配版本，8 别名循环，55 不支持的选项，127 找不到系统 node 或版本文件。引导菜单退出是 2。
+
+已安装 v18.0.0 和 v20.11.0、别名 `default -> 18`、PATH 上没有 Node 时，`nvm ls --json` 是：
+
+```json
+{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
+```
+
+`current` 是当前版本、`"system"` 或 `null`。带版本过滤或 `--no-alias` 时 `aliases` 为空。其余字段见 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。
+
+找不到命令时：`export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"`。新的 shell 还会 source `$NVM_DIR/binaries.env`。
+
 ## 📊 性能对比
 
 下面是 **2026-10-22 15:38:50Z–15:40:25Z** 同一次运行里的暖启动和冷启动中位数，脚本是 [`benchmarks/measure.py`](benchmarks/measure.py)。环境：4 核 KVM 虚拟机，lscpu 型号为 `Intel(R) Xeon(R) Processor`，Ubuntu 24.04.5。znvm 是 ReleaseSafe，3,910,296 字节（3.73 MiB，未 strip）。对照 nvm v0.40.3（`nvm.sh` 150,227 字节）和 fnm 1.39.0（7,374,576 字节）。已安装 v22.14.0（默认）和 v20.19.0。PATH 只有工具目录加 `/usr/bin:/bin`。原始样本：[`benchmarks/results/2026-10-22-cold-warm.json`](benchmarks/results/2026-10-22-cold-warm.json)。

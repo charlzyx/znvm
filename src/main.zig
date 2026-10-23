@@ -11,15 +11,38 @@ const guide = @import("guide.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.6.0";
+const ZNVM_VERSION = "v2.7.0";
+const agent = @import("agent.zig");
+
+fn writeToolVersion(allocator: mem.Allocator) !void {
+    if (!agent.json_mode) {
+        try stdout("{s}\n", .{ZNVM_VERSION});
+        return;
+    }
+    var sink = agent.Sink.init(allocator);
+    defer sink.deinit();
+    try sink.beginObject();
+    try sink.fieldString("version", ZNVM_VERSION);
+    try sink.endObject();
+    try sink.flush();
+}
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const args = try process.argsAlloc(allocator);
-    defer process.argsFree(allocator, args);
+    const raw_args = try process.argsAlloc(allocator);
+    defer process.argsFree(allocator, raw_args);
+    const flags = try agent.strip(allocator, raw_args);
+    defer allocator.free(flags.argv);
+    const args = flags.argv;
+    agent.json_mode = flags.json;
+    agent.yes_mode = flags.yes;
+    if (flags.llm) {
+        try agent.writeSkill();
+        return;
+    }
 
     const base_name = std.fs.path.basename(args[0]);
     const invoked_as_nvm = mem.eql(u8, base_name, "nvm");
@@ -31,16 +54,20 @@ pub fn main() !void {
 
     if (invoked_as_nrm) {
         if (args.len < 2) {
-            if (std.posix.isatty(std.posix.STDIN_FILENO)) {
+            if (agent.json_mode) agent.fail(1, "error: --json needs a command.");
+            if (agent.menuAllowed(.stdout)) {
                 try guide.runNrm(allocator, config);
             } else {
                 try commands.printNrmHelp();
             }
             return;
         }
+        if (agent.json_mode and !agent.jsonSupported(true, args)) {
+            agent.fail(1, "error: --json is not supported for this command.");
+        }
         const nrm_cmd = args[1];
         if ((mem.eql(u8, nrm_cmd, "--version") or mem.eql(u8, nrm_cmd, "-v")) and args.len == 2) {
-            try stdout("{s}\n", .{ZNVM_VERSION});
+            try writeToolVersion(allocator);
             return;
         }
         try commands.cmdNrm(allocator, args, config);
@@ -50,11 +77,15 @@ pub fn main() !void {
     // Node commands only. use, ls, and current here never switch a registry.
 
     if (args.len < 2) {
+        if (agent.json_mode) agent.fail(1, "error: --json needs a command.");
         try guide.run(allocator, config, .session);
         return;
     }
 
     const cmd = args[1];
+    if (agent.json_mode and !agent.jsonSupported(false, args)) {
+        agent.fail(1, "error: --json is not supported for this command.");
+    }
 
     if (mem.eql(u8, cmd, "guide") or mem.eql(u8, cmd, "interactive")) {
         try guide.run(allocator, config, .session);
@@ -65,9 +96,9 @@ pub fn main() !void {
     } else if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
         try commands.printHelp();
     } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
-        try stdout("{s}\n", .{ZNVM_VERSION});
+        try writeToolVersion(allocator);
     } else if (mem.eql(u8, cmd, "version") and args.len == 2 and !invoked_as_nvm) {
-        try stdout("{s}\n", .{ZNVM_VERSION});
+        try writeToolVersion(allocator);
     } else if (mem.eql(u8, cmd, "env")) {
         try commands.cmdEnv(allocator, args, config);
     } else if (mem.eql(u8, cmd, "use")) {
