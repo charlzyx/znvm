@@ -7,11 +7,12 @@ const config_mod = @import("config.zig");
 const commands = @import("commands.zig");
 const guide = @import("guide.zig");
 const host = @import("host.zig");
+const i18n = @import("i18n.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.8.2";
+const ZNVM_VERSION = "v2.9.0";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -30,6 +31,7 @@ fn writeToolVersion(allocator: mem.Allocator) !void {
 pub fn main(init: process.Init.Minimal) !void {
     host.bind(init);
     const allocator = std.heap.c_allocator;
+    i18n.init(allocator);
 
     const raw_args = try init.args.toSlice(allocator);
     defer allocator.free(raw_args);
@@ -92,8 +94,10 @@ pub fn main(init: process.Init.Minimal) !void {
     } else if (mem.eql(u8, cmd, "--guide-step")) {
         try guide.run(allocator, config, .step);
         return;
+    } else if (mem.eql(u8, cmd, "lang") and args.len == 2) {
+        try stdout("{s}\n", .{i18n.code()});
     } else if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
-        try commands.printHelp();
+        try commands.cmdHelp(args);
     } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
         try writeToolVersion(allocator);
     } else if (mem.eql(u8, cmd, "version") and args.len == 2 and !invoked_as_nvm) {
@@ -143,7 +147,7 @@ pub fn main(init: process.Init.Minimal) !void {
     } else if (mem.eql(u8, cmd, "debug")) {
         try commands.cmdDebug(allocator, config);
     } else {
-        try stderr("Unknown command: {s}\n", .{cmd});
+        try @import("help.zig").unknownCommand(cmd);
         try commands.printHelp();
         process.exit(1);
     }

@@ -7,6 +7,8 @@ const process = std.process;
 
 const util = @import("util.zig");
 const agent = @import("agent.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
@@ -169,21 +171,22 @@ pub const Map = struct {
     }
 };
 
+fn reportMsg(comptime message: i18n.Msg, args: anytype) !void {
+    var buf: [512]u8 = undefined;
+    try report(i18n.format(message, &buf, args));
+}
+
 pub fn printError(err: anyerror) !void {
     switch (err) {
-        error.InvalidScope => try report("error: Scope must look like @company."),
-        error.InvalidUrl => try report("error: Registry must be an http:// or https:// URL."),
-        error.ScopeMissing => try report("error: That scope is not in the map."),
-        error.NoHome => try report("error: HOME is not set."),
-        error.NoMap => try report("error: No registry map yet. Set a default or a scope first."),
-        error.InvalidName => try report("error: registry name must be letters, digits, '-', '_', or '.'."),
-        error.CurlMissing => try report("error: curl is required for nrm test."),
+        error.InvalidScope => try reportMsg(messages.scope_shape, .{}),
+        error.InvalidUrl => try reportMsg(messages.registry_url, .{}),
+        error.ScopeMissing => try reportMsg(messages.scope_missing, .{}),
+        error.NoHome => try reportMsg(messages.no_home, .{}),
+        error.NoMap => try reportMsg(messages.no_map, .{}),
+        error.InvalidName => try reportMsg(messages.bad_registry_name, .{}),
+        error.CurlMissing => try reportMsg(messages.curl_nrm, .{}),
         error.Explained => {},
-        else => {
-            var buf: [160]u8 = undefined;
-            const message = std.fmt.bufPrint(&buf, "error: registry failed: {s}", .{@errorName(err)}) catch "error: registry failed";
-            try report(message);
-        },
+        else => try reportMsg(messages.registry_failed, .{@errorName(err)}),
     }
 }
 
@@ -200,7 +203,7 @@ pub fn show(allocator: mem.Allocator, root: []const u8) !void {
         defer map.deinit(allocator);
         try printMap(map);
     } else {
-        try stderr("No registry map in {s}\n", .{store});
+        try i18n.err(messages.no_registry_map, .{store});
     }
     try printTargets(allocator, env);
 }
@@ -313,7 +316,7 @@ pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
     var map = try loadOrEmpty(allocator, root);
     errdefer map.deinit(allocator);
     const found = map.urlForName(name) orelse {
-        try stderr("error: {s} is not a registry.\n", .{name});
+        try i18n.err(messages.not_a_registry, .{name});
         return error.Explained;
     };
     const url = try allocator.dupe(u8, found);
@@ -321,7 +324,7 @@ pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
     try map.setDefault(allocator, url);
     try map.assignCurrent(allocator, name);
     try save(allocator, root, &map);
-    try stdout("The registry has been changed to '{s}'.\n", .{name});
+    try i18n.out(messages.registry_changed, .{name});
     try syncMap(allocator, root, &map);
     map.deinit(allocator);
 }
@@ -329,11 +332,11 @@ pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
 pub fn addName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
     const name = try normalizeName(raw_name);
     if (mem.eql(u8, name, "auto")) {
-        try stderr("error: auto is reserved.\n", .{});
+        try i18n.err(messages.auto_reserved, .{});
         return error.Explained;
     }
     if (findBuiltin(name) != null) {
-        try stderr("error: {s} is a built-in registry.\n", .{name});
+        try i18n.err(messages.builtin_registry, .{name});
         return error.Explained;
     }
     const url = try normalizeUrl(raw_url);
@@ -341,20 +344,20 @@ pub fn addName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8,
     errdefer map.deinit(allocator);
     try map.upsertName(allocator, name, url);
     try save(allocator, root, &map);
-    try stdout("added {s}\n", .{name});
+    try i18n.out(messages.added_name, .{name});
     map.deinit(allocator);
 }
 
 pub fn delName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8) !void {
     const name = try normalizeName(raw_name);
     if (findBuiltin(name) != null) {
-        try stderr("error: {s} is a built-in registry.\n", .{name});
+        try i18n.err(messages.builtin_registry, .{name});
         return error.Explained;
     }
     var map = try load(allocator, root);
     errdefer map.deinit(allocator);
     if (!map.removeName(allocator, name)) {
-        try stderr("error: {s} is not a registry.\n", .{name});
+        try i18n.err(messages.not_a_registry, .{name});
         return error.Explained;
     }
     if (map.current_name) |active| {
@@ -364,7 +367,7 @@ pub fn delName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
         }
     }
     try save(allocator, root, &map);
-    try stdout("deleted {s}\n", .{name});
+    try i18n.out(messages.deleted_name, .{name});
     map.deinit(allocator);
 }
 
@@ -396,13 +399,13 @@ pub fn listScopes(allocator: mem.Allocator, root: []const u8) !void {
     if (loaded) |*map| {
         defer map.deinit(allocator);
         if (map.scopes.items.len == 0) {
-            try stdout("No scopes.\n", .{});
+            try i18n.out(messages.no_scopes, .{});
             return;
         }
         for (map.scopes.items) |scope| try stdout("{s} {s}\n", .{ scope.name, scope.url });
         return;
     }
-    try stdout("No scopes.\n", .{});
+    try i18n.out(messages.no_scopes, .{});
 }
 
 pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
@@ -467,7 +470,7 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
 
 fn explainMissing(name: []const u8) error{Explained} {
     var buf: [256]u8 = undefined;
-    const message = std.fmt.bufPrint(&buf, "error: {s} is not a registry.", .{name}) catch "error: is not a registry.";
+    const message = i18n.format(messages.not_a_registry_plain, &buf, .{name});
     return agent.explain(message);
 }
 
@@ -484,7 +487,7 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
             allocator.free(hits);
         }
         const winner = fastestName(entries.items, hits) orelse {
-            try stderr("error: no registry responded.\n", .{});
+            try i18n.err(messages.no_registry_responded, .{});
             return error.Explained;
         };
         return useName(allocator, root, winner);
@@ -493,7 +496,7 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
     defer allocator.free(samples);
     try rememberRegistries(allocator, root, entries.items, samples);
     const winner = fastestSample(entries.items, samples) orelse {
-        try stderr("error: no registry responded.\n", .{});
+        try i18n.err(messages.no_registry_responded, .{});
         return error.Explained;
     };
     return useName(allocator, root, winner);
@@ -767,11 +770,11 @@ fn syncMap(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try rewrite(allocator, files.pnpmrc, map, renderNpmrc);
     try rewrite(allocator, files.bunfig, map, renderBunfig);
     try printMap(map);
-    try stderr("Wrote {s}\n", .{files.npmrc});
-    try stderr("Wrote {s}\n", .{files.yarnrc});
-    try stderr("Wrote {s}\n", .{files.yarnrc_yml});
-    try stderr("Wrote {s}\n", .{files.pnpmrc});
-    try stderr("Wrote {s}\n", .{files.bunfig});
+    try i18n.err(messages.wrote_path, .{files.npmrc});
+    try i18n.err(messages.wrote_path, .{files.yarnrc});
+    try i18n.err(messages.wrote_path, .{files.yarnrc_yml});
+    try i18n.err(messages.wrote_path, .{files.pnpmrc});
+    try i18n.err(messages.wrote_path, .{files.bunfig});
     _ = root;
 }
 
@@ -839,7 +842,7 @@ fn targetPaths(allocator: mem.Allocator, env: Env) !Files {
 fn printTargets(allocator: mem.Allocator, env: Env) !void {
     const files = try targetPaths(allocator, env);
     defer files.deinit(allocator);
-    try stderr("Sync writes:\n  {s}\n  {s}\n  {s}\n  {s}\n  {s}\n", .{
+    try i18n.err(messages.sync_writes, .{
         files.npmrc,
         files.yarnrc,
         files.yarnrc_yml,
@@ -850,9 +853,9 @@ fn printTargets(allocator: mem.Allocator, env: Env) !void {
 
 fn printMap(map: *const Map) !void {
     if (map.default_url) |url| {
-        try stderr("default {s}\n", .{url});
+        try i18n.err(messages.default_url, .{url});
     } else {
-        try stderr("default (not set)\n", .{});
+        try i18n.err(messages.default_unset, .{});
     }
     for (map.scopes.items) |scope| try stderr("{s} {s}\n", .{ scope.name, scope.url });
 }

@@ -8,9 +8,48 @@ const config = @import("config.zig");
 const util = @import("util.zig");
 const registry = @import("registry.zig");
 const agent = @import("agent.zig");
+const locale = @import("locale.zig");
 
 test {
     _ = @import("select.zig");
+}
+
+fn langOf(nvm: ?[]const u8, lc_all: ?[]const u8, lc_messages: ?[]const u8, lang: ?[]const u8, mac: ?[]const u8) locale.Lang {
+    return locale.decide(nvm, lc_all, lc_messages, lang, mac);
+}
+
+test "locale: NVM_LANG, neutral locales, and macOS fallback" {
+    try testing.expect(langOf("zh", "C", null, "en_US", "en-US") == .zh);
+    try testing.expect(langOf("en", null, "zh_CN.UTF-8", null, "zh-Hans") == .en);
+    try testing.expect(langOf("zh_CN", "en_US", null, null, null) == .en);
+    try testing.expect(langOf(null, "C", "zh_CN.UTF-8", null, null) == .en);
+    try testing.expect(langOf(null, "C", "en_US", null, "zh-Hans-CN") == .zh);
+    try testing.expect(langOf(null, "POSIX", null, "zh_CN", null) == .en);
+    try testing.expect(langOf(null, "POSIX", null, "zh_CN", "zh-Hans") == .zh);
+    try testing.expect(langOf(null, "C.UTF-8", null, null, "zh_CN") == .zh);
+    try testing.expect(langOf(null, "en_US.UTF-8", null, null, "zh-Hans") == .zh);
+    try testing.expect(langOf(null, "en_US.UTF-8", null, null, null) == .en);
+    try testing.expect(langOf("", "zh_CN.UTF-8", null, null, null) == .zh);
+    try testing.expect(langOf(null, null, null, "zh-Hans", null) == .zh);
+    try testing.expect(langOf(null, "fr_FR", "zh_CN", null, "zh-Hans") == .en);
+    try testing.expect(langOf("", null, "", null, "zh-Hans-CN") == .zh);
+    try testing.expect(langOf("", null, "", null, null) == .en);
+}
+
+test "locale: AppleLanguages plist, then AppleLocale" {
+    const zh_plist = [_]u8{ 98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 94, 65, 112, 112, 108, 101, 76, 97, 110, 103, 117, 97, 103, 101, 115, 162, 3, 4, 90, 122, 104, 45, 72, 97, 110, 115, 45, 67, 78, 85, 101, 110, 45, 85, 83, 8, 11, 26, 29, 40, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 46 };
+    const en_plist = [_]u8{ 98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 94, 65, 112, 112, 108, 101, 76, 97, 110, 103, 117, 97, 103, 101, 115, 162, 3, 4, 85, 101, 110, 45, 85, 83, 87, 122, 104, 45, 72, 97, 110, 115, 8, 11, 26, 29, 35, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 43 };
+    const locale_plist = [_]u8{ 98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 91, 65, 112, 112, 108, 101, 76, 111, 99, 97, 108, 101, 85, 122, 104, 95, 67, 78, 8, 11, 23, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29 };
+    const zh_xml =
+        \\<?xml version="1.0" encoding="UTF-8"?>
+        \\<plist version="1.0"><dict><key>AppleLanguages</key><array><string>zh-Hans-CN</string><string>en-US</string></array></dict></plist>
+    ;
+    var buf: [64]u8 = undefined;
+    try testing.expectEqualStrings("zh-Hans-CN", locale.preferredFromPlist(&zh_plist, &buf).?);
+    try testing.expectEqualStrings("en-US", locale.preferredFromPlist(&en_plist, &buf).?);
+    try testing.expectEqualStrings("zh_CN", locale.preferredFromPlist(&locale_plist, &buf).?);
+    try testing.expectEqualStrings("zh-Hans-CN", locale.preferredFromPlist(zh_xml, &buf).?);
+    try testing.expect(langOf(null, "en_US", null, null, locale.preferredFromPlist(&zh_plist, &buf)) == .zh);
 }
 
 test "registry module is linked" {

@@ -5,6 +5,8 @@ const mem = std.mem;
 const fs = std.fs;
 const process = std.process;
 const util = @import("util.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
 
 const stderr = util.stderr;
@@ -292,7 +294,7 @@ fn artifactToRemote(allocator: mem.Allocator, artifact: ResolvedEntry, os: []con
 
 pub fn resolveRemoteQuery(allocator: mem.Allocator, query: VersionQuery, config: ZnvmConfig) !?ResolvedRemote {
     const parsed = loadRemoteIndex(allocator, config) catch |err| {
-        try stderr("Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
+        try i18n.err(messages.fetch_index_plain, .{@errorName(err)});
         return null;
     };
     defer parsed.deinit();

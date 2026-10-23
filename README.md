@@ -46,7 +46,6 @@ nvm ls
 nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
-Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
 The profile path in the `source` line is the file the script actually updated.
@@ -102,7 +101,9 @@ nvm uninstall 20
 nvm deactivate
 ```
 
-In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Up and Down, or k and j, move the highlight. Enter confirms. Esc, q, or Left goes back. A number, then Enter, still picks that row. Ctrl-C restores the terminal and exits. Without a terminal, `nvm` prints a short notice and exits. The same menu can edit package-registry routes: several `@scope` registries at once, a separate default, then a sync to npm, yarn, pnpm, and bun.
+Selectors include `20`, `20.11`, `v20.11.0`, `node`, `stable`, `lts/*`, `lts/<name>`, `default`, `current`, and `system`. `.nvmrc` is read from the current directory and its parents. `.node-version` is used only when no `.nvmrc` exists above the current directory. `#` comments are ignored.
+
+In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Up and Down, or k and j, move the highlight. Enter confirms. Esc, q, or Left goes back. A number, then Enter, still picks that row. Ctrl-C restores the terminal and exits. Without a terminal, `nvm` prints a short notice and exits. `NVM_LANG=zh` or `NVM_LANG=en` selects the language. Otherwise NVM uses the first non-empty of `LC_ALL`, `LC_MESSAGES`, and `LANG`. A `zh` tag is Chinese. `C`, `POSIX`, and `en` are neutral: on macOS they use the first `AppleLanguages` value in `~/Library/Preferences/.GlobalPreferences.plist` (or `AppleLocale`), read in process, with no `defaults` command. Any other tag is English. The same menu can edit package-registry routes: several `@scope` registries at once, a separate default, then a sync to npm, yarn, pnpm, and bun.
 
 ```bash
 nvm registry add @company https://npm.company.example
@@ -185,7 +186,7 @@ Not set. cnpm rewrites package files (`replaceHost` / `replaceHostFiles`), and n
 
 Not set. The installer has no verified host env, or the mirror path does not match that installer: @journeyapps/sqlcipher, leveldown, utf-8-validate, argon2, fsevents, couchbase, wrtc, skia-canvas, libpg-query, @ali/s2.
 
-`official` clears them. `set` stores one URL. `auto` measures each China host against its upstream host and keeps the faster one. npm, pnpm, and yarn v1 keys go in their rc files, inside a `# nvm binaries` block. Env-only values go in `$NVM_DIR/binaries.env`, which `nvm.sh` sources. `reset` deletes that file and the block, and leaves registry lines, scopes, and other settings. Clearing the Node mirror falls back to znvm's usual download host. To force nodejs.org, `nvm mirror set node https://nodejs.org/dist`. Nothing here runs on install.
+`official` clears them. `set` stores one URL. `auto` measures each China host against its upstream host and keeps the faster one. npm, pnpm, and yarn v1 keys go in their rc files, inside a `# nvm binaries` block. Env-only values go in `$NVM_DIR/binaries.env`, which `nvm.sh` sources. `reset` deletes that file and the block, and leaves registry lines, scopes, and other settings. Clearing the Node mirror falls back to znvm's usual download host. To force nodejs.org, `nvm mirror set node https://nodejs.org/dist`. Install writes the china preset when the language is zh, and otherwise writes `https://registry.npmjs.org` plus `https://nodejs.org/dist` with no other binary hosts; `NVM_MIRROR=china|official` overrides that, an existing mirror config is kept, and `nvm mirror use auto` / `nrm use auto` stay manual.
 
 Docker image mirrors are not set here. Pointing the Docker daemon at a mirror needs a privileged config and a daemon restart, so that stays a later change.
 
@@ -243,7 +244,7 @@ That installs `skills/znvm/SKILL.md`. Copy that file if the client cannot instal
 
 Menus open only when stdin and the menu stream are terminals, `CI` is unset or empty, and neither `--yes` nor `NVM_NONINTERACTIVE=1` (also `true` or `yes`) is set. `NO_COLOR` stays plain ASCII. `--guide-step` draws on stderr.
 
-`--json` writes one object to stdout for `ls`, `ls-remote`, `current`, `which`, `version`, `--version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. An error is `{"error":"...","exit":N}` on stderr, stdout is empty, and the exit code is the same as text mode: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file. Guide quit is 2.
+`--json` writes one object to stdout for `ls`, `ls-remote`, `current`, `which`, `version`, `--version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. An error is `{"error":"...","exit":N}` on stderr, stdout is empty, and the exit code is the same as text mode: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file. Guide quit is 2. Ctrl-C in a menu is 130. `nvm --help` is a short command list. The behavior above is the reference.
 
 `nvm ls --json` with v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`:
 

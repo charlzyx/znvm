@@ -5,12 +5,12 @@ set -e
 # Header
 if [ "${1:-}" != "--uninstall" ]; then
     echo "znvm: Zig Node Version Manager"
-    echo "Node.js version manager. nvm-compatible layout, npmmirror by default."
+    echo "Node.js version manager. nvm-compatible layout."
     echo ""
 fi
 
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.8.2"
+ZNVM_VERSION="v2.9.0"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
@@ -390,6 +390,13 @@ else
     echo "" >> "$PROFILE"
     echo "# znvm" >> "$PROFILE"
     echo "$SOURCE_STR" >> "$PROFILE"
+fi
+
+if [ "$BINARY_DOWNLOADED" = true ]; then
+    ZNVM_EXE="$INSTALL_BIN_DIR/znvm"
+    if [ -x "$ZNVM_EXE" ]; then
+        "$ZNVM_EXE" mirror preset
+    fi
 fi
 
 echo ""

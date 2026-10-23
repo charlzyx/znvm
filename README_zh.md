@@ -44,7 +44,6 @@ nvm ls
 nrm ls
 
 Node versions are stored in $NVM_DIR/versions/node.
-Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
 `source` 那一行里的路径是脚本实际改过的配置文件。
@@ -87,7 +86,9 @@ nvm exec 20 npm test
 nvm uninstall 20
 ```
 
-在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。上下键或 k/j 移动高亮，回车确认。Esc、q 或左方向键返回。先输入数字再回车，仍然选中那一行。Ctrl-C 会恢复终端并退出。没有终端时，`nvm` 只打印一句说明并退出。同一个菜单可以改包的源：多个 `@scope` 同时指向不同仓库，默认源单独设置，然后同步到 npm、yarn、pnpm 和 bun。
+版本写法包括 `20`、`20.11`、`v20.11.0`、`node`、`stable`、`lts/*`、`lts/<name>`、`default`、`current` 和 `system`。`.nvmrc` 从当前目录和父目录读取。上面都没有 `.nvmrc` 时才读 `.node-version`。`#` 注释会被忽略。
+
+在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。上下键或 k/j 移动高亮，回车确认。Esc、q 或左方向键返回。先输入数字再回车，仍然选中那一行。Ctrl-C 会恢复终端并退出。没有终端时，`nvm` 只打印一句说明并退出。`NVM_LANG=zh` 或 `NVM_LANG=en` 指定语言。否则按 `LC_ALL`、`LC_MESSAGES`、`LANG` 的第一个非空值。`zh` 开头是中文。`C`、`POSIX` 和 `en` 视为未指定：macOS 读取 `~/Library/Preferences/.GlobalPreferences.plist` 里的 `AppleLanguages`（没有则用 `AppleLocale`），不调用 `defaults`。其他语言标签用英文。同一个菜单可以改包的源：多个 `@scope` 同时指向不同仓库，默认源单独设置，然后同步到 npm、yarn、pnpm 和 bun。
 
 ```bash
 nvm registry add @company https://npm.company.example
@@ -170,7 +171,7 @@ nvm mirror reset
 
 不设置。安装脚本没有可核对的 host 环境变量，或镜像路径和安装脚本对不上：@journeyapps/sqlcipher、leveldown、utf-8-validate、argon2、fsevents、couchbase、wrtc、skia-canvas、libpg-query、@ali/s2。
 
-`official` 清掉这些地址。`set` 只改一个 URL。`auto` 把每个中国镜像和对应的上游地址比一次，留下更快的那边。npm、pnpm 和 yarn v1 的键写在各自的 rc 里，包在 `# nvm binaries` 段中。只认环境变量的值写在 `$NVM_DIR/binaries.env`，`nvm.sh` 会 source 它。`reset` 删掉这个文件和这段配置，源、scope 和其他设置留下。清掉 Node 镜像之后，下载回到 znvm 自己的默认地址。要强制用 nodejs.org，运行 `nvm mirror set node https://nodejs.org/dist`。安装时不会测量。
+`official` 清掉这些地址。`set` 只改一个 URL。`auto` 把每个中国镜像和对应的上游地址比一次，留下更快的那边。npm、pnpm 和 yarn v1 的键写在各自的 rc 里，包在 `# nvm binaries` 段中。只认环境变量的值写在 `$NVM_DIR/binaries.env`，`nvm.sh` 会 source 它。`reset` 删掉这个文件和这段配置，源、scope 和其他设置留下。清掉 Node 镜像之后，下载回到 znvm 自己的默认地址。要强制用 nodejs.org，运行 `nvm mirror set node https://nodejs.org/dist`。安装时语言是 zh 就写入 china 预设，否则写入 `https://registry.npmjs.org` 和 `https://nodejs.org/dist`，不改其他二进制地址。`NVM_MIRROR=china|official` 可以覆盖。已有镜像配置会保留。`nvm mirror use auto` 和 `nrm use auto` 只在手动执行时测速。
 
 这里不设置 Docker 镜像。把 Docker daemon 指到镜像需要改特权配置并重启 daemon，留到以后再做。
 

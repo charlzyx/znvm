@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.9.0] - 2026-10-23
+
+### Added
+
+- Install writes the china preset when the language is zh (`NVM_LANG=zh|en` first, then `LC_ALL` / `LC_MESSAGES` / `LANG`; `C`, `POSIX`, and `en` on macOS use `AppleLanguages` from `~/Library/Preferences/.GlobalPreferences.plist`). Anything else writes `https://registry.npmjs.org` and `https://nodejs.org/dist`, with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `nvm mirror use auto` and `nrm use auto` stay manual.
+- Human-facing CLI text, including `nvm --help`, `nvm help <command>`, and `nrm --help`, is Chinese or English. `--json`, `--llm`, and machine-parsed lines stay English. `nvm lang` prints `zh` or `en`.
+
+### Changed
+
+- The long help notes now live in the README and `skills/znvm/SKILL.md`.
+
 ## [v2.8.2] - 2026-10-23
 
 ### Changed
@@ -315,6 +326,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.9.0]: https://github.com/charlzyx/znvm/compare/v2.8.2...v2.9.0
 [v2.8.2]: https://github.com/charlzyx/znvm/compare/v2.8.1...v2.8.2
 [v2.8.1]: https://github.com/charlzyx/znvm/compare/v2.8.0...v2.8.1
 [v2.8.0]: https://github.com/charlzyx/znvm/compare/v2.7.0...v2.8.0

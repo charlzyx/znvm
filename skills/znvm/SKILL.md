@@ -75,7 +75,7 @@ nrm use auto
 nvm mirror use auto
 ```
 
-`nrm use taobao` and `nvm registry china` set `https://registry.npmmirror.com` and leave scopes in place. `nvm mirror use china` writes the npmmirror hosts, including the Node dist mirror. `nrm use auto` picks one registry and does not change scopes. `nvm mirror use auto` picks a host per tool. Neither runs on install.
+`nrm use taobao` and `nvm registry china` set `https://registry.npmmirror.com` and leave scopes in place. `nvm mirror use china` writes the npmmirror hosts, including the Node dist mirror. `nrm use auto` picks one registry and does not change scopes. `nvm mirror use auto` picks a host per tool. Install writes china when the language is zh, and otherwise writes `https://registry.npmjs.org` plus `https://nodejs.org/dist` with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `auto` stays manual. `NVM_LANG=zh|en` forces the language; otherwise `LC_ALL`, then `LC_MESSAGES`, then `LANG`. `nvm lang` prints `zh` or `en`. `--json` and `--llm` stay English.
 
 ## Download hosts
 
@@ -150,7 +150,7 @@ nvm mirror ls --json
 nvm mirror test electron --json
 ```
 
-`nvm version --json` is the active Node version (`{"version":"v20.11.0"}`, `"system"`, or `"none"`). `nvm --version --json`, `znvm version --json`, and `nrm --version --json` are the tool: `{"version":"v2.8.2"}`. A missing match is exit 3 with `{"error":"N/A","exit":3}` on stderr, not a version of `N/A`. Text mode still prints `N/A` on stdout.
+`nvm version --json` is the active Node version (`{"version":"v20.11.0"}`, `"system"`, or `"none"`). `nvm --version --json`, `znvm version --json`, and `nrm --version --json` are the tool: `{"version":"v2.9.0"}`. A missing match is exit 3 with `{"error":"N/A","exit":3}` on stderr, not a version of `N/A`. Text mode still prints `N/A` on stdout.
 
 With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`:
 
@@ -178,4 +178,4 @@ With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH
 
 `--json` on any other command exits 1 with `error: --json is not supported for this command.` Bare `--json` exits 1 with `error: --json needs a command.` Flags before `--` are flags. `nvm exec 20 -- --json` leaves `--json` as a program argument and does not switch the output.
 
-Exit codes: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file. Guide quit is 2.
+Exit codes: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file. Guide quit is 2. Ctrl-C in a menu is 130. `nvm --help` and `nrm --help` are short usage screens. This file is the reference for files, scopes, menus, and JSON.

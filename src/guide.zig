@@ -5,6 +5,8 @@ const fs = std.fs;
 const process = std.process;
 
 const select = @import("select.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 const commands = @import("commands.zig");
 const registry = @import("registry.zig");
 const binary = @import("binary.zig");
@@ -209,7 +211,7 @@ pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
     const agent = @import("agent.zig");
     const stream: agent.MenuStream = if (mode == .step) .stderr else .stdout;
     if (!agent.menuAllowed(stream)) {
-        try stderr("{s}: interactive guide needs a terminal.\nRun `{s} help` for commands.\n", .{ commands.program_name, commands.program_name });
+        try i18n.err(messages.guide_needs_terminal, .{ commands.program_name, commands.program_name });
         process.exit(1);
     }
 
@@ -230,16 +232,8 @@ pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
 }
 
 fn preferZh(allocator: mem.Allocator) bool {
-    var env = host.envMap(allocator) catch return false;
-    defer env.deinit();
-    const keys = [_][]const u8{ "LC_ALL", "LC_MESSAGES", "LANG" };
-    for (keys) |key| {
-        const value = env.get(key) orelse continue;
-        if (value.len == 0) continue;
-        if (mem.eql(u8, value, "C") or mem.eql(u8, value, "POSIX")) return false;
-        return mem.startsWith(u8, value, "zh");
-    }
-    return false;
+    i18n.init(allocator);
+    return i18n.isZh();
 }
 
 fn text(zh: bool, en: []const u8, zh_text: []const u8) []const u8 {
@@ -756,7 +750,7 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !voi
 fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
     try stderr("{s}\n", .{text(zh, "Fetching the remote list...", "正在获取远程列表...")});
     const labels = remoteLabels(allocator, config) catch |err| {
-        try stderr("error: Failed to fetch Node.js index ({s})\n", .{@errorName(err)});
+        try i18n.err(messages.fetch_index_nl, .{@errorName(err)});
         return;
     };
     defer {
