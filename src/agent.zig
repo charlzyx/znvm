@@ -5,6 +5,7 @@ const host = @import("host.zig");
 
 pub var json_mode: bool = false;
 pub var yes_mode: bool = false;
+pub var mirror_quiet: bool = false;
 
 pub fn truthy(value: ?[]const u8) bool {
     const raw = mem.trim(u8, value orelse return false, " \t");

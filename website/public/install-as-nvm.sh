@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.9.0"
+ZNVM_VERSION="v2.9.1"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
@@ -29,9 +29,14 @@ esac
 
 if [ "${1:-}" != "--uninstall" ]; then
     echo "nvm"
-    echo "Node versions go in ~/.nvm."
-    echo ""
 fi
+
+profile_display() {
+    case "$1" in
+        "$HOME"/*) printf '~/%s\n' "${1#"$HOME"/}" ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
 
 shell_quote() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
@@ -481,17 +486,12 @@ fi
 
 write_nvm_sh "$NVM_EXE"
 PROFILE_PATH="$(configure_profile)"
+INSTALL_LANG="$(NVM_DIR="$NVM_COMPAT_DIR" "$NVM_EXE" lang)"
 NVM_DIR="$NVM_COMPAT_DIR" "$NVM_EXE" mirror preset
-
-echo ""
-echo "nvm is ready."
-echo "Open a new terminal, or run:"
-echo "  source \"$PROFILE_PATH\""
-echo ""
-echo "export NVM_DIR=\"$NVM_COMPAT_DIR\""
-echo "nvm install 22"
-echo "nvm use 22"
-echo "nvm ls"
-echo "nrm ls"
-echo ""
-echo "Node versions are stored in \$NVM_DIR/versions/node."
+PROFILE_SHORT="$(profile_display "$PROFILE_PATH")"
+if [ "$INSTALL_LANG" = zh ]; then
+    echo "完成"
+else
+    echo "Done."
+fi
+echo "  source $PROFILE_SHORT"

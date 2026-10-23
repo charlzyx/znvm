@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.9.1] - 2026-10-23
+
+### Changed
+
+- Install scripts end with two lines (done + `source ~/.zshrc`) in zh or en. Example commands and storage notes are gone.
+- `nvm mirror preset` prints one line (`mirror: china` / `镜像: china`, or `official` / `unchanged`) instead of per-file write messages.
+
 ## [v2.9.0] - 2026-10-23
 
 ### Added
@@ -326,6 +333,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.9.1]: https://github.com/charlzyx/znvm/compare/v2.9.0...v2.9.1
 [v2.9.0]: https://github.com/charlzyx/znvm/compare/v2.8.2...v2.9.0
 [v2.8.2]: https://github.com/charlzyx/znvm/compare/v2.8.1...v2.8.2
 [v2.8.1]: https://github.com/charlzyx/znvm/compare/v2.8.0...v2.8.1
