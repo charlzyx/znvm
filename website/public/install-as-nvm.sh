@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.8.0"
+ZNVM_VERSION="v2.8.1"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
