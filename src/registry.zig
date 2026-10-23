@@ -5,9 +5,15 @@ const mem = std.mem;
 const process = std.process;
 
 const util = @import("util.zig");
+const agent = @import("agent.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
+
+fn report(message: []const u8) !void {
+    if (agent.json_mode) agent.fail(1, message);
+    try stderr("{s}\n", .{message});
+}
 
 pub const china_registry = "https://registry.npmmirror.com";
 pub const official_registry = "https://registry.npmjs.org";
@@ -164,15 +170,19 @@ pub const Map = struct {
 
 pub fn printError(err: anyerror) !void {
     switch (err) {
-        error.InvalidScope => try stderr("error: Scope must look like @company.\n", .{}),
-        error.InvalidUrl => try stderr("error: Registry must be an http:// or https:// URL.\n", .{}),
-        error.ScopeMissing => try stderr("error: That scope is not in the map.\n", .{}),
-        error.NoHome => try stderr("error: HOME is not set.\n", .{}),
-        error.NoMap => try stderr("error: No registry map yet. Set a default or a scope first.\n", .{}),
-        error.InvalidName => try stderr("error: registry name must be letters, digits, '-', '_', or '.'.\n", .{}),
-        error.CurlMissing => try stderr("error: curl is required for nrm test.\n", .{}),
+        error.InvalidScope => try report("error: Scope must look like @company."),
+        error.InvalidUrl => try report("error: Registry must be an http:// or https:// URL."),
+        error.ScopeMissing => try report("error: That scope is not in the map."),
+        error.NoHome => try report("error: HOME is not set."),
+        error.NoMap => try report("error: No registry map yet. Set a default or a scope first."),
+        error.InvalidName => try report("error: registry name must be letters, digits, '-', '_', or '.'."),
+        error.CurlMissing => try report("error: curl is required for nrm test."),
         error.Explained => {},
-        else => try stderr("error: registry failed: {s}\n", .{@errorName(err)}),
+        else => {
+            var buf: [160]u8 = undefined;
+            const message = std.fmt.bufPrint(&buf, "error: registry failed: {s}", .{@errorName(err)}) catch "error: registry failed";
+            try report(message);
+        },
     }
 }
 
@@ -242,13 +252,46 @@ pub fn sync(allocator: mem.Allocator, root: []const u8) !void {
 pub fn listNames(allocator: mem.Allocator, root: []const u8) !void {
     var map = try loadOrEmpty(allocator, root);
     defer map.deinit(allocator);
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.key("registries");
+        try sink.beginArray();
+        for (builtin_registries) |item| try writeRegistry(&sink, &map, item.name, item.url);
+        for (map.names.items) |item| try writeRegistry(&sink, &map, item.name, item.url);
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+        return;
+    }
     for (builtin_registries) |item| try printNameLine(&map, item.name, item.url);
     for (map.names.items) |item| try printNameLine(&map, item.name, item.url);
+}
+
+fn writeRegistry(sink: *agent.Sink, map: *const Map, name: []const u8, url: []const u8) !void {
+    try sink.beginObject();
+    try sink.fieldString("name", name);
+    try sink.fieldString("url", url);
+    try sink.fieldBool("current", map.isCurrent(name, url));
+    try sink.endObject();
 }
 
 pub fn current(allocator: mem.Allocator, root: []const u8, show_url: bool) !void {
     var map = try loadOrEmpty(allocator, root);
     defer map.deinit(allocator);
+    if (agent.json_mode) {
+        const name: ?[]const u8 = if (map.current_name) |active| active else if (map.default_url) |url| map.lookupName(url) else null;
+        const url: ?[]const u8 = if (map.current_name) |active| map.urlForName(active) orelse map.default_url else map.default_url;
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        if (name) |value| try sink.fieldString("name", value) else try sink.fieldNull("name");
+        if (url) |value| try sink.fieldString("url", value) else try sink.fieldNull("url");
+        try sink.endObject();
+        try sink.flush();
+        return;
+    }
     if (show_url) {
         if (map.default_url) |url| try stdout("{s}\n", .{url}) else try stdout("none\n", .{});
         return;
@@ -329,6 +372,26 @@ pub fn listScopes(allocator: mem.Allocator, root: []const u8) !void {
         error.NoMap => null,
         else => return err,
     };
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.key("scopes");
+        try sink.beginArray();
+        if (loaded) |*map| {
+            defer map.deinit(allocator);
+            for (map.scopes.items) |scope| {
+                try sink.beginObject();
+                try sink.fieldString("scope", scope.name);
+                try sink.fieldString("url", scope.url);
+                try sink.endObject();
+            }
+        }
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+        return;
+    }
     if (loaded) |*map| {
         defer map.deinit(allocator);
         if (map.scopes.items.len == 0) {
@@ -354,14 +417,11 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
     }
     if (only) |raw| {
         const name = try normalizeName(raw);
-        const found = map.urlForName(name) orelse {
-            try stderr("error: {s} is not a registry.\n", .{name});
-            return error.Explained;
-        };
-        try entries.append(allocator, .{
-            .name = try allocator.dupe(u8, name),
-            .url = try allocator.dupe(u8, found),
-        });
+    const found = map.urlForName(name) orelse return explainMissing(name);
+    try entries.append(allocator, .{
+        .name = try allocator.dupe(u8, name),
+        .url = try allocator.dupe(u8, found),
+    });
     } else {
         for (builtin_registries) |item| {
             try entries.append(allocator, .{
@@ -378,8 +438,36 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
     }
     const samples = try measureEntries(allocator, entries.items);
     defer allocator.free(samples);
-    for (entries.items, samples) |item, sample| try printProbe(item.name, sample);
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.key("registries");
+        try sink.beginArray();
+        for (entries.items, 0..) |item, i| {
+            try sink.beginObject();
+            try sink.fieldString("name", item.name);
+            try sink.fieldBool("ok", samples[i].ok);
+            if (samples[i].ok) {
+                try sink.fieldString("seconds", samples[i].seconds());
+            } else {
+                try sink.fieldNull("seconds");
+            }
+            try sink.endObject();
+        }
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+    } else {
+        for (entries.items, 0..) |item, i| try printProbe(item.name, samples[i]);
+    }
     if (only == null) try rememberRegistries(allocator, root, entries.items, samples);
+}
+
+fn explainMissing(name: []const u8) error{Explained} {
+    var buf: [256]u8 = undefined;
+    const message = std.fmt.bufPrint(&buf, "error: {s} is not a registry.", .{name}) catch "error: is not a registry.";
+    return agent.explain(message);
 }
 
 pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
@@ -417,10 +505,7 @@ fn collectEntries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8)
     errdefer freeEntries(allocator, &entries);
     if (only) |raw| {
         const name = try normalizeName(raw);
-        const found = map.urlForName(name) orelse {
-            try stderr("error: {s} is not a registry.\n", .{name});
-            return error.Explained;
-        };
+        const found = map.urlForName(name) orelse return explainMissing(name);
         try entries.append(allocator, .{
             .name = try allocator.dupe(u8, name),
             .url = try allocator.dupe(u8, found),

@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.7.0] - 2026-10-23
+
+### Added
+
+- `--json` writes one JSON object to stdout for `nvm ls`, `nvm ls-remote` (including `--lts`), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. A `--json` error is `{"error":"...","exit":N}` on stderr, stdout is empty, and the exit code is unchanged.
+- Menus open only when stdin and the menu stream are terminals. `--yes`, `NVM_NONINTERACTIVE=1`, and a non-empty `CI` skip them. `NO_COLOR` stays plain ASCII. `--guide-step` still draws on stderr.
+- `skills/znvm/SKILL.md` is an agent skill for `nvm`, `nrm`, and `nvm mirror`. There is no MCP server.
+
 ## [v2.6.0] - 2026-10-23
 
 ### Added
@@ -287,6 +295,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.7.0]: https://github.com/charlzyx/znvm/compare/v2.6.0...v2.7.0
 [v2.6.0]: https://github.com/charlzyx/znvm/compare/v2.5.1...v2.6.0
 [v2.5.1]: https://github.com/charlzyx/znvm/compare/v2.5.0...v2.5.1
 [v2.5.0]: https://github.com/charlzyx/znvm/compare/v2.4.0...v2.5.0

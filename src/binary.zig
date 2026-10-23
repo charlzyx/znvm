@@ -5,9 +5,15 @@ const mem = std.mem;
 const process = std.process;
 
 const util = @import("util.zig");
+const agent = @import("agent.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
+
+fn report(message: []const u8) !void {
+    if (agent.json_mode) agent.fail(1, message);
+    try stderr("{s}\n", .{message});
+}
 
 const block_begin = "# nvm binaries begin";
 const block_end = "# nvm binaries end";
@@ -326,11 +332,15 @@ const State = struct {
 
 pub fn printError(err: anyerror) !void {
     switch (err) {
-        error.InvalidUrl => try stderr("error: mirror must be an http:// or https:// URL.\n", .{}),
-        error.CurlMissing => try stderr("error: curl is required for nvm mirror test.\n", .{}),
-        error.NoHome => try stderr("error: HOME is not set.\n", .{}),
+        error.InvalidUrl => try report("error: mirror must be an http:// or https:// URL."),
+        error.CurlMissing => try report("error: curl is required for nvm mirror test."),
+        error.NoHome => try report("error: HOME is not set."),
         error.Explained => {},
-        else => try stderr("error: mirror failed: {s}\n", .{@errorName(err)}),
+        else => {
+            var buf: [160]u8 = undefined;
+            const message = std.fmt.bufPrint(&buf, "error: mirror failed: {s}", .{@errorName(err)}) catch "error: mirror failed";
+            try report(message);
+        },
     }
 }
 
@@ -351,6 +361,7 @@ pub fn printHelp() !void {
         \\npm, pnpm, and yarn v1 keys go in their rc files.
         \\Env-only tools go in $NVM_DIR/binaries.env. A new shell sources it.
         \\Scope routes are not changed. test always measures again.
+        \\--json writes one JSON object to stdout for ls and test.
         \\Latency is cached in $NVM_DIR/mirror-latency.json for 6 hours.
         \\Docker image mirrors are not set here.
         \\
@@ -385,6 +396,25 @@ pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8)
 pub fn list(allocator: mem.Allocator, root: []const u8) !void {
     var state = try loadState(allocator, root);
     defer state.deinit(allocator);
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.fieldString("profile", @tagName(state.mode));
+        try sink.key("mirrors");
+        try sink.beginArray();
+        for (tools) |tool| {
+            try sink.beginObject();
+            try sink.fieldString("name", tool.name);
+            const url = activeUrl(&state, tool);
+            if (url.len == 0) try sink.fieldNull("url") else try sink.fieldString("url", url);
+            try sink.endObject();
+        }
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+        return;
+    }
     try stdout("profile {s}\n", .{@tagName(state.mode)});
     for (tools) |tool| {
         const url = activeUrl(&state, tool);
@@ -436,17 +466,38 @@ pub fn reset(allocator: mem.Allocator, root: []const u8) !void {
 
 fn testMirrors(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
     const first: usize = if (only) |raw| findTool(mem.trim(u8, raw, " \t")) orelse {
-        try stderr("error: {s} is not a mirror.\n", .{mem.trim(u8, raw, " \t")});
-        return error.Explained;
+        return explainMissing(mem.trim(u8, raw, " \t"));
     } else 0;
     const count: usize = if (only == null) tools.len else 1;
     const samples = try measureTools(allocator, first, count);
     defer allocator.free(samples);
-    var i: usize = 0;
-    while (i < count) : (i += 1) {
-        const tool = tools[first + i];
-        try printSide(tool.name, "china", samples[i * 2]);
-        try printSide(tool.name, "official", samples[i * 2 + 1]);
+    if (agent.json_mode) {
+        var sink = agent.Sink.init(allocator);
+        defer sink.deinit();
+        try sink.beginObject();
+        try sink.key("mirrors");
+        try sink.beginArray();
+        var j: usize = 0;
+        while (j < count) : (j += 1) {
+            const tool = tools[first + j];
+            try sink.beginObject();
+            try sink.fieldString("name", tool.name);
+            try sink.key("china");
+            try writeProbe(&sink, samples[j * 2]);
+            try sink.key("official");
+            try writeProbe(&sink, samples[j * 2 + 1]);
+            try sink.endObject();
+        }
+        try sink.endArray();
+        try sink.endObject();
+        try sink.flush();
+    } else {
+        var i: usize = 0;
+        while (i < count) : (i += 1) {
+            const tool = tools[first + i];
+            try printSide(tool.name, "china", samples[i * 2]);
+            try printSide(tool.name, "official", samples[i * 2 + 1]);
+        }
     }
     if (only == null) {
         var rows: [tools.len * 2]BinRow = undefined;
@@ -537,6 +588,19 @@ pub fn cachedRegistries(allocator: mem.Allocator, root: []const u8, names: []con
 
 pub fn storeRegistries(allocator: mem.Allocator, root: []const u8, rows: []const Row) !void {
     try updateCache(allocator, root, rows, null);
+}
+
+fn explainMissing(name: []const u8) error{Explained} {
+    var buf: [256]u8 = undefined;
+    const message = std.fmt.bufPrint(&buf, "error: {s} is not a mirror.", .{name}) catch "error: is not a mirror.";
+    return agent.explain(message);
+}
+
+fn writeProbe(sink: *agent.Sink, sample: Sample) !void {
+    try sink.beginObject();
+    try sink.fieldBool("ok", sample.ok);
+    if (sample.ok) try sink.fieldString("seconds", sample.seconds()) else try sink.fieldNull("seconds");
+    try sink.endObject();
 }
 
 fn printSide(name: []const u8, side: []const u8, sample: Sample) !void {

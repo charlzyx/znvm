@@ -32,7 +32,8 @@ pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
 }
 
 pub fn runNrm(allocator: mem.Allocator, config: ZnvmConfig) !void {
-    if (!std.posix.isatty(std.posix.STDIN_FILENO)) return;
+    const agent = @import("agent.zig");
+    if (!agent.menuAllowed(.stdout)) return;
     const zh = preferZh(allocator);
     const items = [_][2][]const u8{
         .{ "Registries", "源" },
@@ -221,7 +222,9 @@ fn promptBinarySet(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
 }
 
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
-    if (!std.posix.isatty(std.posix.STDIN_FILENO)) {
+    const agent = @import("agent.zig");
+    const stream: agent.MenuStream = if (mode == .step) .stderr else .stdout;
+    if (!agent.menuAllowed(stream)) {
         try stderr("{s}: interactive guide needs a terminal.\nRun `{s} help` for commands.\n", .{ commands.program_name, commands.program_name });
         process.exit(1);
     }

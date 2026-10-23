@@ -7,9 +7,15 @@ const version = @import("version.zig");
 const config = @import("config.zig");
 const util = @import("util.zig");
 const registry = @import("registry.zig");
+const agent = @import("agent.zig");
 
 test "registry module is linked" {
     try testing.expect(registry.china_registry.len > 0);
+}
+
+test "agent module is linked" {
+    try testing.expect(agent.truthy("yes"));
+    try testing.expect(!agent.truthy("0"));
 }
 
 // Test utilities
