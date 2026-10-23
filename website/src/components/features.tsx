@@ -16,7 +16,7 @@ const features = {
     },
     {
       title: "Guide",
-      body: "Run nvm and pick a number. With no terminal it prints one line and exits.",
+      body: "Run nvm. Up and down to move, Enter to confirm. With no terminal it prints one line and exits.",
     },
     {
       title: "Registries",
@@ -42,7 +42,7 @@ const features = {
     },
     {
       title: "引导",
-      body: "直接敲 nvm，用数字选。没有终端就只打一行，然后退出。",
+      body: "直接敲 nvm，上下键选择，回车确认。没有终端就只打一行，然后退出。",
     },
     {
       title: "源",

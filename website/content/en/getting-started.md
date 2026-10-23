@@ -105,7 +105,7 @@ Open a new terminal, or `source` that profile. The commands after that are `nvm`
 nvm
 ```
 
-Number keys and Enter. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
+Up and down, then Enter. A number still works. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
 
 ## Registries
 

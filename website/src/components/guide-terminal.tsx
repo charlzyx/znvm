@@ -383,6 +383,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   const [result, setResult] = useState<Leaf | null>(null);
   const [closed, setClosed] = useState(false);
   const [typed, setTyped] = useState("");
+  const [cursor, setCursor] = useState(0);
   const frame = useRef<HTMLDivElement>(null);
 
   const title = group === null
@@ -395,15 +396,22 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
       ? menu.map((entry, index) => ({
           key: entry.en,
           label: zh ? entry.zh : entry.en,
-          onPick: () => setGroup(index),
+          onPick: () => {
+            setCursor(0);
+            setGroup(index);
+          },
         }))
       : menu[group].items.map((entry) => ({
           key: entry.en,
           label: zh ? entry.zh : entry.en,
-          onPick: () => setResult(entry),
+          onPick: () => {
+            setCursor(0);
+            setResult(entry);
+          },
         }));
 
   function goBack() {
+    setCursor(0);
     if (result) {
       setResult(null);
       return;
@@ -417,12 +425,39 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
 
   useEffect(() => {
     setTyped("");
+    setCursor(0);
   }, [group, result, closed]);
 
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
     function onKey(event: KeyboardEvent) {
+      if (closed) return;
+      if (result) {
+        if (event.key === "Enter" || event.key === "0" || event.key === "Escape" || event.key === "q" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          goBack();
+        }
+        return;
+      }
+      if (event.key === "ArrowUp" || event.key === "k") {
+        event.preventDefault();
+        setTyped("");
+        setCursor((current) => (current === 0 ? items.length : current - 1));
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "j") {
+        event.preventDefault();
+        setTyped("");
+        setCursor((current) => (current === items.length ? 0 : current + 1));
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "Escape" || event.key === "q") {
+        event.preventDefault();
+        setTyped("");
+        goBack();
+        return;
+      }
       if (typed === "1" && items.length > 9) {
         if (event.key === "0") {
           event.preventDefault();
@@ -436,13 +471,19 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           items[0]?.onPick();
           return;
         }
-        if (event.key === "Backspace" || event.key === "Escape") {
+        if (event.key === "Backspace") {
           event.preventDefault();
           setTyped("");
           return;
         }
       }
-      if (event.key === "0" || (event.key === "Enter" && result)) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (cursor === items.length) goBack();
+        else items[cursor]?.onPick();
+        return;
+      }
+      if (event.key === "0") {
         event.preventDefault();
         goBack();
         return;
@@ -452,6 +493,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
       if (choice === 1 && items.length > 9) {
         event.preventDefault();
         setTyped("1");
+        setCursor(0);
         return;
       }
       event.preventDefault();
@@ -459,7 +501,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
     }
     node.addEventListener("keydown", onKey);
     return () => node.removeEventListener("keydown", onKey);
-  }, [closed, group, items, result, typed, zh]);
+  }, [closed, cursor, group, items, result, typed, zh]);
 
   const backLabel = group === null ? (zh ? "退出" : "Exit") : zh ? "返回" : "Back";
 
@@ -470,8 +512,8 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           <h2 className="kicker">{zh ? "引导" : "Guide"}</h2>
           <p className="mt-3 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
             {zh
-              ? "直接敲 nvm，用数字选。0 返回上一级。"
-              : "Run nvm and pick a number. 0 goes back."}
+              ? "直接敲 nvm，上下键选择，回车确认。"
+              : "Run nvm. Up and down to move, Enter to confirm."}
           </p>
           <div
             ref={frame}
@@ -499,15 +541,23 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
                   <span className="term-menu-title">{title}</span>
                   {"\n\n"}
                   {items.map((item, index) => (
-                    <button key={item.key} type="button" className="term-choice" onClick={item.onPick}>
-                      {`  ${index + 1}  ${item.label}\n`}
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={cursor === index ? "term-choice term-choice-active" : "term-choice"}
+                      onClick={item.onPick}
+                    >
+                      {`${cursor === index ? "> " : "  "}${String(index + 1).padStart(items.length >= 10 ? 2 : 1, " ")}  ${item.label}\n`}
                     </button>
                   ))}
-                  <button type="button" className="term-choice" onClick={goBack}>
-                    {`  0  ${backLabel}\n`}
+                  <button
+                    type="button"
+                    className={cursor === items.length ? "term-choice term-choice-active" : "term-choice"}
+                    onClick={goBack}
+                  >
+                    {`${cursor === items.length ? "> " : "  "}${String(0).padStart(items.length >= 10 ? 2 : 1, " ")}  ${backLabel}\n`}
                   </button>
-                  {"\n"}
-                  <span className="term-prompt">&gt; {typed}</span>
+                  {typed ? <span className="term-prompt">{`\n${typed}`}</span> : null}
                 </>
               )}
             </pre>

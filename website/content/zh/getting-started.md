@@ -105,7 +105,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm
 ```
 
-数字加回车。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
+上下键选择，回车确认。数字仍然可用。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
 
 ## 镜像源
 

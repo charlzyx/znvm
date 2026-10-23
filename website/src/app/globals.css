@@ -459,7 +459,8 @@
 }
 
 .term-choice:hover,
-.term-choice:focus-visible {
+.term-choice:focus-visible,
+.term-choice-active {
   background: rgb(51 153 51 / 16%);
   color: #9ed49e;
   box-shadow: inset 3px 0 0 #339933;
