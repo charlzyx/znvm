@@ -31,12 +31,12 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
                 </Button>
               </Link>
               <a href="https://znvm.dev/llm.txt">
-                <Button size="lg" variant="outline" className="h-12 border-white/15 bg-transparent px-6 text-base">
+                <Button size="lg" variant="outline" className="h-12 border-foreground/25 bg-transparent px-6 text-base">
                   {zh ? "给 Agent" : "For Agents"}
                 </Button>
               </a>
               <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="outline" className="h-12 border-white/15 bg-transparent px-6 text-base">
+                <Button size="lg" variant="outline" className="h-12 border-foreground/25 bg-transparent px-6 text-base">
                   <Github className="mr-2 h-4 w-4" />
                   GitHub
                 </Button>

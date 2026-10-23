@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Github } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavLink {
   href: string;
@@ -70,6 +71,8 @@ export function Navbar() {
           <a href={agentsHref} className="hidden text-sm font-medium text-foreground/80 hover:text-foreground sm:inline">
             {isZh ? "给 Agent" : "For Agents"}
           </a>
+
+          <ThemeToggle isZh={isZh} />
 
           {/* GitHub */}
           <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
@@ -136,6 +139,10 @@ function MobileNav({ isZh }: { isZh: boolean }) {
         <a href={agentsHref} className="text-foreground/80 hover:text-foreground">
           {isZh ? "给 Agent" : "For Agents"}
         </a>
+      </div>
+
+      <div className="border-t pt-4">
+        <ThemeToggle isZh={isZh} labeled />
       </div>
 
       {/* GitHub */}

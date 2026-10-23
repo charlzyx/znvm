@@ -27,7 +27,7 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
   const headers = zh ? ["", "nvm", "nrm", "znvm"] : ["", "nvm", "nrm", "znvm"];
 
   return (
-    <section className="border-b border-white/10 py-20 sm:py-28">
+    <section className="border-b border-border py-20 sm:py-28">
       <div className="container">
         <div>
           <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
@@ -38,9 +38,9 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
               ? "一次安装有 nvm 和 nrm。nrm 列是原来的源工具。下载镜像是 nvm mirror。"
               : "One install provides nvm and nrm. The nrm column is the original registry tool. Download hosts are nvm mirror."}
           </p>
-          <div className="mt-12 overflow-x-auto border border-white/10">
+          <div className="mt-12 overflow-x-auto border border-border">
             <table className="w-full min-w-[40rem] text-left text-base">
-              <thead className="bg-white/5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-muted text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
                   {headers.map((header) => (
                     <th key={header || "capability"} scope="col" className="px-5 py-4 font-medium">
@@ -51,7 +51,7 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
               </thead>
               <tbody>
                 {body.map((row) => (
-                  <tr key={row[0]} className="border-t border-white/10">
+                  <tr key={row[0]} className="border-t border-border">
                     <th scope="row" className="px-5 py-4 font-normal text-foreground">
                       {row[0]}
                     </th>

@@ -464,7 +464,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   const backLabel = group === null ? (zh ? "退出" : "Exit") : zh ? "返回" : "Back";
 
   return (
-    <section className="border-b border-white/10 py-20 sm:py-28">
+    <section className="border-b border-border py-20 sm:py-28">
       <div className="container">
         <div>
           <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
