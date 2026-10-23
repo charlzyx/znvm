@@ -303,6 +303,10 @@ pub const mirror_profile = Msg{ .en = "error: mirror profile must be china, offi
 pub const mirror_env = Msg{ .en = "error: NVM_MIRROR must be china or official.\n", .zh = "error: NVM_MIRROR 只能是 china 或 official.\n" };
 pub const mirror_kept = Msg{ .en = "mirror config already set\n", .zh = "镜像配置已存在\n" };
 pub const mirror_line = Msg{ .en = "mirror: {s}\n", .zh = "镜像: {s}\n" };
+pub const mirror_npmrc_warn = Msg{
+    .en = "note: {d} npmrc mirror keys may trigger npm warnings\n",
+    .zh = "note: npmrc 中有 {d} 个镜像键可能触发 npm 警告\n",
+};
 pub const profile_line = Msg{ .en = "profile {s}\n", .zh = "配置 {s}\n" };
 pub const unset_mirror = Msg{ .en = "  {s} (unset)\n", .zh = "  {s} (未设置)\n" };
 pub const mirrors_changed = Msg{ .en = "The mirrors have been changed to '{s}'.\n", .zh = "镜像已切换为 '{s}'.\n" };
