@@ -3,6 +3,7 @@ const mem = std.mem;
 const fs = std.fs;
 const process = std.process;
 
+const select = @import("select.zig");
 const commands = @import("commands.zig");
 const registry = @import("registry.zig");
 const binary = @import("binary.zig");
@@ -15,7 +16,6 @@ const stderr = util.stderr;
 pub const Mode = enum { session, step };
 
 const Outcome = enum { quit, acted, back };
-const Choice = union(enum) { again, invalid, back, pick: usize };
 const Pick = union(enum) { quit, back, index: usize };
 
 const page_size: usize = 15;
@@ -41,18 +41,9 @@ pub fn runNrm(allocator: mem.Allocator, config: ZnvmConfig) !void {
         .{ "Test and auto", "测速并自动选择" },
     };
     while (true) {
-        try stderr("\nnrm\n\n", .{});
-        for (items, 0..) |item, i| {
-            try stderr("  {d}  {s}\n", .{ i + 1, text(zh, item[0], item[1]) });
-        }
-        try stderr("  0  {s}\n", .{text(zh, "Exit", "退出")});
-        const line = try prompt(allocator) orelse return;
-        defer allocator.free(line);
-        switch (parseChoice(line, items.len)) {
-            .again => continue,
-            .invalid => try sayInvalid(zh),
-            .back => return,
-            .pick => |n| switch (try nrmPage(allocator, config, zh, n)) {
+        switch (try menuPairs(zh, "nrm", "nrm", &items, "Exit", "退出")) {
+            .quit, .back => return,
+            .index => |n| switch (try nrmPage(allocator, config, zh, n + 1)) {
                 .quit => return,
                 .back => continue,
                 .acted => if (!try pause(allocator, zh)) return,
@@ -84,19 +75,11 @@ fn nrmPage(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
 
 fn nrmItems(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize, en_title: []const u8, zh_title: []const u8, items: []const [2][]const u8) !Outcome {
     while (true) {
-        try stderr("\n{s}\n\n", .{text(zh, en_title, zh_title)});
-        try printItems(zh, items);
-        const line = try prompt(allocator) orelse return .quit;
-        defer allocator.free(line);
-        switch (parseChoice(line, items.len)) {
-            .again => continue,
-            .invalid => {
-                try sayInvalid(zh);
-                continue;
-            },
+        switch (try menuPairs(zh, en_title, zh_title, items, "Back", "返回")) {
+            .quit => return .quit,
             .back => return .back,
-            .pick => |n| {
-                try nrmDispatch(allocator, config, zh, which, n);
+            .index => |n| {
+                try nrmDispatch(allocator, config, zh, which, n + 1);
                 return .acted;
             },
         }
@@ -291,24 +274,192 @@ fn pause(allocator: mem.Allocator, zh: bool) !bool {
     return true;
 }
 
-fn parseChoice(raw: []const u8, max: usize) Choice {
-    const trimmed = mem.trim(u8, raw, " \t");
-    if (trimmed.len == 0) return .again;
-    if (mem.eql(u8, trimmed, "0")) return .back;
-    const n = std.fmt.parseInt(usize, trimmed, 10) catch return .invalid;
-    if (n == 0 or n > max) return .invalid;
-    return .{ .pick = n };
-}
+const posix = std.posix;
 
-fn sayInvalid(zh: bool) !void {
-    try stderr("{s}\n", .{text(zh, "Enter a number from the menu.", "请输入菜单中的编号.")});
-}
+const tty = struct {
+    var saved: posix.termios = undefined;
+    var raw_on: bool = false;
+    var hooked: bool = false;
+    var depth: u8 = 0;
+    var previous: [4]posix.Sigaction = undefined;
+    const sigs = [_]u8{ posix.SIG.HUP, posix.SIG.INT, posix.SIG.QUIT, posix.SIG.TERM };
 
-fn printItems(zh: bool, items: []const [2][]const u8) !void {
-    for (items, 0..) |item, i| {
-        try stderr("  {d}  {s}\n", .{ i + 1, text(zh, item[0], item[1]) });
+    fn enter() !void {
+        if (depth == 0) try enable();
+        depth += 1;
     }
-    try stderr("  0  {s}\n", .{text(zh, "Back", "返回")});
+
+    fn leave() void {
+        if (depth == 0) return;
+        depth -= 1;
+        if (depth == 0) disable();
+    }
+
+    fn enable() !void {
+        const fd = posix.STDIN_FILENO;
+        var term = try posix.tcgetattr(fd);
+        saved = term;
+        term.lflag.ICANON = false;
+        term.lflag.ECHO = false;
+        term.lflag.IEXTEN = false;
+        term.lflag.ISIG = false;
+        term.iflag.ICRNL = false;
+        term.iflag.IXON = false;
+        term.cc[@as(usize, @intFromEnum(posix.V.MIN))] = 1;
+        term.cc[@as(usize, @intFromEnum(posix.V.TIME))] = 0;
+        try posix.tcsetattr(fd, .NOW, term);
+        raw_on = true;
+        installSignals();
+    }
+
+    fn disable() void {
+        restoreTermios();
+        if (!hooked) return;
+        hooked = false;
+        inline for (sigs, 0..) |sig, i| posix.sigaction(sig, &previous[i], null);
+    }
+
+    fn restoreTermios() void {
+        if (!raw_on) return;
+        raw_on = false;
+        posix.tcsetattr(posix.STDIN_FILENO, .NOW, saved) catch {};
+    }
+
+    fn installSignals() void {
+        if (hooked) return;
+        const action = posix.Sigaction{
+            .handler = .{ .handler = onSignal },
+            .mask = posix.sigemptyset(),
+            .flags = 0,
+        };
+        inline for (sigs, 0..) |sig, i| posix.sigaction(sig, &action, &previous[i]);
+        hooked = true;
+    }
+
+    fn onSignal(sig: i32) callconv(.c) void {
+        restoreTermios();
+        depth = 0;
+        if (sig <= 0 or sig > 255) return;
+        const n: u8 = @intCast(sig);
+        if (hooked) {
+            hooked = false;
+            inline for (sigs, 0..) |want, i| {
+                if (want == n) posix.sigaction(n, &previous[i], null);
+            }
+        }
+        posix.raise(n) catch {};
+    }
+};
+
+var pending_keys: select.Keys = .{};
+var pending_at: usize = 0;
+
+fn readByte() !?u8 {
+    var buf: [1]u8 = undefined;
+    while (true) {
+        const n = posix.read(posix.STDIN_FILENO, &buf) catch |err| switch (err) {
+            error.WouldBlock => return null,
+            else => return error.ReadFailed,
+        };
+        if (n == 0) return null;
+        return buf[0];
+    }
+}
+
+fn pollReady(timeout_ms: i32) !bool {
+    var fds = [1]posix.pollfd{.{
+        .fd = posix.STDIN_FILENO,
+        .events = posix.POLL.IN,
+        .revents = 0,
+    }};
+    while (true) {
+        const ready = posix.poll(&fds, timeout_ms) catch |err| switch (err) {
+            else => return error.ReadFailed,
+        };
+        return ready != 0;
+    }
+}
+
+fn readMenuKey() !?select.Key {
+    if (pending_at < pending_keys.len) {
+        const key = pending_keys.items[pending_at];
+        pending_at += 1;
+        if (pending_at == pending_keys.len) {
+            pending_keys.len = 0;
+            pending_at = 0;
+        }
+        return key;
+    }
+    pending_keys.len = 0;
+    pending_at = 0;
+    var parser = select.Parser{};
+    while (true) {
+        const byte = try readByte() orelse {
+            parser.flush(&pending_keys);
+            break;
+        };
+        parser.feed(byte, &pending_keys);
+        while (parser.mode != .ground) {
+            if (!try pollReady(100)) {
+                parser.flush(&pending_keys);
+                break;
+            }
+            const more = try readByte() orelse {
+                parser.flush(&pending_keys);
+                break;
+            };
+            parser.feed(more, &pending_keys);
+        }
+        if (pending_keys.len > 0) break;
+    }
+    if (pending_keys.len == 0) return null;
+    pending_at = 1;
+    return pending_keys.items[0];
+}
+
+fn paintMenu(title: []const u8, labels: []const []const u8, back_label: []const u8, cursor: usize, status: []const u8, up: usize) !usize {
+    var storage: [8192]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&storage);
+    const lines = try select.writeFrame(&writer, .{
+        .title = title,
+        .labels = labels,
+        .back = back_label,
+        .cursor = cursor,
+        .color = select.colorEnabled(posix.getenv("NO_COLOR"), posix.getenv("TERM")),
+        .status = status,
+        .up = up,
+    });
+    try stderr("{s}", .{storage[0..writer.end]});
+    return lines;
+}
+
+fn choose(zh: bool, title: []const u8, labels: []const []const u8, back_label: []const u8) !Pick {
+    try tty.enter();
+    defer tty.leave();
+    var state = select.Select.init(labels.len);
+    var status: []const u8 = "";
+    var painted: usize = 0;
+    while (true) {
+        painted = try paintMenu(title, labels, back_label, state.cursor, status, painted);
+        const key = try readMenuKey() orelse return .quit;
+        switch (state.handle(key)) {
+            .redraw => status = "",
+            .invalid => status = text(zh, "Enter a number from the menu.", "请输入菜单中的编号."),
+            .pick => |index| return .{ .index = index },
+            .back => return .back,
+            .quit => {
+                tty.leave();
+                process.exit(130);
+            },
+        }
+    }
+}
+
+fn menuPairs(zh: bool, title_en: []const u8, title_zh: []const u8, items: []const [2][]const u8, back_en: []const u8, back_zh: []const u8) !Pick {
+    var labels: [32][]const u8 = undefined;
+    if (items.len > labels.len) return error.MenuTooLong;
+    for (items, 0..) |item, i| labels[i] = text(zh, item[0], item[1]);
+    return choose(zh, text(zh, title_en, title_zh), labels[0..items.len], text(zh, back_en, back_zh));
 }
 
 fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
@@ -324,19 +475,17 @@ fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
         .{ "Registries (scopes)", "镜像源(scope)" },
         .{ "Mirrors", "下载镜像" },
     };
+    var title_buf: [96]u8 = undefined;
+    const title = if (zh)
+        std.fmt.bufPrint(&title_buf, "{s}(交互引导)", .{commands.program_name}) catch commands.program_name
+    else
+        std.fmt.bufPrint(&title_buf, "{s} (interactive guide)", .{commands.program_name}) catch commands.program_name;
+    var labels: [32][]const u8 = undefined;
+    for (items, 0..) |item, i| labels[i] = text(zh, item[0], item[1]);
     while (true) {
-        try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "(交互引导)") });
-        for (items, 0..) |item, i| {
-            try stderr("  {d}  {s}\n", .{ i + 1, text(zh, item[0], item[1]) });
-        }
-        try stderr("  0  {s}\n", .{text(zh, "Exit", "退出")});
-        const line = try prompt(allocator) orelse return .quit;
-        defer allocator.free(line);
-        switch (parseChoice(line, items.len)) {
-            .again => continue,
-            .invalid => try sayInvalid(zh),
-            .back => return .quit,
-            .pick => |n| switch (try submenu(allocator, config, zh, n)) {
+        switch (try choose(zh, title, labels[0..items.len], text(zh, "Exit", "退出"))) {
+            .quit, .back => return .quit,
+            .index => |n| switch (try submenu(allocator, config, zh, n + 1)) {
                 .back => continue,
                 .quit => return .quit,
                 .acted => return .acted,
@@ -410,19 +559,11 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
 
 fn itemMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize, en_title: []const u8, zh_title: []const u8, items: []const [2][]const u8) !Outcome {
     while (true) {
-        try stderr("\n{s}\n\n", .{text(zh, en_title, zh_title)});
-        try printItems(zh, items);
-        const line = try prompt(allocator) orelse return .quit;
-        defer allocator.free(line);
-        switch (parseChoice(line, items.len)) {
-            .again => continue,
-            .invalid => {
-                try sayInvalid(zh);
-                continue;
-            },
+        switch (try menuPairs(zh, en_title, zh_title, items, "Back", "返回")) {
+            .quit => return .quit,
             .back => return .back,
-            .pick => |n| {
-                try dispatch(allocator, config, zh, which, n);
+            .index => |n| {
+                try dispatch(allocator, config, zh, which, n + 1);
                 return .acted;
             },
         }
@@ -658,40 +799,39 @@ fn remoteLabels(allocator: mem.Allocator, config: ZnvmConfig) ![][]u8 {
 }
 
 fn pickIndex(allocator: mem.Allocator, zh: bool, labels: anytype) !Pick {
+    _ = allocator;
     var page: usize = 0;
     while (true) {
         const start = page * page_size;
         const end = @min(start + page_size, labels.len);
         const shown = end - start;
-        var max_choice = shown;
-        var next_slot: ?usize = null;
-        var prev_slot: ?usize = null;
-        if (end < labels.len) {
-            max_choice += 1;
-            next_slot = max_choice;
-        }
-        if (page > 0) {
-            max_choice += 1;
-            prev_slot = max_choice;
-        }
-        try stderr("\n", .{});
+        var rows: [17][]const u8 = undefined;
+        const Row = enum { item, next, prev };
+        var kind: [17]Row = undefined;
+        var n: usize = 0;
         var row: usize = 0;
         while (row < shown) : (row += 1) {
-            try stderr("  {d}  {s}\n", .{ row + 1, labels[start + row] });
+            rows[n] = labels[start + row];
+            kind[n] = .item;
+            n += 1;
         }
-        if (next_slot) |slot| try stderr("  {d}  {s}\n", .{ slot, text(zh, "Next page", "下一页") });
-        if (prev_slot) |slot| try stderr("  {d}  {s}\n", .{ slot, text(zh, "Previous page", "上一页") });
-        try stderr("  0  {s}\n", .{text(zh, "Back", "返回")});
-        const line = try prompt(allocator) orelse return .quit;
-        defer allocator.free(line);
-        switch (parseChoice(line, max_choice)) {
-            .again => continue,
-            .invalid => try sayInvalid(zh),
+        if (end < labels.len) {
+            rows[n] = text(zh, "Next page", "下一页");
+            kind[n] = .next;
+            n += 1;
+        }
+        if (page > 0) {
+            rows[n] = text(zh, "Previous page", "上一页");
+            kind[n] = .prev;
+            n += 1;
+        }
+        switch (try choose(zh, text(zh, "Choose", "选择"), rows[0..n], text(zh, "Back", "返回"))) {
+            .quit => return .quit,
             .back => return .back,
-            .pick => |n| {
-                if (n <= shown) return .{ .index = start + n - 1 };
-                if (next_slot != null and n == next_slot.?) page += 1;
-                if (prev_slot != null and n == prev_slot.?) page -= 1;
+            .index => |index| switch (kind[index]) {
+                .item => return .{ .index = start + index },
+                .next => page += 1,
+                .prev => page -= 1,
             },
         }
     }
@@ -761,14 +901,14 @@ fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
         .quit, .back => return,
         .index => |index| installed[index],
     };
-    try stderr("\n{s} {s}\n", .{ text(zh, "Delete", "删除"), picked });
-    try stderr("  1  {s}\n", .{text(zh, "Yes, uninstall", "确认删除")});
-    try stderr("  2  {s}\n", .{text(zh, "Cancel", "取消")});
-    try stderr("  0  {s}\n", .{text(zh, "Back", "返回")});
-    const line = try prompt(allocator) orelse return;
-    defer allocator.free(line);
-    switch (parseChoice(line, 2)) {
-        .pick => |n| if (n == 1) {
+    var title_buf: [160]u8 = undefined;
+    const title = std.fmt.bufPrint(&title_buf, "{s} {s}", .{ text(zh, "Delete", "删除"), picked }) catch picked;
+    const choices = [_][]const u8{
+        text(zh, "Yes, uninstall", "确认删除"),
+        text(zh, "Cancel", "取消"),
+    };
+    switch (try choose(zh, title, &choices, text(zh, "Back", "返回"))) {
+        .index => |n| if (n == 0) {
             try running(zh, "nvm uninstall <version>");
             const argv = [_][]const u8{ commands.program_name, "uninstall", picked };
             try commands.cmdUninstall(allocator, &argv, config);

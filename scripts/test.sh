@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.8.0 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.8.1 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.8.0" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.8.1" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.8.0, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.8.1, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.8.0" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.8.1" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.8.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.1" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -382,7 +382,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.8.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.8.1" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -457,7 +457,7 @@ UPGRADE_OUT=$(env -i \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.0"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.1"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved the previous $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Linked $UPGRADE_HOME/.nvm/nrm -> nvm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -467,7 +467,7 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.8.0" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.1" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
@@ -532,9 +532,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.0"
+printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.8.1"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.8.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.1" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -659,12 +659,12 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.8.0"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.8.1"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Linked $PLAIN_UP/.local/bin/nrm -> znvm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.8.0" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.8.1" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
@@ -885,6 +885,36 @@ code, text, _ = run_pty(
 )
 if code != 0:
     raise SystemExit(f"mirror menu exit {code}\n{text}")
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["\x1b[B\x1b[B\r", "\x1b[D", "q"],
+    ["Show current", "Active version", "(interactive guide)"],
+)
+if code != 0 or ">  3  Show current" not in text:
+    raise SystemExit(f"arrow menu exit {code}\n{text}")
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["j\r", "k\r", "q"],
+    ["Switch version (use)", "Choose an installed version", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"vim keys exit {code}\n{text}")
+code, text, _ = run_pty([bin_path], base, ["\x03"], ["(interactive guide)"])
+if code != 130:
+    raise SystemExit(f"ctrl-c exit {code}\n{text}")
+plain = dict(base)
+plain["NO_COLOR"] = "1"
+code, text, _ = run_pty([bin_path], plain, ["0\n"], [">  1  Install Node"])
+if code != 0 or "\x1b[1;7m" in text or "\x1b[7m" in text:
+    raise SystemExit(f"NO_COLOR menu exit {code}\n{text}")
+colored = dict(base)
+colored.pop("NO_COLOR", None)
+colored["TERM"] = "xterm-256color"
+code, text, _ = run_pty([bin_path], colored, ["q"], ["\x1b[1;7m>  1  Install Node"])
+if code != 0:
+    raise SystemExit(f"color menu exit {code}\n{text}")
 
 def expect_closed(args, env, label):
     code, text, _ = run_pty(args, env, [], ["interactive guide needs a terminal"], timeout=3)
@@ -1527,8 +1557,8 @@ json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
 test "$(json_nvm current --json)" = '{"version":"none"}'
 test "$(json_nvm version --json)" = '{"version":"none"}'
-test "$(json_nvm --version --json)" = '{"version":"v2.8.0"}'
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.8.0"}'
+test "$(json_nvm --version --json)" = '{"version":"v2.8.1"}'
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.8.1"}'
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1553,7 +1583,7 @@ set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
 json_nvm help | grep -q 'NVM_NONINTERACTIVE'
-nrm_run --version --json | grep -q '"version":"v2.8.0"'
+nrm_run --version --json | grep -q '"version":"v2.8.1"'
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"
