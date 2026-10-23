@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.5.1] - 2026-10-23
+
+### Fixed
+
+- Re-running `install-as-nvm.sh` or `install.sh` replaces an existing binary when its `--version` differs from the release being installed. The previous file is kept as `nvm.bak` or `znvm.bak`. A failed download leaves the current binary in place.
+- `install-as-nvm.sh` prints `ok Upgraded nvm vX -> vY` after that replacement, then links `nrm` to the new binary.
+
 ## [v2.5.0] - 2026-10-22
 
 ### Added
@@ -268,6 +275,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.5.1]: https://github.com/charlzyx/znvm/compare/v2.5.0...v2.5.1
 [v2.5.0]: https://github.com/charlzyx/znvm/compare/v2.4.0...v2.5.0
 [v2.4.0]: https://github.com/charlzyx/znvm/compare/v2.3.0...v2.4.0
 [v2.2.2]: https://github.com/charlzyx/znvm/compare/v2.2.1...v2.2.2

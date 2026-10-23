@@ -10,7 +10,7 @@ if [ "${1:-}" != "--uninstall" ]; then
 fi
 
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.5.0"
+ZNVM_VERSION="v2.5.1"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
@@ -211,6 +211,70 @@ fi
 # 标记是否成功下载预编译版本
 BINARY_DOWNLOADED=false
 
+installed_version() {
+    local exe="$1"
+    local out
+    out=""
+    if [ -x "$exe" ] && [ ! -d "$exe" ]; then
+        set +e
+        out=$("$exe" --version 2>/dev/null | head -n 1)
+        set -e
+    fi
+    printf '%s\n' "$out" | tr -d '\r'
+}
+
+# Download beside the live binary, then replace it. A failed download removes
+# only the temporary file.
+stage_binary() {
+    local dest="$1"
+    local url="$2"
+    local old_ver="$3"
+    local new_ver="$4"
+    local staged backup
+    staged=$(mktemp "$INSTALL_BIN_DIR/.znvm-new.XXXXXX") || return 1
+    if curl -L -o "$staged" "$url" --fail 2>/dev/null; then
+        chmod +x "$staged"
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
+            if [ -d "$dest" ]; then
+                rm -f "$staged"
+                echo "error: 拒绝替换目录 $dest"
+                echo "error: Refusing to replace directory $dest"
+                return 1
+            fi
+            backup="${dest}.bak"
+            if [ ! -e "$backup" ]; then
+                if [ -L "$dest" ]; then
+                    cp -pL "$dest" "$backup" 2>/dev/null || cp -p "$dest" "$backup"
+                else
+                    cp -p "$dest" "$backup"
+                fi
+                echo "> 已保存之前的 $dest 为 $backup"
+                echo "> Saved the previous $dest as $backup"
+            else
+                echo "ok 之前的副本已在 $backup"
+                echo "ok Previous copy already exists at $backup"
+            fi
+            mv -f "$staged" "$dest"
+            chmod +x "$dest"
+            if [ -z "$old_ver" ]; then
+                old_ver="unknown"
+            fi
+            echo "ok 已升级 znvm $old_ver -> $new_ver"
+            echo "ok Upgraded znvm $old_ver -> $new_ver"
+        else
+            mv -f "$staged" "$dest"
+            chmod +x "$dest"
+            echo "ok 二进制文件下载成功"
+            echo "ok Binary downloaded"
+        fi
+        return 0
+    fi
+    rm -f "$staged"
+    echo "error: 预编译二进制文件下载失败"
+    echo "error: Failed to download pre-compiled binary."
+    return 1
+}
+
 # 1. 尝试下载预编译二进制文件
 if [ -n "$TARGET" ]; then
     # 确定要下载的版本
@@ -222,7 +286,9 @@ if [ -n "$TARGET" ]; then
         echo "> Fetching latest version info"
 
         # 从 GitHub API 获取最新 release tag
+        set +e
         VERSION=$(curl -sL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+        set -e
 
         if [ -n "$VERSION" ]; then
             echo "> 最新版本: $VERSION"
@@ -232,20 +298,24 @@ if [ -n "$TARGET" ]; then
 
     if [ -n "$VERSION" ]; then
         DOWNLOAD_URL="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$VERSION/znvm-$VERSION-$TARGET"
+        DEST="$INSTALL_BIN_DIR/znvm"
+        OLD_VER=""
+        if [ -x "$DEST" ] && [ ! -d "$DEST" ]; then
+            OLD_VER=$(installed_version "$DEST")
+        fi
 
-        echo "> 尝试下载预编译二进制文件 ($TARGET)"
-        echo "> Attempting to download pre-compiled binary ($TARGET)"
-
-        if curl -L -o "$INSTALL_BIN_DIR/znvm" "$DOWNLOAD_URL" --fail 2>/dev/null; then
-            chmod +x "$INSTALL_BIN_DIR/znvm"
-            link_nrm "$INSTALL_BIN_DIR/znvm"
+        if [ -n "$OLD_VER" ] && [ "$OLD_VER" = "$VERSION" ]; then
+            link_nrm "$DEST"
             BINARY_DOWNLOADED=true
-            echo "ok 二进制文件下载成功"
-            echo "ok Binary downloaded"
+            echo "ok znvm 已安装 $DEST"
+            echo "ok znvm is already installed at $DEST"
         else
-            echo "error: 预编译二进制文件下载失败"
-            echo "error: Failed to download pre-compiled binary."
-            rm -f "$INSTALL_BIN_DIR/znvm"
+            echo "> 尝试下载预编译二进制文件 ($TARGET)"
+            echo "> Attempting to download pre-compiled binary ($TARGET)"
+            if stage_binary "$DEST" "$DOWNLOAD_URL" "$OLD_VER" "$VERSION"; then
+                link_nrm "$DEST"
+                BINARY_DOWNLOADED=true
+            fi
         fi
     else
         echo "error: 无法获取版本信息"

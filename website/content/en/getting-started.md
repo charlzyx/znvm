@@ -20,7 +20,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.0 (x86_64-linux)...
+> Downloading nvm v2.5.1 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -40,7 +40,7 @@ Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
-The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running the script again is safe: it does not duplicate that block, and it does not delete Node versions already under `~/.nvm/versions/node`.
+The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running the script again is safe. When `nvm --version` already matches this release, the binary stays in place. When the version differs, the previous binary is kept as `nvm.bak` and replaced. It does not duplicate that block, and it does not delete Node versions already under `~/.nvm/versions/node`.
 
 ### What the installer does
 

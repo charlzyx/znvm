@@ -23,7 +23,7 @@
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-脚本会安装 `nvm` 命令，把 `nrm` 链接到同一个二进制，并写入 `~/.nvm/nvm.sh`。可以重复执行：不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
+脚本会安装 `nvm` 命令，把 `nrm` 链接到同一个二进制，并写入 `~/.nvm/nvm.sh`。可以重复执行。如果 `nvm --version` 已经是这一版，就保留现有二进制；如果版本不同，会把旧文件留作 `nvm.bak` 再替换，并打印 `ok Upgraded nvm vX -> vY`。不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
 
 `nrm` 是 `nvm` 旁边的相对符号链接。安装脚本不会覆盖已经存在的 `nrm`。如果那个路径上已有文件，会打印说明并保留它。如果 `PATH` 上还有另一个 `nrm`，会打印那个路径，不会删除它。新的 shell 会把 `nvm` 所在目录移到 `PATH` 最前面，因此链接的 `nrm` 先被找到。`--uninstall` 会删除这次安装的 `nvm` 二进制，以及指向它的 `nrm` 链接；如果有 `nvm.sh.bak` 就恢复 `nvm.sh`；去掉 `nvm: shell setup` 那段配置。不会删除 Node 版本，也不会删除别人的 `nrm`。
 

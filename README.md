@@ -25,7 +25,7 @@
 curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
 ```
 
-The script installs the `nvm` command, links `nrm` to that same binary, and writes `~/.nvm/nvm.sh`. Running it again is safe: it does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
+The script installs the `nvm` command, links `nrm` to that same binary, and writes `~/.nvm/nvm.sh`. Running it again is safe. When `nvm --version` already matches this release, the binary stays in place. When the version differs, the previous binary is kept as `nvm.bak` and replaced, and the script prints `ok Upgraded nvm vX -> vY`. It does not duplicate shell config, and it does not delete Node versions already under `~/.nvm/versions/node`. It does not install shell completion.
 
 `nrm` is a relative symlink beside `nvm`. The installer does not replace an existing `nrm`. If that path is already a file, it prints a note and leaves the file in place. If another `nrm` is elsewhere on `PATH`, it prints that path and does not delete it. A new shell moves the `nvm` directory to the front of `PATH`, so the linked `nrm` runs first. `--uninstall` removes this `nvm` binary and the `nrm` symlink when the link points at it, restores `nvm.sh` from `nvm.sh.bak` when that backup exists, removes the `nvm: shell setup` profile block, and does not delete Node versions or a foreign `nrm`.
 
