@@ -54,7 +54,7 @@ export default function RootLayout({
       <body
         className={`${geist.variable} ${geistMono.variable} antialiased min-h-dvh bg-background font-sans text-foreground`}
       >
-        <div className="relative flex min-h-dvh flex-col">
+        <div className="mx-auto flex min-h-dvh w-full max-w-[1100px] flex-col border-x border-border">
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />

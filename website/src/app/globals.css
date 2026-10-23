@@ -72,7 +72,7 @@
   --secondary: #efeeea;
   --secondary-foreground: #1c1c1a;
   --muted: #efeeea;
-  --muted-foreground: #5c574e;
+  --muted-foreground: #564f46;
   --accent: #efeeea;
   --accent-foreground: #1c1c1a;
   --destructive: #b42318;
@@ -171,6 +171,11 @@
     --node-bright: #9ed49e;
     --zig: #f7a41d;
     color-scheme: dark;
+  }
+
+  :root:not(.light) .showcase {
+    background-color: #121a14;
+    background-image: url("/showcase-dark.svg");
   }
 }
 
@@ -293,7 +298,7 @@
 
   .container {
     width: 100%;
-    max-width: 72rem;
+    max-width: none;
     margin-left: auto;
     margin-right: auto;
     padding-left: 1.25rem;
@@ -302,8 +307,8 @@
 
   @media (min-width: 768px) {
     .container {
-      padding-left: 2rem;
-      padding-right: 2rem;
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
     }
   }
 
@@ -348,14 +353,42 @@
 .zig-mark {
   display: inline-flex;
   align-items: center;
-  background: #f7a41d;
-  color: #1a1200;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.8125rem;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1;
-  padding: 0.4rem 0.55rem;
+  padding: 0.28rem 0.6rem 0.28rem 0.28rem;
+}
+
+.zig-mark::before {
+  content: "";
+  width: 0.85rem;
+  height: 0.85rem;
+  background: #f7a41d;
+}
+
+.kicker {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.showcase {
+  background-color: #e7f2e4;
+  background-image: url("/showcase.svg");
+  background-position: center;
+  background-size: cover;
+}
+
+.dark .showcase {
+  background-color: #121a14;
+  background-image: url("/showcase-dark.svg");
 }
 
 .term-chrome {
@@ -388,7 +421,7 @@
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 1rem;
   line-height: 1.7;
-  color: oklch(0.93 0.01 80);
+  color: #ececea;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

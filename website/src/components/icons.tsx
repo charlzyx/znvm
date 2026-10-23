@@ -62,6 +62,69 @@ export function Moon(props: IconProps) {
   );
 }
 
+export function IconNvm(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 6h14v12H5z" />
+      <path d="M8 10h5" />
+      <path d="M8 14h8" />
+    </Icon>
+  );
+}
+
+export function IconMirror(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v16" />
+      <path d="M12 6h6v5H12" />
+      <path d="M12 13H7v5h5" />
+    </Icon>
+  );
+}
+
+export function IconGuide(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 5h10v14H7z" />
+      <path d="M10 9h4" />
+      <path d="M10 12h4" />
+      <path d="M10 15h3" />
+    </Icon>
+  );
+}
+
+export function IconRegistry(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 8h14" />
+      <path d="M5 12h14" />
+      <path d="M5 16h14" />
+      <path d="M8 8v8" />
+    </Icon>
+  );
+}
+
+export function IconDownload(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v10" />
+      <path d="M8 10l4 4 4-4" />
+      <path d="M6 19h12" />
+    </Icon>
+  );
+}
+
+export function IconAgent(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 9h8v8H8z" />
+      <path d="M12 5v4" />
+      <path d="M9 17v2" />
+      <path d="M15 17v2" />
+    </Icon>
+  );
+}
+
 export function Github(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>

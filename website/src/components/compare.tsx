@@ -27,13 +27,13 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
   const headers = zh ? ["", "nvm", "nrm", "znvm"] : ["", "nvm", "nrm", "znvm"];
 
   return (
-    <section className="border-b border-border py-12 sm:py-16">
+    <section className="border-t border-border py-14 md:py-16">
       <div className="container">
         <div>
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+            <h2 className="kicker">
             {zh ? "对比" : "Compare"}
           </h2>
-          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-foreground">
+          <p className="mt-4 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
             {zh
               ? "一次安装有 nvm 和 nrm。nrm 列是原来的源工具。下载镜像是 nvm mirror。"
               : "One install provides nvm and nrm. The nrm column is the original registry tool. Download hosts are nvm mirror."}

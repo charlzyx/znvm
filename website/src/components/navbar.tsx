@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Github } from "@/components/icons";
 import { LogoMark } from "@/components/logo-mark";
@@ -34,55 +33,43 @@ export function Navbar() {
   const isZh = pathname.startsWith("/zh");
   const homeHref = isZh ? "/zh" : "/";
 
+  const startHref = isZh ? "/zh/getting-started" : "/getting-started";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
-      <div className="container flex h-16 items-center">
-        {/* Logo */}
-        <Link href={homeHref} className="mr-8 flex items-center space-x-2 flex-shrink-0">
-          <LogoMark className="h-7 w-7" />
-          <span className="text-lg font-semibold tracking-tight">znvm</span>
+      <div className="container flex h-14 items-center">
+        <Link href={homeHref} className="mr-6 flex items-center gap-2 flex-shrink-0">
+          <LogoMark className="h-5 w-5" />
+          <span className="text-[15px] font-semibold tracking-tight">znvm</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8 text-base font-medium">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={getNavHref(link, isZh)}
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              {isZh ? link.labelZh : link.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Right side */}
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          {/* Language switcher */}
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/" className={`text-sm transition-colors ${!isZh ? "text-foreground font-medium" : "text-foreground/60 hover:text-foreground"}`}>
+        <div className="flex flex-1 items-center justify-end gap-4">
+          <nav className="hidden items-center gap-3 md:flex">
+            <Link href="/" className={`text-sm ${!isZh ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               English
             </Link>
-            <Link href="/zh" className={`text-sm transition-colors ${isZh ? "text-foreground font-medium" : "text-foreground/60 hover:text-foreground"}`}>
+            <Link href="/zh" className={`text-sm ${isZh ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               中文
             </Link>
+            <a href={agentsHref} className="text-sm text-muted-foreground hover:text-foreground">
+              {isZh ? "给 Agent" : "For Agents"}
+            </a>
           </nav>
-
-          <a href={agentsHref} className="hidden text-sm font-medium text-foreground/80 hover:text-foreground sm:inline">
-            {isZh ? "给 Agent" : "For Agents"}
-          </a>
 
           <ThemeToggle isZh={isZh} />
 
-          {/* GitHub */}
-          <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Github className="h-4 w-4" />
-              <span className="sr-only">GitHub</span>
-            </Button>
+          <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+            <Github className="h-4 w-4" />
+            <span className="sr-only">GitHub</span>
           </Link>
 
-          {/* Mobile menu */}
+          <Link
+            href={startHref}
+            className="inline-flex h-8 items-center bg-foreground px-3 text-[13px] font-medium text-background hover:opacity-90"
+          >
+            {isZh ? "快速开始" : "Quick start"}
+          </Link>
+
           <Sheet>
             <SheetTrigger className="md:hidden h-8 w-8 p-0 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-muted">
               <Menu className="h-4 w-4" />

@@ -8,8 +8,8 @@ export default function HomeZh() {
   return (
     <>
       <Hero lang="zh" />
-      <Features lang="zh" />
       <GuideTerminal lang="zh" />
+      <Features lang="zh" />
       <Compare lang="zh" />
       <Benchmark lang="zh" />
     </>
