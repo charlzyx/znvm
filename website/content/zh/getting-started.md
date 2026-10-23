@@ -52,7 +52,7 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.7.0 (x86_64-linux)...
+> Downloading nvm v2.8.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -151,7 +151,51 @@ nvm mirror reset
 nvm mirror test
 ```
 
-`china` 写入 Node、Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass 和其他常见工具的 npmmirror 地址。`official` 清掉。`auto` 为每个工具留下更快的一边。npm、pnpm、yarn v1 的键写入各自的 rc。环境变量写在 `$NVM_DIR/binaries.env`，由 `nvm.sh` source。`reset` 删掉这个文件和 `# nvm binaries` 段。scope 不动。安装时不测量。
+`nvm mirror ls` 列出每一个支持的名字。`china` 写入这些地址。
+
+| 名字 | 覆盖 | 环境变量 / npmrc |
+| --- | --- | --- |
+| electron | Electron | `ELECTRON_MIRROR`，npmrc `electron_mirror` |
+| electron-builder | electron-builder 二进制 | `ELECTRON_BUILDER_BINARIES_MIRROR`，npmrc `electron_builder_binaries_mirror` |
+| playwright | Chromium、Firefox、WebKit 浏览器下载 | `PLAYWRIGHT_DOWNLOAD_HOST` |
+| cypress | Cypress 压缩包 | `CYPRESS_DOWNLOAD_PATH_TEMPLATE` |
+| puppeteer | Chrome for Testing 和 chrome-headless-shell | `PUPPETEER_DOWNLOAD_HOST`、`PUPPETEER_DOWNLOAD_BASE_URL`、`PUPPETEER_CHROME_DOWNLOAD_BASE_URL`、`PUPPETEER_CHROME_HEADLESS_SHELL_DOWNLOAD_BASE_URL` |
+| node-sass | node-sass | `SASS_BINARY_SITE`，npmrc `sass_binary_site` |
+| sharp | sharp 预编译包 | `npm_config_sharp_binary_host`，npmrc `sharp_binary_host` |
+| libvips | sharp 用的 libvips | `npm_config_sharp_libvips_binary_host`，npmrc `sharp_libvips_binary_host` |
+| node | Node 发行包 | `NODEJS_ORG_MIRROR`、`NVM_NODEJS_ORG_MIRROR` |
+| chromedriver | ChromeDriver | `CHROMEDRIVER_CDNURL` |
+| edgedriver | EdgeDriver | `EDGEDRIVER_CDNURL` |
+| operadriver | OperaDriver | `OPERADRIVER_CDNURL` |
+| phantomjs | PhantomJS | `PHANTOMJS_CDNURL` |
+| node-swc | SWC | `SWC_BINARY_SITE` |
+| nwjs | NW.js | `NWJS_URLBASE` |
+| sentry-cli | sentry-cli | `SENTRYCLI_CDNURL` |
+| saucectl | saucectl | `SAUCECTL_INSTALL_BINARY_MIRROR` |
+| node-re2 | node-re2 | `RE2_DOWNLOAD_MIRROR`、`RE2_DOWNLOAD_SKIP_PATH` |
+| prisma | Prisma engines | `PRISMA_ENGINES_MIRROR` |
+| better-sqlite3 | better-sqlite3 预编译包 | `npm_config_better_sqlite3_binary_host`，npmrc `better_sqlite3_binary_host` |
+| isolated-vm | isolated-vm 预编译包 | `npm_config_isolated_vm_binary_host`，npmrc `isolated_vm_binary_host` |
+| keytar | keytar 预编译包 | `npm_config_keytar_binary_host`，npmrc `keytar_binary_host` |
+| robotjs | robotjs 预编译包 | `npm_config_robotjs_binary_host`，npmrc `robotjs_binary_host` |
+| gl | headless-gl 预编译包 | `npm_config_gl_binary_host`，npmrc `gl_binary_host` |
+| corepack | Corepack 的 npm registry | `COREPACK_NPM_REGISTRY` |
+| ripgrep | ripgrep-prebuilt | `RIPGREP_PREBUILT_BINARIES_MIRROR` |
+| sqlite3 | sqlite3 预编译包 | `npm_config_sqlite3_binary_host`，npmrc `sqlite3_binary_host` |
+| canvas | node-canvas 预编译包 | `npm_config_canvas_binary_host`，npmrc `canvas_binary_host` |
+| grpc | grpc 原生绑定（module `grpc_node`） | `npm_config_grpc_node_binary_host_mirror`，npmrc `grpc_node_binary_host_mirror` |
+| grpc-tools | grpc-tools 二进制 | `npm_config_grpc_tools_binary_host_mirror`，npmrc `grpc_tools_binary_host_mirror` |
+| nodejieba | nodejieba 预编译包 | `npm_config_nodejieba_binary_host_mirror`，npmrc `nodejieba_binary_host_mirror` |
+| xprofiler | xprofiler 预编译包 | `npm_config_xprofiler_binary_host_mirror`，npmrc `xprofiler_binary_host_mirror` |
+| gdal-async | node-gdal-async 预编译包（module `gdal`） | `npm_config_gdal_binary_host_mirror`，npmrc `gdal_binary_host_mirror` |
+| ali-zeromq | zeromq 绑定（module `zmq`） | `npm_config_zmq_binary_host_mirror`，npmrc `zmq_binary_host_mirror` |
+| ali-usb_ctl | usb_ctrl 绑定 | `npm_config_usb_ctrl_binary_host_mirror`，npmrc `usb_ctrl_binary_host_mirror` |
+
+不设置。cnpm 要改包内文件（`replaceHost` / `replaceHostFiles`），配置项不能改下载地址：jpegtran-bin、cwebp-bin、zopflipng-bin、optipng-bin、mozjpeg、gifsicle、pngquant-bin、pngcrush-bin、jpeg-recompress-bin、advpng-bin、pngout-bin、jpegoptim-bin、flow-bin、@tensorflow/tfjs-node。
+
+不设置。安装脚本没有可核对的 host 环境变量，或镜像路径和安装脚本对不上：@journeyapps/sqlcipher、leveldown、utf-8-validate、argon2、fsevents、couchbase、wrtc、skia-canvas、libpg-query、@ali/s2。
+
+`official` 清掉。`auto` 为每个工具留下更快的一边。npm、pnpm、yarn v1 的键写入各自的 rc。环境变量写在 `$NVM_DIR/binaries.env`，由 `nvm.sh` source。`reset` 删掉这个文件和 `# nvm binaries` 段。scope 不动。安装时不测量。
 
 清掉 Node 镜像后回到默认地址。强制 nodejs.org：`nvm mirror set node https://nodejs.org/dist`。
 

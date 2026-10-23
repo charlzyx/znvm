@@ -259,8 +259,88 @@ const tools = [_]Tool{
             .{ .slot = .env, .key = "RIPGREP_PREBUILT_BINARIES_MIRROR", .china = "https://registry.npmmirror.com/-/binary/ripgrep-prebuilt" },
         },
     },
+    .{
+        .name = "sqlite3",
+        .china_probe = "https://cdn.npmmirror.com/binaries/sqlite3",
+        .official_probe = "https://github.com/TryGhost/node-sqlite3/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/sqlite3" },
+            .{ .slot = .npm, .key = "sqlite3_binary_host", .china = "https://cdn.npmmirror.com/binaries/sqlite3" },
+        },
+    },
+    .{
+        .name = "canvas",
+        .china_probe = "https://cdn.npmmirror.com/binaries/canvas",
+        .official_probe = "https://github.com/Automattic/node-canvas/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_canvas_binary_host", .china = "https://cdn.npmmirror.com/binaries/canvas" },
+            .{ .slot = .npm, .key = "canvas_binary_host", .china = "https://cdn.npmmirror.com/binaries/canvas" },
+        },
+    },
+    .{
+        .name = "grpc",
+        .china_probe = "https://cdn.npmmirror.com/binaries/grpc",
+        .official_probe = "https://node-precompiled-binaries.grpc.io",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_grpc_node_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+            .{ .slot = .npm, .key = "grpc_node_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+        },
+    },
+    .{
+        .name = "grpc-tools",
+        .china_probe = "https://cdn.npmmirror.com/binaries/grpc-tools",
+        .official_probe = "https://node-precompiled-binaries.grpc.io",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_grpc_tools_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+            .{ .slot = .npm, .key = "grpc_tools_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries" },
+        },
+    },
+    .{
+        .name = "nodejieba",
+        .china_probe = "https://cdn.npmmirror.com/binaries/nodejieba",
+        .official_probe = "https://github.com/yanyiwu/nodejieba/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_nodejieba_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/nodejieba" },
+            .{ .slot = .npm, .key = "nodejieba_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/nodejieba" },
+        },
+    },
+    .{
+        .name = "xprofiler",
+        .china_probe = "https://cdn.npmmirror.com/binaries/xprofiler",
+        .official_probe = "https://github.com/X-Profiler/xprofiler/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_xprofiler_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/xprofiler" },
+            .{ .slot = .npm, .key = "xprofiler_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/xprofiler" },
+        },
+    },
+    .{
+        .name = "gdal-async",
+        .china_probe = "https://cdn.npmmirror.com/binaries/node-gdal-async",
+        .official_probe = "https://github.com/mmomtchev/node-gdal-async/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_gdal_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/node-gdal-async" },
+            .{ .slot = .npm, .key = "gdal_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/node-gdal-async" },
+        },
+    },
+    .{
+        .name = "ali-zeromq",
+        .china_probe = "https://cdn.npmmirror.com/binaries/ali-zeromq",
+        .official_probe = "https://github.com/looksgood/zeromq.js/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_zmq_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-zeromq" },
+            .{ .slot = .npm, .key = "zmq_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-zeromq" },
+        },
+    },
+    .{
+        .name = "ali-usb_ctl",
+        .china_probe = "https://cdn.npmmirror.com/binaries/ali-usb_ctl",
+        .official_probe = "https://github.com/looksgood/ali-usb_ctl/releases/download",
+        .binds = &.{
+            .{ .slot = .env, .key = "npm_config_usb_ctrl_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-usb_ctl" },
+            .{ .slot = .npm, .key = "usb_ctrl_binary_host_mirror", .china = "https://cdn.npmmirror.com/binaries/ali-usb_ctl" },
+        },
+    },
 };
-
 
 pub const Sample = struct {
     ok: bool = false,
@@ -355,6 +435,7 @@ pub fn printHelp() !void {
         \\  reset
         \\  test [name]
         \\
+        \\ls prints every supported name.
         \\china writes the npmmirror hosts, including the Node dist mirror.
         \\official clears them. set stores one URL.
         \\auto measures both sides and keeps the faster one.
@@ -1308,6 +1389,19 @@ test "china profile renders env and npm keys" {
     try expectHas(payloads.env, "export PUPPETEER_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/chrome-for-testing'\n");
     try expectHas(payloads.env, "export SASS_BINARY_SITE='https://cdn.npmmirror.com/binaries/node-sass'\n");
     try expectHas(payloads.env, "export npm_config_sharp_libvips_binary_host='https://cdn.npmmirror.com/binaries/sharp-libvips'\n");
+    try expectHas(payloads.env, "export npm_config_sqlite3_binary_host='https://cdn.npmmirror.com/binaries/sqlite3'\n");
+    try expectHas(payloads.env, "export npm_config_canvas_binary_host='https://cdn.npmmirror.com/binaries/canvas'\n");
+    try expectHas(payloads.env, "export npm_config_grpc_node_binary_host_mirror='https://cdn.npmmirror.com/binaries'\n");
+    try expectHas(payloads.env, "export npm_config_grpc_tools_binary_host_mirror='https://cdn.npmmirror.com/binaries'\n");
+    try expectHas(payloads.env, "export npm_config_nodejieba_binary_host_mirror='https://cdn.npmmirror.com/binaries/nodejieba'\n");
+    try expectHas(payloads.env, "export npm_config_xprofiler_binary_host_mirror='https://cdn.npmmirror.com/binaries/xprofiler'\n");
+    try expectHas(payloads.env, "export npm_config_gdal_binary_host_mirror='https://cdn.npmmirror.com/binaries/node-gdal-async'\n");
+    try expectHas(payloads.env, "export npm_config_zmq_binary_host_mirror='https://cdn.npmmirror.com/binaries/ali-zeromq'\n");
+    try expectHas(payloads.env, "export npm_config_usb_ctrl_binary_host_mirror='https://cdn.npmmirror.com/binaries/ali-usb_ctl'\n");
+    try expectHas(payloads.npm, "sqlite3_binary_host=https://cdn.npmmirror.com/binaries/sqlite3\n");
+    try expectHas(payloads.npm, "canvas_binary_host=https://cdn.npmmirror.com/binaries/canvas\n");
+    try expectHas(payloads.npm, "grpc_node_binary_host_mirror=https://cdn.npmmirror.com/binaries\n");
+    try expectHas(payloads.npm, "gdal_binary_host_mirror=https://cdn.npmmirror.com/binaries/node-gdal-async\n");
     try expectHas(payloads.env, "export RE2_DOWNLOAD_SKIP_PATH='true'\n");
     try expectMissing(payloads.env, "znvm");
     const official = State{};
@@ -1315,4 +1409,17 @@ test "china profile renders env and npm keys" {
     defer empty.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 0), empty.npm.len);
     try std.testing.expectEqual(@as(usize, 0), empty.env.len);
+}
+
+test "mirror ls names include the config-switched hosts" {
+    const names = [_][]const u8{
+        "electron",    "playwright", "puppeteer",  "gl",
+        "sqlite3",     "canvas",     "grpc",       "grpc-tools",
+        "nodejieba",   "xprofiler",  "gdal-async", "ali-zeromq",
+        "ali-usb_ctl",
+    };
+    for (names) |name| {
+        if (findTool(name) == null) return error.TestExpectedEqual;
+    }
+    try std.testing.expectEqual(@as(usize, 35), tools.len);
 }
