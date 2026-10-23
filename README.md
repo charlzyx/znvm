@@ -102,7 +102,7 @@ nvm uninstall 20
 nvm deactivate
 ```
 
-In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Without a terminal, `nvm` prints a short notice and exits. The same menu can edit package-registry routes: several `@scope` registries at once, a separate default, then a sync to npm, yarn, pnpm, and bun.
+In a terminal, `nvm` with no arguments opens an interactive guide. `nvm guide` and `nvm interactive` open the same menu. Up and Down, or k and j, move the highlight. Enter confirms. Esc, q, or Left goes back. A number, then Enter, still picks that row. Ctrl-C restores the terminal and exits. Without a terminal, `nvm` prints a short notice and exits. The same menu can edit package-registry routes: several `@scope` registries at once, a separate default, then a sync to npm, yarn, pnpm, and bun.
 
 ```bash
 nvm registry add @company https://npm.company.example

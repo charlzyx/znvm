@@ -87,7 +87,7 @@ nvm exec 20 npm test
 nvm uninstall 20
 ```
 
-在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。没有终端时，`nvm` 只打印一句说明并退出。同一个菜单可以改包的源：多个 `@scope` 同时指向不同仓库，默认源单独设置，然后同步到 npm、yarn、pnpm 和 bun。
+在终端里不带参数运行 `nvm` 会打开交互引导。`nvm guide` 和 `nvm interactive` 是同一个菜单。上下键或 k/j 移动高亮，回车确认。Esc、q 或左方向键返回。先输入数字再回车，仍然选中那一行。Ctrl-C 会恢复终端并退出。没有终端时，`nvm` 只打印一句说明并退出。同一个菜单可以改包的源：多个 `@scope` 同时指向不同仓库，默认源单独设置，然后同步到 npm、yarn、pnpm 和 bun。
 
 ```bash
 nvm registry add @company https://npm.company.example

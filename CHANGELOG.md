@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.8.1] - 2026-10-23
+
+### Added
+
+- The interactive guide for `nvm` and `nrm` highlights a row. Up and Down, or k and j, move it. Enter confirms. Esc, q, or Left goes back, and quits at the root. A number, then Enter, still picks that row. Ctrl-C restores the terminal and exits 130. `NO_COLOR` keeps the `>` marker and skips reverse video. Text prompts stay line input. A non-terminal, `--yes`, `NVM_NONINTERACTIVE`, and `CI` still skip the menu.
+
 ## [v2.8.0] - 2026-10-23
 
 ### Added
@@ -303,6 +309,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.8.1]: https://github.com/charlzyx/znvm/compare/v2.8.0...v2.8.1
 [v2.8.0]: https://github.com/charlzyx/znvm/compare/v2.7.0...v2.8.0
 [v2.7.0]: https://github.com/charlzyx/znvm/compare/v2.6.0...v2.7.0
 [v2.6.0]: https://github.com/charlzyx/znvm/compare/v2.5.1...v2.6.0

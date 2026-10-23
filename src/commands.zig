@@ -812,6 +812,9 @@ pub fn printHelp() !void {
         \\Global npm packages belong to each Node version.
         \\Source builds (-s), io.js, and the retired "unstable" line are not supported.
         \\With no arguments in a terminal, {s} opens an interactive guide.
+        \\Up and Down, or k and j, move the highlight. Enter confirms.
+        \\Esc, q, or Left goes back. A number, then Enter, still picks that row.
+        \\Ctrl-C restores the terminal and exits.
         \\Without a terminal it prints a short notice and exits.
         \\registry stores a default URL plus @scope routes in $NVM_DIR/registries.json.
         \\It writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
@@ -841,7 +844,7 @@ pub fn printHelp() !void {
         \\  NO_COLOR stays plain ASCII. Output has no color sequences.
         \\  Exit codes: 0 success, 1 usage or failure, 2 the guide quit,
         \\  3 no matching version, 8 an alias loop, 55 an unsupported option,
-        \\  127 system node missing or a missing version file.
+        \\  127 system node missing or a missing version file, 130 Ctrl-C in a menu.
         \\
     , .{ program_name, program_name, program_name, program_name });
 }
@@ -873,6 +876,9 @@ pub fn printNrmHelp() !void {
         \\use auto picks the fastest healthy registry and leaves @scope routes unchanged.
         \\Download mirrors are the nvm mirror command.
         \\With no arguments in a terminal, nrm opens a menu for registries, scopes, and tests.
+        \\Up and Down, or k and j, move the highlight. Enter confirms.
+        \\Esc, q, or Left goes back. A number, then Enter, still picks that row.
+        \\Ctrl-C restores the terminal and exits.
         \\Without a terminal it prints this help.
         \\--yes, NVM_NONINTERACTIVE=1 (also true or yes), and a non-empty CI do the same.
         \\--json writes one JSON object to stdout for ls, current, test, and scope ls.
@@ -2047,7 +2053,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.8.0\n", .{});
+    try stderr("znvm version: v2.8.1\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

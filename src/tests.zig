@@ -9,6 +9,10 @@ const util = @import("util.zig");
 const registry = @import("registry.zig");
 const agent = @import("agent.zig");
 
+test {
+    _ = @import("select.zig");
+}
+
 test "registry module is linked" {
     try testing.expect(registry.china_registry.len > 0);
 }
