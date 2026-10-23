@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm
 
 - ⚡ **Instant Performance**: Core logic written in Zig for lightning-fast resolution.
 - 🍎 **Apple Silicon Friendly**: Automatic architecture detection and Rosetta fallback.
-- 🐧 **Unix-First**: Native support for macOS and Linux.
+- 🐧 **Unix-First**: Native support for macOS and Linux. Windows: not supported yet (planned; see [Windows support (TODO)](https://github.com/charlzyx/znvm/issues)).
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
 - 📦 **Per-version globals**: Global npm packages stay inside each Node version, as they do with nvm.
 - ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.
