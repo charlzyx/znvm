@@ -284,6 +284,10 @@ pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
 
 pub fn addName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
     const name = try normalizeName(raw_name);
+    if (mem.eql(u8, name, "auto")) {
+        try stderr("error: auto is reserved.\n", .{});
+        return error.Explained;
+    }
     if (findBuiltin(name) != null) {
         try stderr("error: {s} is a built-in registry.\n", .{name});
         return error.Explained;
@@ -372,7 +376,135 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
             });
         }
     }
-    for (entries.items) |item| try probeRegistry(allocator, item.name, item.url);
+    const samples = try measureEntries(allocator, entries.items);
+    defer allocator.free(samples);
+    for (entries.items, samples) |item, sample| try printProbe(item.name, sample);
+    if (only == null) try rememberRegistries(allocator, root, entries.items, samples);
+}
+
+pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
+    const binary = @import("binary.zig");
+    var entries = try collectEntries(allocator, root, null);
+    defer freeEntries(allocator, &entries);
+    const names = try allocator.alloc([]const u8, entries.items.len);
+    defer allocator.free(names);
+    for (entries.items, 0..) |item, i| names[i] = item.name;
+    if (try binary.cachedRegistries(allocator, root, names)) |hits| {
+        defer {
+            for (hits) |*hit| hit.deinit(allocator);
+            allocator.free(hits);
+        }
+        const winner = fastestName(entries.items, hits) orelse {
+            try stderr("error: no registry responded.\n", .{});
+            return error.Explained;
+        };
+        return useName(allocator, root, winner);
+    }
+    const samples = try measureEntries(allocator, entries.items);
+    defer allocator.free(samples);
+    try rememberRegistries(allocator, root, entries.items, samples);
+    const winner = fastestSample(entries.items, samples) orelse {
+        try stderr("error: no registry responded.\n", .{});
+        return error.Explained;
+    };
+    return useName(allocator, root, winner);
+}
+
+fn collectEntries(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !std.ArrayList(Named) {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    var entries: std.ArrayList(Named) = .{};
+    errdefer freeEntries(allocator, &entries);
+    if (only) |raw| {
+        const name = try normalizeName(raw);
+        const found = map.urlForName(name) orelse {
+            try stderr("error: {s} is not a registry.\n", .{name});
+            return error.Explained;
+        };
+        try entries.append(allocator, .{
+            .name = try allocator.dupe(u8, name),
+            .url = try allocator.dupe(u8, found),
+        });
+        return entries;
+    }
+    for (builtin_registries) |item| {
+        try entries.append(allocator, .{
+            .name = try allocator.dupe(u8, item.name),
+            .url = try allocator.dupe(u8, item.url),
+        });
+    }
+    for (map.names.items) |item| {
+        try entries.append(allocator, .{
+            .name = try allocator.dupe(u8, item.name),
+            .url = try allocator.dupe(u8, item.url),
+        });
+    }
+    return entries;
+}
+
+fn freeEntries(allocator: mem.Allocator, entries: *std.ArrayList(Named)) void {
+    for (entries.items) |item| {
+        allocator.free(item.name);
+        allocator.free(item.url);
+    }
+    entries.deinit(allocator);
+}
+
+fn measureEntries(allocator: mem.Allocator, entries: []const Named) ![]@import("binary.zig").Sample {
+    const binary = @import("binary.zig");
+    const urls = try allocator.alloc([]const u8, entries.len);
+    defer allocator.free(urls);
+    for (entries, 0..) |item, i| urls[i] = item.url;
+    return binary.probeParallel(allocator, urls);
+}
+
+fn rememberRegistries(allocator: mem.Allocator, root: []const u8, entries: []const Named, samples: []const @import("binary.zig").Sample) !void {
+    const binary = @import("binary.zig");
+    const rows = try allocator.alloc(binary.Row, entries.len);
+    defer allocator.free(rows);
+    for (entries, 0..) |item, i| {
+        rows[i] = .{ .name = item.name, .ok = samples[i].ok, .seconds = samples[i].seconds() };
+    }
+    try binary.storeRegistries(allocator, root, rows);
+}
+
+fn printProbe(name: []const u8, sample: @import("binary.zig").Sample) !void {
+    if (!sample.ok) {
+        try stdout("{s} error\n", .{name});
+        return;
+    }
+    try stdout("{s} {s}s\n", .{ name, sample.seconds() });
+}
+
+fn fastestName(entries: []const Named, hits: []const @import("binary.zig").Hit) ?[]const u8 {
+    var best: ?usize = null;
+    var best_time: f64 = 0;
+    for (entries, hits, 0..) |item, hit, i| {
+        if (!hit.ok) continue;
+        const time = std.fmt.parseFloat(f64, hit.seconds) catch continue;
+        if (best == null or time < best_time) {
+            best = i;
+            best_time = time;
+            _ = item;
+        }
+    }
+    if (best) |index| return entries[index].name;
+    return null;
+}
+
+fn fastestSample(entries: []const Named, samples: []const @import("binary.zig").Sample) ?[]const u8 {
+    var best: ?usize = null;
+    var best_time: f64 = 0;
+    for (entries, samples, 0..) |_, sample, i| {
+        if (!sample.ok) continue;
+        const time = std.fmt.parseFloat(f64, sample.seconds()) catch continue;
+        if (best == null or time < best_time) {
+            best = i;
+            best_time = time;
+        }
+    }
+    if (best) |index| return entries[index].name;
+    return null;
 }
 
 fn printNameLine(map: *const Map, name: []const u8, url: []const u8) !void {
@@ -381,29 +513,6 @@ fn printNameLine(map: *const Map, name: []const u8, url: []const u8) !void {
     } else {
         try stdout("  {s} {s}\n", .{ name, url });
     }
-}
-
-fn probeRegistry(allocator: mem.Allocator, name: []const u8, url: []const u8) !void {
-    const argv = [_][]const u8{ "curl", "-o", "/dev/null", "-s", "-w", "%{time_total}", "--max-time", "8", url };
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = &argv,
-        .max_output_bytes = 128,
-    }) catch |err| switch (err) {
-        error.FileNotFound => return error.CurlMissing,
-        else => return err,
-    };
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    const ok = switch (result.term) {
-        .Exited => |code| code == 0 and mem.trim(u8, result.stdout, " \t\r\n").len > 0,
-        else => false,
-    };
-    if (!ok) {
-        try stdout("{s} error\n", .{name});
-        return;
-    }
-    try stdout("{s} {s}s\n", .{ name, mem.trim(u8, result.stdout, " \t\r\n") });
 }
 
 pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
@@ -976,6 +1085,9 @@ test "registry files keep unrelated lines and scope routes" {
         \\@old:registry=https://old.example
         \\//registry.npmjs.org/:_authToken=secret
         \\fund=false
+        \\# nvm binaries begin
+        \\electron_mirror=https://cdn.npmmirror.com/binaries/electron/
+        \\# nvm binaries end
         \\
     , &map);
     defer allocator.free(npmrc);
@@ -983,6 +1095,8 @@ test "registry files keep unrelated lines and scope routes" {
     try expectHas(npmrc, "registry=https://keep.example\n");
     try expectHas(npmrc, "//registry.npmjs.org/:_authToken=secret\n");
     try expectHas(npmrc, "fund=false\n");
+    try expectHas(npmrc, "# nvm binaries begin\n");
+    try expectHas(npmrc, "electron_mirror=https://cdn.npmmirror.com/binaries/electron/\n");
     try expectHas(npmrc, "@acme:registry=https://npm.acme.example\n");
     try expectHas(npmrc, "@company:registry=https://npm.company.example\n");
     try expectMissing(npmrc, "@old:registry");
@@ -993,6 +1107,8 @@ test "registry files keep unrelated lines and scope routes" {
     try expectHas(replaced, "registry=" ++ china_registry ++ "\n");
     try expectMissing(replaced, "keep.example");
     try expectHas(replaced, "_authToken=secret");
+    try expectHas(replaced, "# nvm binaries begin\n");
+    try expectHas(replaced, "electron_mirror=https://cdn.npmmirror.com/binaries/electron/\n");
     try expectHas(replaced, "@company:registry=https://npm.company.example\n");
 
     const yarn = try renderYarnrc(allocator, "save-prefix \"~\"\nregistry \"https://old.example\"\n", &map);

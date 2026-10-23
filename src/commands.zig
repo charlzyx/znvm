@@ -801,6 +801,7 @@ pub fn printHelp() !void {
         \\  deactivate [--silent]
         \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
         \\  registry [show|set-default|add|remove|china|official|sync]
+        \\  mirror [ls|use|set|reset|test]
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
@@ -820,6 +821,11 @@ pub fn printHelp() !void {
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
         \\use, ls, and current on this command always select Node versions.
         \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
+        \\mirror sets the Node dist host and download mirrors for Electron, Playwright,
+        \\Cypress, puppeteer, sharp, node-sass, and other tools.
+        \\It writes npm, pnpm, and yarn v1 keys, plus $NVM_DIR/binaries.env.
+        \\A new shell sources that file. Scope routes are not changed.
+        \\Docker image mirrors are not set here.
         \\
     , .{ program_name, program_name, program_name, program_name });
 }
@@ -830,7 +836,7 @@ pub fn printNrmHelp() !void {
         \\
         \\Commands:
         \\  ls
-        \\  use <name>
+        \\  use <name|auto>
         \\  current [-u|--show-url]
         \\  add <name> <url>
         \\  del <name>
@@ -844,7 +850,9 @@ pub fn printNrmHelp() !void {
         \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.
         \\Custom names are stored in $NVM_DIR/registries.json.
         \\use and scope write ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
-        \\With no arguments in a terminal, nrm opens the registry menu.
+        \\use auto picks the fastest healthy registry and leaves @scope routes unchanged.
+        \\Download mirrors are the nvm mirror command.
+        \\With no arguments in a terminal, nrm opens a menu for registries, scopes, and tests.
         \\Without a terminal it prints this help.
         \\nvm registry edits the same map.
         \\
@@ -864,6 +872,8 @@ pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
             return;
         } else if ((mem.eql(u8, sub, "ls") or mem.eql(u8, sub, "list")) and args.len == 2) {
             break :blk reg.listNames(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "use") and args.len == 3 and mem.eql(u8, args[2], "auto")) {
+            break :blk reg.useAuto(allocator, config.root_dir);
         } else if (mem.eql(u8, sub, "use") and args.len == 3) {
             break :blk reg.useName(allocator, config.root_dir, args[2]);
         } else if (mem.eql(u8, sub, "current") and args.len == 2) {
@@ -933,6 +943,14 @@ pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: Z
     };
 }
 
+pub fn cmdMirror(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const mirror = @import("binary.zig");
+    mirror.cmd(allocator, config.root_dir, if (args.len < 2) args[0..0] else args[2..]) catch |err| {
+        try mirror.printError(err);
+        process.exit(1);
+    };
+}
+
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     _ = args;
     const root_dir = try shellQuote(allocator, config.root_dir);
@@ -970,6 +988,9 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     const shell_script =
         \\# nvm
         \\export NVM_DIR={s}
+        \\if [ -f "$NVM_DIR/binaries.env" ]; then
+        \\  . "$NVM_DIR/binaries.env"
+        \\fi
         \\{s}
         \\__nvm_exe={s}
         \\
@@ -1911,7 +1932,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.5.1\n", .{});
+    try stderr("znvm version: v2.6.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

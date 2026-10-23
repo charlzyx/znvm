@@ -5,6 +5,7 @@ const process = std.process;
 
 const commands = @import("commands.zig");
 const registry = @import("registry.zig");
+const binary = @import("binary.zig");
 const version = @import("version.zig");
 const util = @import("util.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
@@ -28,6 +29,195 @@ pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
             .acted => if (!try pause(allocator, zh)) return,
         }
     }
+}
+
+pub fn runNrm(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    if (!std.posix.isatty(std.posix.STDIN_FILENO)) return;
+    const zh = preferZh(allocator);
+    const items = [_][2][]const u8{
+        .{ "Registries", "源" },
+        .{ "Scopes", "scope" },
+        .{ "Test and auto", "测速并自动选择" },
+    };
+    while (true) {
+        try stderr("\nnrm\n\n", .{});
+        for (items, 0..) |item, i| {
+            try stderr("  {d}  {s}\n", .{ i + 1, text(zh, item[0], item[1]) });
+        }
+        try stderr("  0  {s}\n", .{text(zh, "Exit", "退出")});
+        const line = try prompt(allocator) orelse return;
+        defer allocator.free(line);
+        switch (parseChoice(line, items.len)) {
+            .again => continue,
+            .invalid => try sayInvalid(zh),
+            .back => return,
+            .pick => |n| switch (try nrmPage(allocator, config, zh, n)) {
+                .quit => return,
+                .back => continue,
+                .acted => if (!try pause(allocator, zh)) return,
+            },
+        }
+    }
+}
+
+fn nrmPage(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize) !Outcome {
+    return switch (which) {
+        1 => nrmItems(allocator, config, zh, which, "Registries", "源", &.{
+            .{ "List", "列出" },
+            .{ "Use a name", "使用一个名字" },
+            .{ "Add a name", "添加名字" },
+            .{ "Delete a name", "删除名字" },
+        }),
+        2 => nrmItems(allocator, config, zh, which, "Scopes", "scope", &.{
+            .{ "List", "列出" },
+            .{ "Add a scope", "添加 scope" },
+            .{ "Delete a scope", "删除 scope" },
+        }),
+        3 => nrmItems(allocator, config, zh, which, "Test and auto", "测速并自动选择", &.{
+            .{ "Test registries", "测试源" },
+            .{ "Use fastest registry", "使用最快的源" },
+        }),
+        else => .back,
+    };
+}
+
+fn nrmItems(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize, en_title: []const u8, zh_title: []const u8, items: []const [2][]const u8) !Outcome {
+    while (true) {
+        try stderr("\n{s}\n\n", .{text(zh, en_title, zh_title)});
+        try printItems(zh, items);
+        const line = try prompt(allocator) orelse return .quit;
+        defer allocator.free(line);
+        switch (parseChoice(line, items.len)) {
+            .again => continue,
+            .invalid => {
+                try sayInvalid(zh);
+                continue;
+            },
+            .back => return .back,
+            .pick => |n| {
+                try nrmDispatch(allocator, config, zh, which, n);
+                return .acted;
+            },
+        }
+    }
+}
+
+fn nrmDispatch(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, menu: usize, item: usize) !void {
+    switch (menu) {
+        1 => switch (item) {
+            1 => try nrmShow(allocator, config, zh, "nrm ls", registry.listNames),
+            2 => try promptNrmName(allocator, config, zh, true),
+            3 => try promptNrmAdd(allocator, config, zh),
+            4 => try promptNrmName(allocator, config, zh, false),
+            else => {},
+        },
+        2 => switch (item) {
+            1 => try nrmShow(allocator, config, zh, "nrm scope ls", registry.listScopes),
+            2 => try promptRegistryScope(allocator, config, zh, true),
+            3 => try promptRegistryScope(allocator, config, zh, false),
+            else => {},
+        },
+        3 => switch (item) {
+            1 => try nrmReg(allocator, config, zh, "nrm test", registryTestAll),
+            2 => try nrmReg(allocator, config, zh, "nrm use auto", registry.useAuto),
+            else => {},
+        },
+        else => {},
+    }
+}
+
+fn registryTestAll(allocator: mem.Allocator, root: []const u8) !void {
+    try registry.testRegistries(allocator, root, null);
+}
+
+fn binaryTestAll(allocator: mem.Allocator, root: []const u8) !void {
+    try binary.cmd(allocator, root, &.{ "test" });
+}
+
+fn binaryUseChina(allocator: mem.Allocator, root: []const u8) !void {
+    try binary.cmd(allocator, root, &.{ "use", "china" });
+}
+
+fn binaryUseOfficial(allocator: mem.Allocator, root: []const u8) !void {
+    try binary.cmd(allocator, root, &.{ "use", "official" });
+}
+
+fn nrmShow(
+    allocator: mem.Allocator,
+    config: ZnvmConfig,
+    zh: bool,
+    label: []const u8,
+    comptime func: fn (mem.Allocator, []const u8) anyerror!void,
+) !void {
+    try running(zh, label);
+    show(func, .{ allocator, config.root_dir }) catch |err| try registry.printError(err);
+}
+
+fn nrmReg(
+    allocator: mem.Allocator,
+    config: ZnvmConfig,
+    zh: bool,
+    label: []const u8,
+    comptime func: fn (mem.Allocator, []const u8) anyerror!void,
+) !void {
+    try running(zh, label);
+    func(allocator, config.root_dir) catch |err| try registry.printError(err);
+}
+
+fn mirrorAction(
+    allocator: mem.Allocator,
+    config: ZnvmConfig,
+    zh: bool,
+    label: []const u8,
+    comptime func: fn (mem.Allocator, []const u8) anyerror!void,
+) !void {
+    try running(zh, label);
+    func(allocator, config.root_dir) catch |err| try binary.printError(err);
+}
+
+fn promptNrmName(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, using: bool) !void {
+    try stderr("{s}\n", .{text(zh, "Registry name", "源名字")});
+    const line = try prompt(allocator) orelse return;
+    defer allocator.free(line);
+    const name = mem.trim(u8, line, " \t");
+    if (name.len == 0) return;
+    if (!using) {
+        try running(zh, "nrm del <name>");
+        registry.delName(allocator, config.root_dir, name) catch |err| try registry.printError(err);
+        return;
+    }
+    try running(zh, "nrm use <name>");
+    registry.useName(allocator, config.root_dir, name) catch |err| try registry.printError(err);
+}
+
+fn promptNrmAdd(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
+    try stderr("{s}\n", .{text(zh, "Registry name", "源名字")});
+    const name_line = try prompt(allocator) orelse return;
+    defer allocator.free(name_line);
+    const name = mem.trim(u8, name_line, " \t");
+    if (name.len == 0) return;
+    try stderr("{s}\n", .{text(zh, "Registry URL", "源地址")});
+    const url_line = try prompt(allocator) orelse return;
+    defer allocator.free(url_line);
+    const url = mem.trim(u8, url_line, " \t");
+    if (url.len == 0) return;
+    try running(zh, "nrm add <name> <url>");
+    registry.addName(allocator, config.root_dir, name, url) catch |err| try registry.printError(err);
+}
+
+fn promptBinarySet(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
+    try stderr("{s}\n", .{text(zh, "Mirror name (for example electron)", "镜像名字(例如 electron)")});
+    const name_line = try prompt(allocator) orelse return;
+    defer allocator.free(name_line);
+    const name = mem.trim(u8, name_line, " \t");
+    if (name.len == 0) return;
+    try stderr("{s}\n", .{text(zh, "Mirror URL", "镜像地址")});
+    const url_line = try prompt(allocator) orelse return;
+    defer allocator.free(url_line);
+    const url = mem.trim(u8, url_line, " \t");
+    if (url.len == 0) return;
+    try running(zh, "nvm mirror set <name> <url>");
+    binary.cmd(allocator, config.root_dir, &.{ "set", name, url }) catch |err| try binary.printError(err);
 }
 
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
@@ -129,6 +319,7 @@ fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
         .{ "Uninstall", "卸载(uninstall)" },
         .{ "Install / migrate (install-as-nvm)", "安装 / 迁移(install-as-nvm)" },
         .{ "Registries (scopes)", "镜像源(scope)" },
+        .{ "Mirrors", "下载镜像" },
     };
     while (true) {
         try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "(交互引导)") });
@@ -200,6 +391,15 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
             .{ "China default, keep scopes", "中国默认源, 保留 scope" },
             .{ "Sync npm, yarn, pnpm, and bun", "同步 npm, yarn, pnpm, bun" },
             .{ "Restore the official registry", "恢复官方源" },
+        }),
+        10 => itemMenu(allocator, config, zh, which, "Mirrors", "下载镜像", &.{
+            .{ "List", "列出" },
+            .{ "Use china", "使用中国镜像" },
+            .{ "Use official", "使用官方地址" },
+            .{ "Set one mirror", "设置一个镜像" },
+            .{ "Reset", "还原" },
+            .{ "Test", "测速" },
+            .{ "Use fastest", "使用最快的一边" },
         }),
         else => .back,
     };
@@ -279,6 +479,16 @@ fn dispatch(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, menu: usize,
             5 => try registryAction(allocator, config, zh, "nvm registry china", registry.useChina),
             6 => try registryAction(allocator, config, zh, "nvm registry sync", registry.sync),
             7 => try registryAction(allocator, config, zh, "nvm registry official", registry.useOfficial),
+            else => {},
+        },
+        10 => switch (item) {
+            1 => try mirrorAction(allocator, config, zh, "nvm mirror ls", binary.list),
+            2 => try mirrorAction(allocator, config, zh, "nvm mirror use china", binaryUseChina),
+            3 => try mirrorAction(allocator, config, zh, "nvm mirror use official", binaryUseOfficial),
+            4 => try promptBinarySet(allocator, config, zh),
+            5 => try mirrorAction(allocator, config, zh, "nvm mirror reset", binary.reset),
+            6 => try mirrorAction(allocator, config, zh, "nvm mirror test", binaryTestAll),
+            7 => try mirrorAction(allocator, config, zh, "nvm mirror use auto", binary.useAuto),
             else => {},
         },
         else => {},

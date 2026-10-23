@@ -109,7 +109,7 @@ nvm registry official       # default https://registry.npmjs.org, scopes stay
 nvm registry show
 ```
 
-The saved map is `$NVM_DIR/registries.json`. Sync rewrites the default registry and `@scope` registry lines in `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc (`~/.config/pnpm/rc`, or `~/Library/Preferences/pnpm/rc` on macOS), and `~/.bunfig.toml`. Other lines in those files stay. A `npmScopes` block in `~/.yarnrc.yml` is replaced by the saved scopes. Electron and other binary mirrors are not part of this command.
+The saved map is `$NVM_DIR/registries.json`. Sync rewrites the default registry and `@scope` registry lines in `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc (`~/.config/pnpm/rc`, or `~/Library/Preferences/pnpm/rc` on macOS), and `~/.bunfig.toml`. Other lines in those files stay. A `npmScopes` block in `~/.yarnrc.yml` is replaced by the saved scopes. Download mirrors are `nvm mirror`, so a registry sync leaves them in place.
 
 The same install provides `nrm`. It is this binary when the command name is `nrm`. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. `nvm registry` is the prefixed alias for that map.
 
@@ -121,12 +121,27 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
 ```
 
-Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use` and `nvm registry china` / `official` pick the built-in name when the URL matches, ignoring one trailing slash. `nrm del` does not remove a built-in name. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help. `nrm add` accepts an optional home argument and ignores it.
+Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use` and `nvm registry china` / `official` pick the built-in name when the URL matches, ignoring one trailing slash. `nrm del` does not remove a built-in name. `nrm use auto` measures the registries and writes the fastest one that answers. It does not change `@scope` routes. `nrm test` always measures again. A result is reused for 6 hours from `$NVM_DIR/mirror-latency.json`. In a terminal, `nrm` with no arguments opens a menu for registries, scopes, and tests. Without a terminal it prints help. `nrm add` accepts an optional home argument and ignores it. `nrm` does not accept `binary` or `mirror`.
+
+`nvm mirror` writes the Node dist host and the download hosts tools actually read. The same guide lists it as Mirrors.
+
+```bash
+nvm mirror ls
+nvm mirror use china
+nvm mirror use auto
+nvm mirror set electron https://cdn.npmmirror.com/binaries/electron/
+nvm mirror reset
+```
+
+`china` uses the npmmirror hosts from cnpm's binary-mirror-config (Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common ones), including the Node dist mirror. `official` clears them. `set` stores one URL. `auto` measures each China host against its upstream host and keeps the faster one. npm, pnpm, and yarn v1 keys go in their rc files, inside a `# nvm binaries` block. Env-only values go in `$NVM_DIR/binaries.env`, which `nvm.sh` sources. `reset` deletes that file and the block, and leaves registry lines, scopes, and other settings. Clearing the Node mirror falls back to znvm's usual download host. To force nodejs.org, `nvm mirror set node https://nodejs.org/dist`. Nothing here runs on install.
+
+Docker image mirrors are not set here. Pointing the Docker daemon at a mirror needs a privileged config and a daemon restart, so that stays a later change.
 
 ### Differences from nvm
 
@@ -147,6 +162,7 @@ Not implemented, because they are not just a different default:
 - `-s` compiles Node from source. This `nvm` installs official binaries only.
 - io.js and the `unstable` alias are retired and are not on the Node mirror.
 - `set-colors` only changes terminal colors in nvm.sh. `nvm ls` prints plain text.
+- Docker image mirrors. `nvm mirror` covers tool download hosts. The Docker daemon is a separate privileged config.
 
 ## ⚙️ Shell Setup
 
