@@ -4,13 +4,13 @@
 curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 ```
 
-`nvm` and `nrm`, written in Zig. Versions live in `~/.nvm`. Downloads use npmmirror. `nvm` with no arguments opens a guide.
+NVM and NRM, written in Zig. Versions live in `~/.nvm`. Downloads use npmmirror. Run `nvm` to open the guide.
 
-Warm / cold shell startup on 2026-10-22: znvm 3.31 / 5.01 ms, fnm 1.58 / 4.70 ms, nvm 113 / 121 ms.
+Warm / cold shell startup on 2026-10-22: ZNVM 3.31 / 5.01 ms, fnm 1.58 / 4.70 ms, NVM 113 / 121 ms.
 
 ## Speed
 
-One run, 2026-10-22 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. `benchmarks/measure.py`. znvm ReleaseSafe. Samples: `benchmarks/results/2026-10-22-cold-warm.json`.
+One run, 2026-10-22 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. `benchmarks/measure.py`. ZNVM ReleaseSafe. Samples: `benchmarks/results/2026-10-22-cold-warm.json`.
 
 | Manager | Warm startup | Cold startup | list warm | list cold | use warm | use cold | .nvmrc warm | .nvmrc cold |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

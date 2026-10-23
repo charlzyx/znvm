@@ -10,26 +10,26 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
 
   return (
     <section className="container pt-14 pb-16 md:pt-20 md:pb-20">
-      <p className="zig-mark">{zh ? "用 Zig 构建" : "Built with Zig"}</p>
-      <h1 className="mt-6 max-w-4xl text-[2.6rem] font-bold leading-[1.02] tracking-[-0.035em] text-balance md:text-[3.5rem]">
+      <p className="zig-mark">{zh ? "用 Zig 写的" : "Built with Zig"}</p>
+      <h1 className="mt-6 max-w-4xl text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.04em] text-balance md:text-[3.5rem]">
         {zh ? (
           <>
-            nvm 和 nrm，
+            NVM 的命令，
             <br />
-            用 Zig 写成。
+            原生的速度。
           </>
         ) : (
           <>
-            nvm and nrm,
+            NVM commands.
             <br />
-            written in Zig.
+            Native speed.
           </>
         )}
       </h1>
-      <p className="mt-5 max-w-[36rem] text-[17px] leading-relaxed text-pretty text-muted-foreground">
+      <p className="mt-5 max-w-[36rem] text-[17px] font-normal leading-relaxed text-pretty text-muted-foreground">
         {zh
-          ? "版本在 ~/.nvm。Node 从 npmmirror 下载。"
-          : "Versions live in ~/.nvm. Node downloads come from npmmirror."}
+          ? "命令不变，目录不变，国内镜像开箱即用。"
+          : "Same commands, same ~/.nvm, China mirrors built in."}
       </p>
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
         <Link

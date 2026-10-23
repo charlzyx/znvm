@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/logo-mark";
 
-interface FooterProps {
-  lang?: "en" | "zh";
-}
-
-export function Footer({ lang = "en" }: FooterProps) {
-  const isZh = lang === "zh";
+export function Footer() {
+  const pathname = usePathname();
+  const isZh = pathname.startsWith("/zh");
 
   return (
     <footer className="border-t border-border">
@@ -18,9 +16,9 @@ export function Footer({ lang = "en" }: FooterProps) {
           <div>
             <Link href={isZh ? "/zh" : "/"} className="flex items-center space-x-2">
               <LogoMark className="h-5 w-5" />
-              <span className="font-semibold tracking-tight">znvm</span>
+              <span className="font-semibold tracking-[-0.04em]">ZNVM</span>
             </Link>
-            <p className="zig-mark mt-5">{isZh ? "用 Zig 构建" : "Built with Zig"}</p>
+            <p className="zig-mark mt-5">{isZh ? "用 Zig 写的" : "Built with Zig"}</p>
           </div>
 
           {/* Links */}
@@ -90,7 +88,7 @@ export function Footer({ lang = "en" }: FooterProps) {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} znvm. {isZh ? "保留所有权利" : "All rights reserved"}.
+            © {new Date().getFullYear()} ZNVM. {isZh ? "保留所有权利。" : "All rights reserved."}
           </p>
           <p>Linux, macOS</p>
         </div>

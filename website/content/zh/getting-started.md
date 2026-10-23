@@ -1,8 +1,8 @@
 # 快速开始
 
-Zig 写的 `nvm` 和 `nrm`。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载用 npmmirror。2026-10-22：暖启动 3.31 ms，冷启动 5.01 ms。
+Zig 写的 NVM 和 NRM。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载走 npmmirror。2026-10-22：热启动 3.31 ms，冷启动 5.01 ms。
 
-不带参数的 `nvm` 打开引导。没有终端时只打印一句说明并退出。
+直接敲 `nvm` 打开引导。没有终端就只打一行，然后退出。
 
 ## 给 Agent
 

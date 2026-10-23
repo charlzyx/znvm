@@ -1,14 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" fill="none">
   <rect width="1400" height="900" fill="#121a14"/>
-  <ellipse cx="280" cy="180" rx="460" ry="300" fill="#3a2a10" fill-opacity="0.55"/>
-  <ellipse cx="1080" cy="640" rx="520" ry="340" fill="#1c3a24" fill-opacity="0.8"/>
-  <ellipse cx="760" cy="260" rx="280" ry="180" fill="#1a2420" fill-opacity="0.5"/>
-  <filter id="grain-dark">
-    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/>
-    <feColorMatrix type="saturate" values="0"/>
-    <feComponentTransfer>
-      <feFuncA type="linear" slope="0.22"/>
-    </feComponentTransfer>
-  </filter>
-  <rect width="1400" height="900" filter="url(#grain-dark)"/>
+  <defs>
+    <linearGradient id="field-dark" x1="0" y1="0" x2="1400" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101612"/>
+      <stop offset="1" stop-color="#1a2a1e"/>
+    </linearGradient>
+    <linearGradient id="bolt-dark" x1="980" y1="-40" x2="1680" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#339933" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#0c2414" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="900" fill="url(#field-dark)"/>
+  <polygon points="0,0 520,0 0,340" fill="#339933" fill-opacity="0.1"/>
+  <polygon points="0,900 0,640 280,900" fill="#9ed49e" fill-opacity="0.05"/>
+  <polygon points="1400,0 1400,220 1180,0" fill="#f7a41d" fill-opacity="0.18"/>
+  <polygon points="1680,-120 1180,420 1360,420 1240,1040 1760,240 1500,240 1620,-120" fill="url(#bolt-dark)"/>
+  <polygon points="860,900 1040,900 760,620" fill="#339933" fill-opacity="0.16"/>
+  <path d="M-20 700 L1420 160" stroke="#9ed49e" stroke-opacity="0.28" stroke-width="1"/>
+  <path d="M-20 820 L1420 280" stroke="#9ed49e" stroke-opacity="0.12" stroke-width="1"/>
+  <path d="M40 780 L150 700 L260 780" stroke="#f7a41d" stroke-width="1.5"/>
 </svg>

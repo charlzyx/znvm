@@ -1,8 +1,8 @@
 # Quick start
 
-`nvm` and `nrm`, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
+NVM and NRM, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
 
-`nvm` with no arguments opens a guide. No terminal: it prints a notice and exits.
+Run `nvm` to open the guide. With no terminal it prints one line and exits.
 
 ## For agents
 

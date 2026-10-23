@@ -20,24 +20,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "znvm",
-    template: "%s | znvm",
+    default: "ZNVM",
+    template: "%s | ZNVM",
   },
-  description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
+  description: "NVM and NRM, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
   keywords: ["znvm", "nvm", "nrm", "node version manager", "zig", "npmmirror"],
   authors: [{ name: "charlzyx" }],
   openGraph: {
-    title: "znvm",
-    description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
+    title: "ZNVM",
+    description: "NVM and NRM, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
     type: "website",
     locale: "en_US",
-    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "znvm" }],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "ZNVM" }],
     url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
-    title: "znvm",
-    description: "nvm and nrm, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
+    title: "ZNVM",
+    description: "NVM and NRM, written in Zig. Versions in ~/.nvm. Node downloads from npmmirror.",
   },
 };
 

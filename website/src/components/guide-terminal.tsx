@@ -470,8 +470,8 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           <h2 className="kicker">{zh ? "引导" : "Guide"}</h2>
           <p className="mt-3 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
             {zh
-              ? "不带参数的 nvm 打开这个菜单。按数字。0 返回，在根菜单则退出。1 再回车打开第一项。1 再 0 打开下载镜像。"
-              : "nvm with no arguments opens this menu. Press a number. 0 goes back, or exits on the root menu. 1 then Enter opens the first item. 1 then 0 opens Mirrors."}
+              ? "直接敲 nvm，用数字选。0 返回上一级。"
+              : "Run nvm and pick a number. 0 goes back."}
           </p>
           <div
             ref={frame}
@@ -479,7 +479,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
             data-ui="terminal"
             tabIndex={0}
             role="group"
-            aria-label={zh ? "nvm 交互引导演示" : "nvm interactive guide demo"}
+            aria-label={zh ? "NVM 交互引导" : "NVM interactive guide"}
           >
             <div className="term-chrome">
               <span className="term-dot" />

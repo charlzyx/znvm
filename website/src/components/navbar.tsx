@@ -40,7 +40,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center">
         <Link href={homeHref} className="mr-6 flex items-center gap-2 flex-shrink-0">
           <LogoMark className="h-5 w-5" />
-          <span className="text-[15px] font-semibold tracking-tight">znvm</span>
+          <span className="text-[15px] font-semibold tracking-[-0.04em]">ZNVM</span>
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-4">
@@ -93,7 +93,7 @@ function MobileNav({ isZh }: { isZh: boolean }) {
       {/* Logo */}
       <Link href={homeHref} className="flex items-center space-x-2">
         <LogoMark className="h-5 w-5" />
-        <span className="font-semibold tracking-tight">znvm</span>
+        <span className="font-semibold tracking-[-0.04em]">ZNVM</span>
       </Link>
 
       {/* Navigation */}
