@@ -1,33 +1,27 @@
-# Get Started
+# Quick start
 
-**znvm** — **Zero-overhead Node Version Manager**
+`nvm` and `nrm`, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
 
-A **Node.js version manager** built with Zig. After install, the commands are `nvm` and `nrm`. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). The default download mirror is npmmirror. On 2026-10-22, warm shell startup was **3.31 ms** and cold shell startup was **5.01 ms** (see the homepage tables).
-
-In a terminal, `nvm` with no arguments opens an interactive guide (`nvm guide` does the same). Without a terminal, it prints a short notice and exits.
+`nvm` with no arguments opens a guide. No terminal: it prints a notice and exits.
 
 ## For agents
-
-The zero-install way to learn znvm is the binary itself:
 
 ```bash
 nvm --llm
 nrm --llm
 ```
 
-Both print the guide in `skills/znvm/SKILL.md` and exit. The binary embeds that file, so the command and the file match.
+Same text as `skills/znvm/SKILL.md` and [llm.txt](https://znvm.dev/llm.txt). The binary embeds that file.
 
 ```bash
 npx skills add charlzyx/znvm
 ```
 
-If that client cannot install a skill, copy `skills/znvm/SKILL.md` into its skills directory.
+That installs `skills/znvm/SKILL.md`. No MCP server.
 
-There is no MCP server. `nvm` and `nrm` are already a shell CLI. An MCP server would only wrap the same binary.
+`nvm` selects Node. `nrm` selects registries and `@scope` routes. `nvm mirror` selects download hosts. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
 
-`nvm` selects Node versions. `nrm` selects npm registries and `@scope` routes. `nvm mirror` selects download hosts for Electron, Playwright, and the other tools. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
-
-`--json` writes one JSON object to stdout for `nvm ls`, `nvm ls-remote` (including `--lts`), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. An error is `{"error":"...","exit":N}` on stderr. Stdout is empty, and the exit code matches text mode: 0 success, 1 usage or failure, 3 no matching version, 8 an alias loop, 55 an unsupported option, 127 system node missing or a missing version file.
+`--json` prints one object for `nvm ls`, `nvm ls-remote` (`--lts` too), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. Errors are `{"error":"...","exit":N}` on stderr, with empty stdout. Exit codes: 0 ok, 1 usage or failure, 3 no match, 8 alias loop, 55 bad option, 127 missing system node or version file.
 
 With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`, `nvm ls --json` prints:
 
@@ -35,7 +29,7 @@ With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH
 {"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
 ```
 
-Menus open only when stdin and the menu stream are terminals. `--yes`, `NVM_NONINTERACTIVE=1` (`true` and `yes` too), and a non-empty `CI` keep them closed. `NO_COLOR` stays plain ASCII. `--guide-step` draws the menu on stderr.
+Menus need a terminal on stdin and on the menu stream. `--yes`, `NVM_NONINTERACTIVE=1` (`true` or `yes`), or a non-empty `CI` keeps them closed. `NO_COLOR` is plain ASCII. `--guide-step` draws on stderr.
 
 If `nvm` is not found:
 
@@ -46,7 +40,7 @@ export NVM_DIR="$HOME/.nvm"
 
 ## Installation
 
-### Quick Install (Recommended)
+### Install
 
 ```bash
 curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
@@ -78,7 +72,7 @@ Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
-The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running the script again is safe. When `nvm --version` already matches this release, the binary stays in place. When the version differs, the previous binary is kept as `nvm.bak` and replaced. It does not duplicate that block, and it does not delete Node versions already under `~/.nvm/versions/node`.
+`source` the profile it printed (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). Running it again is safe. A matching `nvm --version` keeps the binary. A different version is saved as `nvm.bak` and replaced. It does not duplicate the shell block or delete Node versions.
 
 ### What the installer does
 
@@ -87,7 +81,7 @@ The `source` path is the profile the script actually updated (`~/.bashrc`, `~/.z
 3. Appends the `NVM_DIR` startup lines to your shell profile
 4. Leaves existing Node versions in `$NVM_DIR/versions/node` in place
 
-The `nrm` link is a relative symlink in the same directory as `nvm`. If that path already exists, the installer leaves it unchanged and says so. If another `nrm` is on `PATH`, the installer prints that path and does not delete it. A new shell moves the `nvm` directory to the front of `PATH`, so this `nrm` runs first. `install-as-nvm.sh --uninstall` removes the `nvm` binary and the `nrm` link when the link points at it, restores or removes the shell block, and does not delete Node versions or a foreign `nrm`.
+`nrm` is a relative symlink next to `nvm`. An existing path is left in place. A foreign `nrm` on `PATH` is left in place. A new shell puts this directory first. `--uninstall` removes the `nvm` binary, the `nrm` link when it points at `nvm`, and the shell block. It does not delete Node versions or a foreign `nrm`.
 
 ### Shell setup
 
@@ -107,11 +101,11 @@ Open a new terminal, or `source` that profile. The commands after that are `nvm`
 nvm
 ```
 
-The menu uses number keys and Enter. It installs, switches, lists, and uninstalls by running the same `nvm` commands as the sections below. Registries (scopes) and Mirrors are on that menu. Chinese prompts are used when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
+Number keys and Enter. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
 
 ## Registries
 
-`nvm registry` keeps one default registry and any number of `@scope` routes, then writes them for npm, yarn, pnpm, and bun. The interactive menu can view that map, add or edit a scope, delete one, set the default, sync every file, switch to the China default while keeping scopes, or restore the official npm registry.
+One default registry plus `@scope` routes, written for npm, yarn, pnpm, and bun.
 
 ```bash
 nvm registry show
@@ -123,11 +117,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Download mirrors are `nvm mirror`, so a registry sync leaves them in place.
+`china` sets `https://registry.npmmirror.com`. `official` sets `https://registry.npmjs.org`. Scopes stay. The map is `$NVM_DIR/registries.json`. Sync writes `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`, and leaves other settings and `nvm mirror` hosts.
 
 ## nrm
 
-`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens a menu for registries, scopes, and tests. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only. Download mirrors are `nvm mirror`.
+`nrm` is this binary under another name. `nvm use`, `ls`, and `current` are Node. `nrm use`, `ls`, and `current` are registries. No terminal: `nrm` prints help. `nvm.sh` wraps `nvm` only.
 
 ```bash
 nrm ls
@@ -143,7 +137,7 @@ nrm scope ls
 nrm scope del @company
 ```
 
-Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use taobao` and `nvm registry china` select the same npmmirror URL. A single trailing slash does not change the match. `nrm del` refuses a built-in name. `nrm use auto` writes the fastest registry that answers and leaves `@scope` routes unchanged. `nrm test` always measures again. A result is reused for 6 hours. `nvm registry` remains available.
+Built-ins: `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, `huawei`. `nrm use taobao` and `nvm registry china` are the same URL. One trailing slash still matches. `nrm del` refuses a built-in. `nrm use auto` writes the fastest registry and leaves scopes. `nrm test` measures again. A result is kept for 6 hours.
 
 ## Download mirrors
 
@@ -157,17 +151,17 @@ nvm mirror reset
 nvm mirror test
 ```
 
-`china` writes the npmmirror download hosts (Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common ones), including the Node dist mirror. `official` clears them. `auto` keeps the faster side of each pair. npm, pnpm, and yarn v1 keys go in their rc files. Env-only values go in `$NVM_DIR/binaries.env`, which a new shell sources through `nvm.sh`. `reset` removes that file and the `# nvm binaries` block only. Scope routes stay. Nothing here runs on install.
+`china` writes npmmirror hosts for Node, Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common tools. `official` clears them. `auto` keeps the faster side of each tool. npm, pnpm, and yarn v1 keys go in their rc files. Env values go in `$NVM_DIR/binaries.env`, sourced by `nvm.sh`. `reset` removes that file and the `# nvm binaries` block. Scopes stay. Nothing runs on install.
 
-Clearing the Node mirror falls back to znvm's usual download host. To force nodejs.org, run `nvm mirror set node https://nodejs.org/dist`.
+Clearing the Node mirror falls back to the usual host. Force nodejs.org with `nvm mirror set node https://nodejs.org/dist`.
 
-Docker image mirrors are not set here. Pointing the Docker daemon at a mirror needs a privileged config and a daemon restart.
+Docker is not set here. That needs a daemon config and a restart.
 
 ## Usage
 
 ### Install Node.js
 
-Use `22` to get the latest v22.x.x:
+`22` means the latest v22:
 
 ```bash
 nvm install 22            # Latest v22.x.x
@@ -202,7 +196,7 @@ nvm alias default 20      # Same as: nvm default 20
 nvm alias
 ```
 
-The default alias is used when you enter a directory that has no `.nvmrc` and no `.node-version`.
+`default` is used when the directory has no `.nvmrc` and no `.node-version`.
 
 ### Uninstall a Version
 
@@ -213,7 +207,7 @@ nvm deactivate
 
 ## Auto Switching with .nvmrc
 
-With `nvm.sh` loaded, entering a directory reads `.nvmrc` and switches to that installed version. If no `.nvmrc` exists anywhere above the current directory, `.node-version` is used. A missing version is not downloaded.
+With `nvm.sh` loaded, entering a directory reads `.nvmrc`, then `.node-version`. A missing version is not downloaded.
 
 ```bash
 echo "20" > .nvmrc
@@ -234,7 +228,7 @@ export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 
 ## Global packages
 
-`npm install -g` installs into the active Node version. `nvm reinstall-packages <version>` copies that version's global packages into the one that is active.
+`npm install -g` installs into the active Node. `nvm reinstall-packages <version>` copies that version's global packages into the active one.
 
 ## Commands
 
@@ -273,4 +267,4 @@ Confirm the profile still contains the `NVM_DIR` / `nvm.sh` lines above. To stop
 
 ---
 
-**Related:** [Why we built znvm](/blog/why-zig) | [GitHub](https://github.com/charlzyx/znvm)
+**Related:** [Why Zig](/blog/why-zig) | [GitHub](https://github.com/charlzyx/znvm)

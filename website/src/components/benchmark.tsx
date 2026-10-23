@@ -27,6 +27,32 @@ const commands = [
   { name: "znvm", listWarm: "0.61 ms", listCold: "3.18 ms", useWarm: "0.84 ms", useCold: "3.44 ms", nvmrcWarm: "0.86 ms", nvmrcCold: "3.06 ms", highlight: true },
 ];
 
+function PhoneStats({
+  name,
+  highlight,
+  rows,
+}: {
+  name: string;
+  highlight?: boolean;
+  rows: { label: string; value: string; accent?: boolean }[];
+}) {
+  return (
+    <article className={`border-b-2 border-border p-4 last:border-b-0 ${highlight ? "bg-node/10" : ""}`}>
+      <p className="font-semibold">
+        {highlight ? <Badge className="bg-node text-[#041208]">{name}</Badge> : name}
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd className={`tabular-nums ${row.accent ? "font-semibold text-zig" : ""}`}>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </article>
+  );
+}
+
 function NameCell({ name, highlight }: { name: string; highlight?: boolean }) {
   return (
     <TableCell className="font-medium">
@@ -39,25 +65,42 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
   const isZh = lang === "zh";
 
   return (
-    <section className="py-20">
+    <section className="py-16 sm:py-24">
       <div className="container">
-        <div className="mx-auto max-w-4xl">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {isZh ? "性能对比" : "Performance Comparison"}
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              {isZh
-                ? "2026-10-22 15:38–15:40 UTC，同一次运行里的暖启动和冷启动中位数。4 核 KVM（lscpu：Intel Xeon），Ubuntu 24.04。方法：benchmarks/measure.py。znvm 为 ReleaseSafe，3.73 MiB。"
-                : "Warm and cold medians from one run, 2026-10-22 15:38–15:40 UTC. 4-vCPU KVM guest (lscpu: Intel Xeon), Ubuntu 24.04. Method: benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
-              }
-            </p>
-          </div>
+        <div>
+          <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
+            {isZh ? "速度" : "Speed"}
+          </h2>
+          <p className="mt-6 text-6xl font-bold tracking-tight text-zig sm:text-7xl">3.31 ms</p>
+          <p className="mt-2 text-lg text-muted-foreground">
+            {isZh ? "暖 shell 启动，2026-10-22" : "Warm shell startup, 2026-10-22"}
+          </p>
+          <p className="mt-4 max-w-[65ch] text-base text-foreground">
+            {isZh
+              ? "15:38-15:40 UTC，中位数。4 核 KVM（Intel Xeon），Ubuntu 24.04。benchmarks/measure.py。znvm ReleaseSafe，3.73 MiB。"
+              : "Medians, 15:38-15:40 UTC. 4-vCPU KVM (Intel Xeon), Ubuntu 24.04. benchmarks/measure.py. znvm ReleaseSafe, 3.73 MiB."
+            }
+          </p>
 
-          <h3 className="mb-3 text-lg font-semibold">
-            {isZh ? "Shell 启动（新 bash，减去 bash -c true）" : "Shell startup (new bash, minus bash -c true)"}
+          <h3 className="mb-3 mt-14 text-2xl font-semibold">
+            {isZh ? "Shell 启动" : "Shell startup"}
           </h3>
-          <Card className="mb-8">
+          <div className="mb-8 border-2 border-border md:hidden">
+            {startup.map((row) => (
+              <PhoneStats
+                key={row.name}
+                name={row.name}
+                highlight={row.highlight}
+                rows={[
+                  { label: isZh ? "暖中位数" : "Warm median", value: row.warm, accent: row.highlight },
+                  { label: isZh ? "暖 p95" : "Warm p95", value: row.warmP95 },
+                  { label: isZh ? "冷中位数" : "Cold median", value: row.cold },
+                  { label: isZh ? "冷 p95" : "Cold p95", value: row.coldP95 },
+                ]}
+              />
+            ))}
+          </div>
+          <Card className="mb-8 hidden min-w-0 border-2 border-border shadow-none ring-0 md:flex">
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -73,7 +116,7 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
                   {startup.map((row) => (
                     <TableRow key={row.name} className={row.highlight ? "bg-node/10" : ""}>
                       <NameCell name={row.name} highlight={row.highlight} />
-                      <TableCell className="text-right tabular-nums">{row.warm}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${row.highlight ? "text-lg font-semibold text-zig" : ""}`}>{row.warm}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.warmP95}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.cold}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.coldP95}</TableCell>
@@ -84,10 +127,27 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
             </CardContent>
           </Card>
 
-          <h3 className="mb-3 text-lg font-semibold">
-            {isZh ? "已打开的 shell 里的命令" : "Commands in an already-open shell"}
+          <h3 className="mb-3 mt-12 text-2xl font-semibold">
+            {isZh ? "Shell 内命令" : "In-shell commands"}
           </h3>
-          <Card>
+          <div className="border-2 border-border md:hidden">
+            {commands.map((row) => (
+              <PhoneStats
+                key={row.name}
+                name={row.name}
+                highlight={row.highlight}
+                rows={[
+                  { label: isZh ? "list 暖" : "list warm", value: row.listWarm, accent: row.highlight },
+                  { label: isZh ? "list 冷" : "list cold", value: row.listCold },
+                  { label: isZh ? "use 暖" : "use warm", value: row.useWarm },
+                  { label: isZh ? "use 冷" : "use cold", value: row.useCold },
+                  { label: isZh ? ".nvmrc 暖" : ".nvmrc warm", value: row.nvmrcWarm },
+                  { label: isZh ? ".nvmrc 冷" : ".nvmrc cold", value: row.nvmrcCold },
+                ]}
+              />
+            ))}
+          </div>
+          <Card className="hidden min-w-0 border-2 border-border shadow-none ring-0 md:flex">
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -118,10 +178,10 @@ export function Benchmark({ lang = "en" }: BenchmarkProps) {
             </CardContent>
           </Card>
 
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-4 max-w-[65ch] text-sm text-muted-foreground">
             {isZh
-              ? "暖 shell 启动：预热 5 次后采样 20 次，减去暖的 bash -c true（中位数 0.63 ms）。冷 shell 启动：20 次，每次先 sync 并丢掉页缓存，再开新 bash，减去同样条件下的 bash -c true（中位数 2.02 ms）。list / use / .nvmrc 的暖值是已初始化 shell 里预热 10 次、采样 40 次。冷的命令样本丢掉文件缓存，但 shell 进程还在。这次 n=20 或 40 时，p50 等于中位数。fnm 的文档化 init 已经激活 Node v22.14.0；暖运行里多一次 fnm use 是 2.50 ms，没有放进表里。这次 shell 启动（暖、冷）都是 fnm 低于 znvm，两者都低于 nvm。shell 内命令（暖、冷）是 znvm 更低。p95 和每个样本在 benchmarks/results/2026-10-22-cold-warm.json。更早一次只有暖启动中位数、外加单次冷样本，以及安装耗时，在 benchmarks/results/2026-10-22.json（安装 Node 22.13.1，含下载，3 次：znvm 1241 ms，fnm 2317 ms，nvm 2327 ms，主要是网络）。"
-              : "Warm shell startup: 20 samples after 5 warmup, minus warm bash -c true (median 0.63 ms). Cold shell startup: 20 samples, each after sync and a page-cache drop, then a new bash, minus bash -c true measured the same way (median 2.02 ms). Warm list / use / .nvmrc: 40 samples after 10 warmup in an already-initialized shell. Cold command samples drop the file cache and keep that shell. At these sample counts, p50 equals the median. fnm's documented init already had Node v22.14.0 active; an extra warm fnm use was 2.50 ms and is not shown. On this run, warm and cold shell startup were lower for fnm than znvm, and both were lower than nvm. Warm and cold in-shell commands were lower for znvm. p95 and every sample: benchmarks/results/2026-10-22-cold-warm.json. An earlier warm-only run, one cold sample, and the install timing are in benchmarks/results/2026-10-22.json (Node 22.13.1, download included, 3 samples: znvm 1241 ms, fnm 2317 ms, nvm 2327 ms, mostly network)."
+              ? "暖启动 20 次（预热 5 次），减去 bash -c true（0.63 ms）。冷启动 20 次，每次丢掉页缓存，减去 bash -c true（2.02 ms）。命令：暖 40 次，冷 20 次。这次 shell 启动 fnm 更快；list、use、.nvmrc 是 znvm 更快。样本：benchmarks/results/2026-10-22-cold-warm.json。"
+              : "Warm startup: 20 samples after 5 warmup, minus bash -c true (0.63 ms). Cold startup: 20 samples after a page-cache drop, minus bash -c true (2.02 ms). Commands: warm 40, cold 20. On this run fnm started the shell faster. znvm was faster at list, use, and .nvmrc. Samples: benchmarks/results/2026-10-22-cold-warm.json."
             }
           </p>
         </div>

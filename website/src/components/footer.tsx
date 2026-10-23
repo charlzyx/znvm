@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Heart } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
-import { Separator } from "@/components/ui/separator";
 
 interface FooterProps {
   lang?: "en" | "zh";
@@ -13,8 +11,8 @@ export function Footer({ lang = "en" }: FooterProps) {
   const isZh = lang === "zh";
 
   return (
-    <footer className="border-t bg-muted/50">
-      <div className="container py-12">
+    <footer className="border-t-2 border-border bg-muted/50">
+      <div className="container py-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
@@ -22,12 +20,7 @@ export function Footer({ lang = "en" }: FooterProps) {
               <LogoMark className="h-5 w-5" />
               <span className="font-bold">znvm</span>
             </Link>
-            <p className="mt-4 text-sm text-muted-foreground">
-              {isZh
-                ? "零负担 Node 版本管理器，基于 Zig 构建"
-                : "Zero-overhead Node Version Manager, built with Zig"
-              }
-            </p>
+            <p className="zig-mark mt-5">{isZh ? "用 Zig 构建" : "Built with Zig"}</p>
           </div>
 
           {/* Links */}
@@ -38,8 +31,13 @@ export function Footer({ lang = "en" }: FooterProps) {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href={isZh ? "/zh/getting-started" : "/getting-started"} className="text-muted-foreground hover:text-foreground">
-                  {isZh ? "快速开始" : "Getting Started"}
+                  {isZh ? "快速开始" : "Quick start"}
                 </Link>
+              </li>
+              <li>
+                <a href="https://znvm.dev/llm.txt" className="text-muted-foreground hover:text-foreground">
+                  {isZh ? "给 Agent" : "For Agents"}
+                </a>
               </li>
               <li>
                 <Link href={isZh ? "/zh/blog/why-zig" : "/blog/why-zig"} className="text-muted-foreground hover:text-foreground">
@@ -88,15 +86,13 @@ export function Footer({ lang = "en" }: FooterProps) {
           </div>
         </div>
 
-        <Separator className="my-8" />
+        <div className="my-8 h-0.5 bg-border" />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>
             © {new Date().getFullYear()} znvm. {isZh ? "保留所有权利" : "All rights reserved"}.
           </p>
-          <p className="flex items-center">
-            {isZh ? "用" : "Made with"} <Heart className="mx-1 h-4 w-4 text-red-500" /> {isZh ? "和 Zig 构建" : "and Zig"}
-          </p>
+          <p>Linux, macOS</p>
         </div>
       </div>
     </footer>

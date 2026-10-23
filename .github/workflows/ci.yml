@@ -28,3 +28,13 @@ jobs:
 
       - name: Test Zig Binary
         run: bash scripts/test.sh
+
+      - name: Setup Node
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Skill install
+        if: runner.os == 'Linux'
+        run: bash scripts/check-skill-install.sh

@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "bash ../scripts/sync-llm-txt.sh",
     "dev": "next dev",
-    "build": "next build",
+    "prebuild": "bash ../scripts/sync-llm-txt.sh",
+    "build": "next build && bash ../scripts/sync-llm-txt.sh --dist",
     "start": "next start",
     "lint": "eslint"
   },

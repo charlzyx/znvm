@@ -161,13 +161,13 @@ nvm --llm
 nrm --llm
 ```
 
-两条命令都打印 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。二进制在编译时嵌入这个文件，所以命令输出和文件一致。也可以把它装成技能：
+两条命令都打印 [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md)。二进制在编译时嵌入这个文件。同一段文字在 [llm.txt](https://znvm.dev/llm.txt)（`/llms.txt` 是别名）。
 
 ```bash
 npx skills add charlzyx/znvm
 ```
 
-如果当前客户端不能安装技能，就把 `skills/znvm/SKILL.md` 复制到它的技能目录。
+这条命令安装 `skills/znvm/SKILL.md`。客户端不能安装技能时，复制这个文件。
 
 `nvm` 管 Node 版本。`nrm` 管 npm 源和 `@scope`。`nvm mirror` 管 Electron、Playwright 这些工具的下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，没有再读 `.node-version`。
 

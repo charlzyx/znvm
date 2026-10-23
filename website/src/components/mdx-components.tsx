@@ -27,7 +27,7 @@ export const MdxComponents = {
 
   // Headings
   h1: ({ children }: ComponentProps) => (
-    <h1 className="mt-2 scroll-m-20 text-4xl font-bold tracking-tight">
+    <h1 className="mt-2 scroll-m-20 text-4xl font-bold tracking-tight sm:text-5xl">
       {children}
     </h1>
   ),
@@ -76,12 +76,12 @@ export const MdxComponents = {
 
   // 行内代码
   code: ({ children, className }: CodeProps) => (
-    <code className={`relative rounded bg-slate-200 px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100 ${className || ""}`}>
+    <code className={`relative bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold text-node-bright ${className || ""}`}>
       {children}
     </code>
   ),
   pre: ({ children }: ComponentProps) => (
-    <pre className="mb-4 mt-6 overflow-x-auto rounded-lg border bg-slate-100 p-4 text-slate-900 dark:bg-slate-900 dark:text-slate-50">
+    <pre className="mb-4 mt-6 overflow-x-auto border border-white/15 border-l-[3px] border-l-[#339933] bg-[#12110f] p-4 text-[#f4f1ea]">
       {children}
     </pre>
   ),

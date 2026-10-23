@@ -1,33 +1,27 @@
 # 快速开始
 
-**znvm** — **零负担 Node 版本管理器**
+Zig 写的 `nvm` 和 `nrm`。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载用 npmmirror。2026-10-22：暖启动 3.31 ms，冷启动 5.01 ms。
 
-基于 Zig 的 **Node.js 版本管理器**。安装之后有两个命令：`nvm` 和 `nrm`。版本放在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。默认下载镜像是 npmmirror。2026-10-22 测得暖 shell 启动 **3.31 ms**，冷 shell 启动 **5.01 ms**（见首页表格）。
-
-在终端里不带参数运行 `nvm` 会打开交互引导（`nvm guide` 相同）。没有终端时，它只打印一句说明并退出。
+不带参数的 `nvm` 打开引导。没有终端时只打印一句说明并退出。
 
 ## 给 Agent
-
-不额外安装就能学会 znvm，直接问二进制：
 
 ```bash
 nvm --llm
 nrm --llm
 ```
 
-两条命令都把 `skills/znvm/SKILL.md` 打到 stdout 然后退出。二进制在编译时嵌入这个文件，所以命令输出和文件一致。
+与 `skills/znvm/SKILL.md` 和 [llm.txt](https://znvm.dev/llm.txt) 相同。二进制在编译时嵌入这个文件。
 
 ```bash
 npx skills add charlzyx/znvm
 ```
 
-如果当前客户端不能安装技能，就把 `skills/znvm/SKILL.md` 复制到它的技能目录。
+这条命令安装 `skills/znvm/SKILL.md`。没有 MCP。
 
-没有 MCP 服务。`nvm` 和 `nrm` 已经是 shell 命令。MCP 服务只会再包一层同一个二进制。
+`nvm` 管 Node。`nrm` 管源和 `@scope`。`nvm mirror` 管下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，再读 `.node-version`。
 
-`nvm` 管 Node 版本。`nrm` 管 npm 源和 `@scope`。`nvm mirror` 管 Electron、Playwright 这些工具的下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，没有再读 `.node-version`。
-
-`--json` 给 `nvm ls`、`nvm ls-remote`（含 `--lts`）、`nvm current`、`nvm which`、`nvm version`、`nvm --version`、`nrm ls`、`nrm current`、`nrm test`、`nrm scope ls`、`nvm mirror ls` 和 `nvm mirror test` 在 stdout 打一个 JSON 对象。错误是 stderr 上的 `{"error":"...","exit":N}`。stdout 为空，退出码与文本模式相同：0 成功，1 用法或失败，3 没有匹配版本，8 别名循环，55 不支持的选项，127 找不到系统 node 或版本文件。
+`--json` 为 `nvm ls`、`nvm ls-remote`（含 `--lts`）、`nvm current`、`nvm which`、`nvm version`、`nvm --version`、`nrm ls`、`nrm current`、`nrm test`、`nrm scope ls`、`nvm mirror ls`、`nvm mirror test` 打一个对象。错误是 stderr 上的 `{"error":"...","exit":N}`，stdout 为空。退出码：0 成功，1 用法或失败，3 无匹配，8 别名循环，55 错误选项，127 缺少系统 node 或版本文件。
 
 已安装 v18.0.0 和 v20.11.0、别名 `default -> 18`、PATH 上没有 Node 时，`nvm ls --json` 打印：
 
@@ -35,7 +29,7 @@ npx skills add charlzyx/znvm
 {"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
 ```
 
-菜单只在 stdin 和菜单所在的输出都是终端时才出现。`--yes`、`NVM_NONINTERACTIVE=1`（`true` 和 `yes` 同样生效）以及非空的 `CI` 都会关掉菜单。`NO_COLOR` 保持纯 ASCII。`--guide-step` 把菜单画在 stderr。
+菜单需要 stdin 和菜单输出都是终端。`--yes`、`NVM_NONINTERACTIVE=1`（`true` 或 `yes`）或非空 `CI` 会关掉菜单。`NO_COLOR` 是纯 ASCII。`--guide-step` 画在 stderr。
 
 找不到命令时：
 
@@ -46,7 +40,7 @@ export NVM_DIR="$HOME/.nvm"
 
 ## 安装
 
-### 快速安装（推荐）
+### 安装命令
 
 ```bash
 curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
@@ -78,7 +72,7 @@ Node versions are stored in $NVM_DIR/versions/node.
 Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is set.
 ```
 
-`source` 那一行是脚本实际改过的配置文件（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。脚本可以重复执行。如果 `nvm --version` 已经是这一版，就保留现有二进制；如果版本不同，会把旧文件留作 `nvm.bak` 再替换。不会重复写入这段配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。
+`source` 脚本打印的配置（`~/.bashrc`、`~/.zshrc` 或 `~/.profile`）。可以重复执行。`nvm --version` 已是这一版就保留二进制。版本不同则把旧文件留作 `nvm.bak` 再替换。不重复写入配置，不删除已有 Node。
 
 ### 安装器做了什么
 
@@ -87,7 +81,7 @@ Downloads use https://npmmirror.com/mirrors/node unless NVM_NODEJS_ORG_MIRROR is
 3. 把 `NVM_DIR` 的启动行追加到 shell 配置
 4. 保留 `$NVM_DIR/versions/node` 里已经装好的 Node 版本
 
-`nrm` 是和 `nvm` 同目录的相对符号链接。如果那个路径已经有文件，安装器会保留它并打印说明。如果 `PATH` 上还有另一个 `nrm`，会打印那个路径，不会删除它。新的 shell 会把 `nvm` 所在目录移到 `PATH` 最前面，因此这个 `nrm` 先运行。`install-as-nvm.sh --uninstall` 会删除 `nvm` 二进制和指向它的 `nrm` 链接，恢复或去掉 shell 配置段，不会删除 Node 版本，也不会删除别人的 `nrm`。
+`nrm` 是 `nvm` 旁边的相对符号链接。已有文件会留下。`PATH` 上别人的 `nrm` 也会留下。新 shell 把这个目录放在最前。`--uninstall` 删除 `nvm`、指向它的 `nrm` 链接和 shell 配置段。不删除 Node，也不删除别人的 `nrm`。
 
 ### Shell 配置
 
@@ -107,11 +101,11 @@ export NVM_DIR="$HOME/.nvm"
 nvm
 ```
 
-菜单用数字加回车。安装、切换、列出和卸载都会执行下面这些 `nvm` 命令。同一菜单里还有镜像源(scope)和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文提示。
+数字加回车。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
 
 ## 镜像源
 
-`nvm registry` 保存一个默认源和任意多个 `@scope` 路由，并写给 npm、yarn、pnpm 和 bun。交互菜单可以查看这张表、添加或修改 scope、删除 scope、设置默认源、同步全部文件、切到中国默认源并保留 scope，或恢复官方 npm 源。
+一个默认源，加上任意多个 `@scope`，写给 npm、yarn、pnpm 和 bun。
 
 ```bash
 nvm registry show
@@ -123,11 +117,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。下载镜像是 `nvm mirror`，同步源不会改掉它们。
+`china` 设为 `https://registry.npmmirror.com`。`official` 设为 `https://registry.npmjs.org`。scope 保留。映射在 `$NVM_DIR/registries.json`。同步写入 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`，留下其他设置和 `nvm mirror` 的地址。
 
 ## nrm
 
-`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nvm current` 才选源。在终端里不带参数运行 `nrm` 会打开菜单，里面有源、scope 和测速。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。下载镜像是 `nvm mirror`。
+`nrm` 是同一个二进制的另一个名字。`nvm use`、`ls`、`current` 管 Node。`nrm use`、`ls`、`current` 管源。没有终端时 `nrm` 打印帮助。`nvm.sh` 只包 `nvm`。
 
 ```bash
 nrm ls
@@ -143,7 +137,7 @@ nrm scope ls
 nrm scope del @company
 ```
 
-内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use taobao` 和 `nvm registry china` 指向同一个 npmmirror 地址。末尾一个斜杠不影响匹配。`nrm del` 不能删除内置名字。`nrm use auto` 写入最快且有响应的源，不改 `@scope`。`nrm test` 每次都会重新测量。结果保留 6 小时。`nvm registry` 仍然可用。
+内置：`npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror`、`huawei`。`nrm use taobao` 和 `nvm registry china` 是同一个地址。末尾一个斜杠仍算匹配。`nrm del` 不删内置名。`nrm use auto` 写入最快的源，不改 scope。`nrm test` 每次重测。结果保留 6 小时。
 
 ## 下载镜像
 
@@ -157,17 +151,17 @@ nvm mirror reset
 nvm mirror test
 ```
 
-`china` 写入 npmmirror 的下载地址（Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass，以及其他常见项），也包括 Node 发行包镜像。`official` 清掉它们。`auto` 为每个工具留下更快的一边。npm、pnpm 和 yarn v1 的键写进各自的 rc。只认环境变量的值写在 `$NVM_DIR/binaries.env`，新的 shell 会通过 `nvm.sh` source 它。`reset` 只删掉这个文件和 `# nvm binaries` 段。scope 保持不动。安装时不会测量。
+`china` 写入 Node、Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass 和其他常见工具的 npmmirror 地址。`official` 清掉。`auto` 为每个工具留下更快的一边。npm、pnpm、yarn v1 的键写入各自的 rc。环境变量写在 `$NVM_DIR/binaries.env`，由 `nvm.sh` source。`reset` 删掉这个文件和 `# nvm binaries` 段。scope 不动。安装时不测量。
 
-清掉 Node 镜像之后，下载回到 znvm 自己的默认地址。要强制用 nodejs.org，运行 `nvm mirror set node https://nodejs.org/dist`。
+清掉 Node 镜像后回到默认地址。强制 nodejs.org：`nvm mirror set node https://nodejs.org/dist`。
 
-这里不设置 Docker 镜像。把 Docker daemon 指到镜像需要改特权配置并重启 daemon。
+不设置 Docker。那要改 daemon 配置并重启。
 
 ## 使用
 
 ### 安装 Node.js
 
-用 `22` 获取最新的 v22.x.x：
+`22` 表示最新的 v22：
 
 ```bash
 nvm install 22            # 最新的 v22.x.x
@@ -202,7 +196,7 @@ nvm alias default 20      # 与 nvm default 20 相同
 nvm alias
 ```
 
-进入没有 `.nvmrc`、也没有 `.node-version` 的目录时，会用 `default` 别名。
+没有 `.nvmrc` 和 `.node-version` 时用 `default`。
 
 ### 卸载版本
 
@@ -213,7 +207,7 @@ nvm deactivate
 
 ## 使用 .nvmrc 自动切换
 
-加载了 `nvm.sh` 之后，进入目录会读取 `.nvmrc` 并切换到已安装的版本。当前目录往上都不存在 `.nvmrc` 时，才读 `.node-version`。缺少的版本不会自动下载。
+加载 `nvm.sh` 后，进入目录先读 `.nvmrc`，再读 `.node-version`。缺少的版本不会下载。
 
 ```bash
 echo "20" > .nvmrc
@@ -234,7 +228,7 @@ export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 
 ## 全局包
 
-`npm install -g` 装到当前 Node 版本里。`nvm reinstall-packages <version>` 把该版本的全局包复制到当前版本。
+`npm install -g` 装进当前 Node。`nvm reinstall-packages <version>` 把该版本的全局包复制到当前版本。
 
 ## 命令
 
@@ -273,4 +267,4 @@ nvm use 22
 
 ---
 
-**相关：** [为什么构建 znvm](/zh/blog/why-zig) | [GitHub](https://github.com/charlzyx/znvm)
+**相关：** [为什么用 Zig](/zh/blog/why-zig) | [GitHub](https://github.com/charlzyx/znvm)

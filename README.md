@@ -185,13 +185,13 @@ nvm --llm
 nrm --llm
 ```
 
-Both print [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md). The binary embeds that file, so the command and the file match. To load it as an agent skill instead:
+Both print [`skills/znvm/SKILL.md`](skills/znvm/SKILL.md). The binary embeds that file. The same text is [llm.txt](https://znvm.dev/llm.txt) (`/llms.txt` is an alias).
 
 ```bash
 npx skills add charlzyx/znvm
 ```
 
-If that client cannot install a skill, copy `skills/znvm/SKILL.md` into its skills directory.
+That installs `skills/znvm/SKILL.md`. Copy that file if the client cannot install skills.
 
 `nvm` selects Node versions. `nrm` selects npm registries and `@scope` routes. `nvm mirror` selects download hosts for Electron, Playwright, and the other tools. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
 

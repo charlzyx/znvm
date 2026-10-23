@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Github } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavLink {
   href: string;
@@ -18,6 +19,8 @@ const navLinks: NavLink[] = [
   { href: "/getting-started", label: "Docs", labelZh: "文档" },
   { href: "/blog/why-zig", label: "Blog", labelZh: "博客" },
 ];
+
+const agentsHref = "https://znvm.dev/llm.txt";
 
 const getNavHref = (link: NavLink, isZh: boolean): string => {
   if (isZh) {
@@ -32,16 +35,16 @@ export function Navbar() {
   const homeHref = isZh ? "/zh" : "/";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+    <header className="sticky top-0 z-50 w-full border-b-2 border-border bg-background">
+      <div className="container flex h-16 items-center">
         {/* Logo */}
-        <Link href={homeHref} className="mr-6 flex items-center space-x-2 flex-shrink-0">
-          <LogoMark className="h-6 w-6" />
-          <span className="font-bold text-xl">znvm</span>
+        <Link href={homeHref} className="mr-8 flex items-center space-x-2 flex-shrink-0">
+          <LogoMark className="h-7 w-7" />
+          <span className="font-bold text-2xl">znvm</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-8 text-base font-medium">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -64,6 +67,12 @@ export function Navbar() {
               中文
             </Link>
           </nav>
+
+          <a href={agentsHref} className="hidden text-sm font-medium text-foreground/80 hover:text-foreground sm:inline">
+            {isZh ? "给 Agent" : "For Agents"}
+          </a>
+
+          <ThemeToggle isZh={isZh} />
 
           {/* GitHub */}
           <Link href="https://github.com/charlzyx/znvm" target="_blank" rel="noopener noreferrer">
@@ -124,6 +133,16 @@ function MobileNav({ isZh }: { isZh: boolean }) {
             中文
           </Link>
         </div>
+      </div>
+
+      <div className="border-t pt-4">
+        <a href={agentsHref} className="text-foreground/80 hover:text-foreground">
+          {isZh ? "给 Agent" : "For Agents"}
+        </a>
+      </div>
+
+      <div className="border-t pt-4">
+        <ThemeToggle isZh={isZh} labeled />
       </div>
 
       {/* GitHub */}
