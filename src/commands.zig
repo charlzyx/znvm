@@ -301,7 +301,20 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     try stdout("export NVM_BIN={s}\n", .{quoted_bin});
     try stdout("export NVM_INC={s}\n", .{quoted_inc});
     try stdout("hash -r 2>/dev/null || true\n", .{});
-    if (!silent) try i18n.err(messages.using, .{ver});
+    if (!silent) try printUsing(allocator, config, ver);
+}
+
+fn printUsing(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8) !void {
+    const bundled_npm = @import("bundled_npm.zig");
+    const home = try versionHome(allocator, config, ver);
+    defer allocator.free(home);
+    const npm_ver = try bundled_npm.readVersion(allocator, home);
+    defer if (npm_ver) |value| allocator.free(value);
+    if (npm_ver) |npm| {
+        try i18n.err(messages.using_with_npm, .{ ver, npm });
+    } else {
+        try i18n.err(messages.using_node_only, .{ver});
+    }
 }
 
 fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, message: []const u8) !void {
@@ -1938,7 +1951,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try i18n.err(messages.debug_version, .{"v2.9.3"});
+    try i18n.err(messages.debug_version, .{"v2.9.4"});
     try i18n.err(messages.debug_dir, .{config.root_dir});
     try i18n.err(messages.debug_versions, .{config.versions_dir});
     try i18n.err(messages.debug_mirror, .{config.mirror});

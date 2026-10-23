@@ -20,9 +20,9 @@ const script: Line[] = [
   { kind: "out", text: "Extracting..." },
   { kind: "out", text: "Installed v22.23.4" },
   { kind: "out", text: "default -> v22.23.4" },
-  { kind: "out", text: "Using v22.23.4" },
+  { kind: "out", text: "Now using node v22.23.4 (npm v10.9.9)" },
   { kind: "in", text: "nvm use 22" },
-  { kind: "out", text: "Using v22.23.4" },
+  { kind: "out", text: "Now using node v22.23.4 (npm v10.9.9)" },
   { kind: "in", text: "nvm current" },
   { kind: "out", text: "v22.23.4" },
 ];
