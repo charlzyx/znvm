@@ -16,7 +16,11 @@ const features = {
     },
     {
       title: "Scope registries",
-      body: "nrm ls, nrm use, nrm current, nrm add, nrm del, and nrm test use the usual registry names. nrm scope add @company <url> keeps several scope routes. nvm registry is the same map. In a terminal, nrm with no arguments opens the registry menu. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+      body: "nrm ls, nrm use, nrm current, nrm add, nrm del, and nrm test use the usual registry names. nrm scope add @company <url> keeps several scope routes. nrm use auto writes the fastest registry that answers. nvm registry is the same map. In a terminal, nrm with no arguments opens a menu for registries, scopes, and tests. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+    },
+    {
+      title: "Download mirrors",
+      body: "nvm mirror use china writes the Node dist host and the download hosts for Electron, Playwright, Cypress, puppeteer, sharp, node-sass, and the other common tools. official clears them. nvm mirror test measures in parallel. nvm mirror use auto keeps the faster side of each tool. Scope routes stay put. Nothing runs on install. The nvm guide lists this as Mirrors.",
     },
   ],
   zh: [
@@ -34,7 +38,11 @@ const features = {
     },
     {
       title: "按 scope 分流源",
-      body: "nrm ls、nrm use、nrm current、nrm add、nrm del 和 nrm test 使用常见的源名字。nrm scope add @company <url> 保存多条 scope。nvm registry 改的是同一张表。在终端里不带参数运行 nrm 会打开源菜单。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+      body: "nrm ls、nrm use、nrm current、nrm add、nrm del 和 nrm test 使用常见的源名字。nrm scope add @company <url> 保存多条 scope。nrm use auto 写入最快且有响应的源。nvm registry 改的是同一张表。在终端里不带参数运行 nrm 会打开菜单，里面有源、scope 和测速。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+    },
+    {
+      title: "下载镜像",
+      body: "nvm mirror use china 写入 Node 发行包地址，以及 Electron、Playwright、Cypress、puppeteer、sharp、node-sass 和其他常见工具的下载地址。official 会清掉它们。nvm mirror test 并行测量。nvm mirror use auto 为每个工具留下更快的一边。scope 保持不动。安装时不会测量。nvm 的引导菜单里这一项是「下载镜像」。",
     },
   ],
 };
@@ -59,8 +67,8 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
         </div>
         <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
           {zh
-            ? "Electron 和其他二进制镜像还没有接入。registry 只处理包的源。"
-            : "Electron and other binary mirrors are not wired up. registry only writes package registries."}
+            ? "Docker 镜像不在这里设置。把 Docker daemon 指到镜像需要改特权配置并重启 daemon。"
+            : "Docker image mirrors are not set here. Pointing the Docker daemon at a mirror needs a privileged config and a daemon restart."}
         </p>
       </div>
     </section>
