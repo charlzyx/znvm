@@ -20,7 +20,7 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.1 (x86_64-linux)...
+> Downloading nvm v2.6.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -69,7 +69,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm
 ```
 
-菜单用数字加回车。安装、切换、列出和卸载都会执行下面这些 `nvm` 命令。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文提示。
+菜单用数字加回车。安装、切换、列出和卸载都会执行下面这些 `nvm` 命令。同一菜单里还有镜像源(scope)和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文提示。
 
 ## 镜像源
 
@@ -85,11 +85,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。Electron 和其他二进制镜像不会被改动。
+`china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。下载镜像是 `nvm mirror`，同步源不会改掉它们。
 
 ## nrm
 
-`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。
+`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nvm current` 才选源。在终端里不带参数运行 `nrm` 会打开菜单，里面有源、scope 和测速。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。下载镜像是 `nvm mirror`。
 
 ```bash
 nrm ls
@@ -99,12 +99,31 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
 ```
 
-内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use taobao` 和 `nvm registry china` 指向同一个 npmmirror 地址。末尾一个斜杠不影响匹配。`nrm del` 不能删除内置名字。`nvm registry` 仍然可用。
+内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use taobao` 和 `nvm registry china` 指向同一个 npmmirror 地址。末尾一个斜杠不影响匹配。`nrm del` 不能删除内置名字。`nrm use auto` 写入最快且有响应的源，不改 `@scope`。`nrm test` 每次都会重新测量。结果保留 6 小时。`nvm registry` 仍然可用。
+
+## 下载镜像
+
+```bash
+nvm mirror ls
+nvm mirror use china
+nvm mirror use official
+nvm mirror use auto
+nvm mirror set electron https://cdn.npmmirror.com/binaries/electron/
+nvm mirror reset
+nvm mirror test
+```
+
+`china` 写入 npmmirror 的下载地址（Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass，以及其他常见项），也包括 Node 发行包镜像。`official` 清掉它们。`auto` 为每个工具留下更快的一边。npm、pnpm 和 yarn v1 的键写进各自的 rc。只认环境变量的值写在 `$NVM_DIR/binaries.env`，新的 shell 会通过 `nvm.sh` source 它。`reset` 只删掉这个文件和 `# nvm binaries` 段。scope 保持不动。安装时不会测量。
+
+清掉 Node 镜像之后，下载回到 znvm 自己的默认地址。要强制用 nodejs.org，运行 `nvm mirror set node https://nodejs.org/dist`。
+
+这里不设置 Docker 镜像。把 Docker daemon 指到镜像需要改特权配置并重启 daemon。
 
 ## 使用
 
@@ -190,6 +209,8 @@ export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 | `nvm uninstall <version>` | 移除版本 |
 | `nvm version` | 当前 Node 版本（这个 nvm 没有提供 Node 时是 `none` 或 `system`） |
 | `nvm --version` | 已安装工具的版本 |
+| `nvm mirror` | Node 发行包地址和下载镜像 |
+| `nrm` | 源、scope、测速和自动选择 |
 
 ## 故障排除
 

@@ -20,7 +20,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.1 (x86_64-linux)...
+> Downloading nvm v2.6.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -69,7 +69,7 @@ Open a new terminal, or `source` that profile. The commands after that are `nvm`
 nvm
 ```
 
-The menu uses number keys and Enter. It installs, switches, lists, and uninstalls by running the same `nvm` commands as the sections below. Chinese prompts are used when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
+The menu uses number keys and Enter. It installs, switches, lists, and uninstalls by running the same `nvm` commands as the sections below. Registries (scopes) and Mirrors are on that menu. Chinese prompts are used when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
 
 ## Registries
 
@@ -85,11 +85,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Electron and other binary mirrors are not changed.
+`china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Download mirrors are `nvm mirror`, so a registry sync leaves them in place.
 
 ## nrm
 
-`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only.
+`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens a menu for registries, scopes, and tests. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only. Download mirrors are `nvm mirror`.
 
 ```bash
 nrm ls
@@ -99,12 +99,31 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
 ```
 
-Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use taobao` and `nvm registry china` select the same npmmirror URL. A single trailing slash does not change the match. `nrm del` refuses a built-in name. `nvm registry` remains available.
+Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use taobao` and `nvm registry china` select the same npmmirror URL. A single trailing slash does not change the match. `nrm del` refuses a built-in name. `nrm use auto` writes the fastest registry that answers and leaves `@scope` routes unchanged. `nrm test` always measures again. A result is reused for 6 hours. `nvm registry` remains available.
+
+## Download mirrors
+
+```bash
+nvm mirror ls
+nvm mirror use china
+nvm mirror use official
+nvm mirror use auto
+nvm mirror set electron https://cdn.npmmirror.com/binaries/electron/
+nvm mirror reset
+nvm mirror test
+```
+
+`china` writes the npmmirror download hosts (Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common ones), including the Node dist mirror. `official` clears them. `auto` keeps the faster side of each pair. npm, pnpm, and yarn v1 keys go in their rc files. Env-only values go in `$NVM_DIR/binaries.env`, which a new shell sources through `nvm.sh`. `reset` removes that file and the `# nvm binaries` block only. Scope routes stay. Nothing here runs on install.
+
+Clearing the Node mirror falls back to znvm's usual download host. To force nodejs.org, run `nvm mirror set node https://nodejs.org/dist`.
+
+Docker image mirrors are not set here. Pointing the Docker daemon at a mirror needs a privileged config and a daemon restart.
 
 ## Usage
 
@@ -190,6 +209,8 @@ export NVM_NODEJS_ORG_MIRROR=https://nodejs.org/dist
 | `nvm uninstall <version>` | Remove a version |
 | `nvm version` | Active Node version (`none` or `system` when this nvm is not providing it) |
 | `nvm --version` | Installed tool version |
+| `nvm mirror` | Node dist host and download mirrors |
+| `nrm` | Registries, scope routes, test, and auto |
 
 ## Troubleshooting
 

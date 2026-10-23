@@ -313,6 +313,54 @@ const menu: Group[] = [
       },
     ],
   },
+  {
+    en: "Mirrors",
+    zh: "下载镜像",
+    items: [
+      {
+        en: "List",
+        zh: "列出",
+        command: "nvm mirror ls",
+        body: "profile official\n  electron (unset)\n  playwright (unset)\n  node (unset)",
+      },
+      {
+        en: "Use china",
+        zh: "使用中国镜像",
+        command: "nvm mirror use china",
+        body: "The mirrors have been changed to 'china'.",
+      },
+      {
+        en: "Use official",
+        zh: "使用官方地址",
+        command: "nvm mirror use official",
+        body: "The mirrors have been changed to 'official'.",
+      },
+      {
+        en: "Set one mirror",
+        zh: "设置一个镜像",
+        command: "nvm mirror set <name> <url>",
+        body: "set electron",
+      },
+      {
+        en: "Reset",
+        zh: "还原",
+        command: "nvm mirror reset",
+        body: "mirrors reset",
+      },
+      {
+        en: "Test",
+        zh: "测速",
+        command: "nvm mirror test",
+        body: "electron china\nelectron official",
+      },
+      {
+        en: "Use fastest",
+        zh: "使用最快的一边",
+        command: "nvm mirror use auto",
+        body: "The mirrors have been changed to 'auto'.",
+      },
+    ],
+  },
 ];
 
 function transcript(zh: boolean, leaf: Leaf) {
@@ -334,6 +382,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   const [group, setGroup] = useState<number | null>(null);
   const [result, setResult] = useState<Leaf | null>(null);
   const [closed, setClosed] = useState(false);
+  const [typed, setTyped] = useState("");
   const frame = useRef<HTMLDivElement>(null);
 
   const title = group === null
@@ -367,9 +416,32 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   }
 
   useEffect(() => {
+    setTyped("");
+  }, [group, result, closed]);
+
+  useEffect(() => {
     const node = frame.current;
     if (!node) return;
     function onKey(event: KeyboardEvent) {
+      if (typed === "1" && items.length > 9) {
+        if (event.key === "0") {
+          event.preventDefault();
+          setTyped("");
+          items[9]?.onPick();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          setTyped("");
+          items[0]?.onPick();
+          return;
+        }
+        if (event.key === "Backspace" || event.key === "Escape") {
+          event.preventDefault();
+          setTyped("");
+          return;
+        }
+      }
       if (event.key === "0" || (event.key === "Enter" && result)) {
         event.preventDefault();
         goBack();
@@ -377,12 +449,17 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
       }
       const choice = Number(event.key);
       if (!Number.isInteger(choice) || choice < 1 || choice > items.length) return;
+      if (choice === 1 && items.length > 9) {
+        event.preventDefault();
+        setTyped("1");
+        return;
+      }
       event.preventDefault();
       items[choice - 1]?.onPick();
     }
     node.addEventListener("keydown", onKey);
     return () => node.removeEventListener("keydown", onKey);
-  }, [closed, group, items, result, zh]);
+  }, [closed, group, items, result, typed, zh]);
 
   const backLabel = group === null ? (zh ? "退出" : "Exit") : zh ? "返回" : "Back";
 
@@ -395,8 +472,8 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           </h2>
           <p className="mt-4 text-muted-foreground">
             {zh
-              ? "在终端里不带参数运行 nvm 会打开这个菜单. 下面是同一棵两级菜单, 可以点数字走一遍. 0 返回, 在根菜单则退出."
-              : "Running nvm with no arguments opens this menu. The same two-level tree is below. Pick a number. 0 goes back, and on the root menu it exits."}
+              ? "在终端里不带参数运行 nvm 会打开这个菜单. 下面是同一棵两级菜单, 可以点数字走一遍. 0 返回, 在根菜单则退出. 根菜单按 1 再回车打开第一项, 按 1 再按 0 打开下载镜像."
+              : "Running nvm with no arguments opens this menu. The same two-level tree is below. Pick a number. 0 goes back, and on the root menu it exits. On the root menu, 1 then Enter opens the first item, and 1 then 0 opens Mirrors."}
           </p>
           <div
             ref={frame}
@@ -431,7 +508,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
                     {`  0  ${backLabel}\n`}
                   </button>
                   {"\n"}
-                  <span className="term-prompt">&gt; </span>
+                  <span className="term-prompt">&gt; {typed}</span>
                 </>
               )}
             </pre>
