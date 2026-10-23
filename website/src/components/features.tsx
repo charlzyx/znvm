@@ -60,18 +60,18 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
   const items = zh ? features.zh : features.en;
 
   return (
-    <section className="border-b-2 border-border py-16 sm:py-24">
+    <section className="border-b border-border py-12 sm:py-16">
       <div className="container">
-        <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
+        <h2 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
           {zh ? "功能" : "Features"}
         </h2>
-        <div className="mt-12 border-2 border-border">
+        <div className="mt-10 border-t border-border">
           {items.map((item) => (
-            <article key={item.title} className="grid min-w-0 border-b-2 border-border last:border-b-0 md:grid-cols-[18rem_1fr]">
-              <h3 className="border-b-2 border-border p-6 text-3xl font-black tracking-tight text-node-bright sm:p-8 md:border-r-2 md:border-b-0">
+            <article key={item.title} className="grid min-w-0 border-b border-border md:grid-cols-[14rem_1fr]">
+              <h3 className="border-b border-border px-0 py-5 text-lg font-semibold tracking-tight md:border-r md:border-b-0 md:py-6 md:pr-8">
                 {item.title}
               </h3>
-              <p className="max-w-[65ch] px-6 pb-8 text-lg leading-7 text-foreground [overflow-wrap:anywhere] sm:px-8 md:py-8">{item.body}</p>
+              <p className="max-w-[65ch] py-5 text-base leading-relaxed text-foreground [overflow-wrap:anywhere] md:px-8 md:py-6">{item.body}</p>
             </article>
           ))}
         </div>

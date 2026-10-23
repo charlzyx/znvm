@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Github } from "lucide-react";
+import { Menu, Github } from "@/components/icons";
 import { LogoMark } from "@/components/logo-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -35,12 +35,12 @@ export function Navbar() {
   const homeHref = isZh ? "/zh" : "/";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b-2 border-border bg-background">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
       <div className="container flex h-16 items-center">
         {/* Logo */}
         <Link href={homeHref} className="mr-8 flex items-center space-x-2 flex-shrink-0">
           <LogoMark className="h-7 w-7" />
-          <span className="font-bold text-2xl">znvm</span>
+          <span className="text-lg font-semibold tracking-tight">znvm</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -106,7 +106,7 @@ function MobileNav({ isZh }: { isZh: boolean }) {
       {/* Logo */}
       <Link href={homeHref} className="flex items-center space-x-2">
         <LogoMark className="h-5 w-5" />
-        <span className="font-bold">znvm</span>
+        <span className="font-semibold tracking-tight">znvm</span>
       </Link>
 
       {/* Navigation */}

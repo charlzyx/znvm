@@ -11,14 +11,14 @@ export function Footer({ lang = "en" }: FooterProps) {
   const isZh = lang === "zh";
 
   return (
-    <footer className="border-t-2 border-border bg-muted/50">
+    <footer className="border-t border-border">
       <div className="container py-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
             <Link href={isZh ? "/zh" : "/"} className="flex items-center space-x-2">
               <LogoMark className="h-5 w-5" />
-              <span className="font-bold">znvm</span>
+              <span className="font-semibold tracking-tight">znvm</span>
             </Link>
             <p className="zig-mark mt-5">{isZh ? "用 Zig 构建" : "Built with Zig"}</p>
           </div>
@@ -86,7 +86,7 @@ export function Footer({ lang = "en" }: FooterProps) {
           </div>
         </div>
 
-        <div className="my-8 h-0.5 bg-border" />
+        <div className="my-8 border-t border-border" />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>

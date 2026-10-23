@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -7,13 +7,13 @@ import { themeBootScript } from "@/lib/theme";
 
 const siteUrl = "https://znvm.dev";
 
-const inter = Inter({
-  variable: "--font-sans",
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -52,9 +52,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans text-foreground`}
+        className={`${geist.variable} ${geistMono.variable} antialiased min-h-dvh bg-background font-sans text-foreground`}
       >
-        <div className="relative flex min-h-screen flex-col">
+        <div className="relative flex min-h-dvh flex-col">
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />

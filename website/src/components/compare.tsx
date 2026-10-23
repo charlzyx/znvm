@@ -27,20 +27,20 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
   const headers = zh ? ["", "nvm", "nrm", "znvm"] : ["", "nvm", "nrm", "znvm"];
 
   return (
-    <section className="border-b-2 border-border py-16 sm:py-24">
+    <section className="border-b border-border py-12 sm:py-16">
       <div className="container">
         <div>
-            <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
+            <h2 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
             {zh ? "对比" : "Compare"}
           </h2>
-          <p className="mt-4 max-w-[65ch] text-lg text-foreground">
+          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-foreground">
             {zh
               ? "一次安装有 nvm 和 nrm。nrm 列是原来的源工具。下载镜像是 nvm mirror。"
               : "One install provides nvm and nrm. The nrm column is the original registry tool. Download hosts are nvm mirror."}
           </p>
-          <div className="mt-12 border-2 border-border md:hidden">
+          <div className="mt-10 border border-border md:hidden">
             {body.map((row) => (
-              <article key={row[0]} className="border-b-2 border-border p-5 last:border-b-0">
+              <article key={row[0]} className="border-b border-border p-5 last:border-b-0">
                 <h3 className="text-lg font-semibold">{row[0]}</h3>
                 <dl className="mt-3 grid grid-cols-[5rem_1fr] gap-y-1 text-base">
                   <dt>nvm</dt>
@@ -53,7 +53,7 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
               </article>
             ))}
           </div>
-          <div className="mt-12 hidden min-w-0 overflow-x-auto border-2 border-border md:block">
+          <div className="mt-10 hidden min-w-0 overflow-x-auto border border-border md:block">
             <table className="w-full min-w-[40rem] text-left text-base">
               <thead className="bg-muted text-sm font-semibold text-foreground">
                 <tr>
