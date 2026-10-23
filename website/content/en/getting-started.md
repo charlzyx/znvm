@@ -20,7 +20,7 @@ When it finishes, it prints:
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.1 (x86_64-linux)...
+> Downloading nvm v2.6.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -85,11 +85,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Electron and other binary mirrors are not changed.
+`china` sets the default to `https://registry.npmmirror.com`. `official` sets it to `https://registry.npmjs.org`. Scope routes stay in place either way. The map is stored in `$NVM_DIR/registries.json`. Sync updates `~/.npmrc`, `~/.yarnrc`, `~/.yarnrc.yml`, the pnpm rc, and `~/.bunfig.toml`. Other settings in those files stay. Binary download mirrors are `nrm binary`, so a registry sync leaves them in place.
 
 ## nrm
 
-`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens the registry menu. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only.
+`nrm` is the same binary, selected by the command name. `nvm use`, `nvm ls`, and `nvm current` always select Node versions. `nrm use`, `nrm ls`, and `nrm current` select registries. In a terminal, `nrm` with no arguments opens a menu for registries, scopes, binary mirrors, and tests. Without a terminal it prints help. The shell function from `nvm.sh` wraps `nvm` only.
 
 ```bash
 nrm ls
@@ -99,12 +99,27 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
+nrm binary ls
+nrm binary use china
+nrm binary test
+nrm binary use auto
+nrm binary set electron https://cdn.npmmirror.com/binaries/electron/
+nrm binary reset
 ```
 
 Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use taobao` and `nvm registry china` select the same npmmirror URL. A single trailing slash does not change the match. `nrm del` refuses a built-in name. `nvm registry` remains available.
+
+`nrm use auto` measures every registry and writes the fastest one that answers. `nrm test` always measures again. A fresh result is kept for 6 hours in `$NVM_DIR/mirror-latency.json`. `@scope` routes are not changed.
+
+`nrm binary use china` writes the npmmirror download hosts (Electron, electron-builder, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other common ones). `official` clears them. `auto` keeps the faster side of each pair. npm, pnpm, and yarn v1 keys go in their rc files. Env-only values go in `$NVM_DIR/binaries.env`, which `nvm.sh` sources. `reset` removes that file and the `# nvm binaries` block only.
+
+In a terminal, `nrm` opens a menu: registries, scopes, binary mirrors, and test / auto.
+
+Docker image mirrors are not set here. That needs a privileged daemon config and a restart, and it is left for later.
 
 ## Usage
 

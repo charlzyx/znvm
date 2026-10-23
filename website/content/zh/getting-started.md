@@ -20,7 +20,7 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.5.1 (x86_64-linux)...
+> Downloading nvm v2.6.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
@@ -85,11 +85,11 @@ nvm registry official
 nvm registry sync
 ```
 
-`china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。Electron 和其他二进制镜像不会被改动。
+`china` 把默认源设为 `https://registry.npmmirror.com`。`official` 把默认源设为 `https://registry.npmjs.org`。两种情况下 scope 都保留。映射在 `$NVM_DIR/registries.json`。同步会更新 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc 和 `~/.bunfig.toml`。这些文件里的其他设置会留下。二进制下载镜像是 `nrm binary`，同步源不会改掉它们。
 
 ## nrm
 
-`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。
+`nrm` 是同一个二进制，由命令名决定。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。在终端里不带参数运行 `nrm` 会打开菜单，里面有源、scope、二进制镜像和测速。没有终端时打印帮助。`nvm.sh` 里的 shell 函数只包住 `nvm`。
 
 ```bash
 nrm ls
@@ -99,12 +99,27 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
+nrm binary ls
+nrm binary use china
+nrm binary test
+nrm binary use auto
+nrm binary set electron https://cdn.npmmirror.com/binaries/electron/
+nrm binary reset
 ```
 
 内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use taobao` 和 `nvm registry china` 指向同一个 npmmirror 地址。末尾一个斜杠不影响匹配。`nrm del` 不能删除内置名字。`nvm registry` 仍然可用。
+
+`nrm use auto` 测量每个源，并写入最快且可用的那个。`nrm test` 每次都重新测量。结果在 `$NVM_DIR/mirror-latency.json` 里保留 6 小时。`@scope` 不会被改动。
+
+`nrm binary use china` 写入 npmmirror 的下载地址（Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass，以及其他常见项）。`official` 清掉它们。`auto` 为每个工具留下更快的一边。npm、pnpm 和 yarn v1 的键写进各自的 rc。只认环境变量的值写在 `$NVM_DIR/binaries.env`，`nvm.sh` 会 source 它。`reset` 只删掉这个文件和 `# nvm binaries` 段。
+
+在终端里，`nrm` 打开菜单：源、scope、二进制镜像、测速并自动选择。
+
+这里不设置 Docker 镜像。那需要改 daemon 的特权配置并重启，留到以后再做。
 
 ## 使用
 

@@ -11,7 +11,7 @@ const guide = @import("guide.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.5.1";
+const ZNVM_VERSION = "v2.6.0";
 
 pub fn main() !void {
     var gpa = heap.GeneralPurposeAllocator(.{}){};
@@ -32,7 +32,7 @@ pub fn main() !void {
     if (invoked_as_nrm) {
         if (args.len < 2) {
             if (std.posix.isatty(std.posix.STDIN_FILENO)) {
-                try guide.runRegistry(allocator, config);
+                try guide.runNrm(allocator, config);
             } else {
                 try commands.printNrmHelp();
             }

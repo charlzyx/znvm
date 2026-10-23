@@ -94,7 +94,7 @@ nvm registry official       # 默认源改为 https://registry.npmjs.org，scope
 nvm registry show
 ```
 
-映射保存在 `$NVM_DIR/registries.json`。同步会改写 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc（Linux 是 `~/.config/pnpm/rc`，macOS 是 `~/Library/Preferences/pnpm/rc`）和 `~/.bunfig.toml` 里的默认源和 `@scope` 源。这些文件里的其他行会留下。`~/.yarnrc.yml` 里的 `npmScopes` 段会按已保存的 scope 重写。Electron 和其他二进制镜像不在这个命令里。
+映射保存在 `$NVM_DIR/registries.json`。同步会改写 `~/.npmrc`、`~/.yarnrc`、`~/.yarnrc.yml`、pnpm 的 rc（Linux 是 `~/.config/pnpm/rc`，macOS 是 `~/Library/Preferences/pnpm/rc`）和 `~/.bunfig.toml` 里的默认源和 `@scope` 源。这些文件里的其他行会留下。`~/.yarnrc.yml` 里的 `npmScopes` 段会按已保存的 scope 重写。二进制下载镜像是单独的 `nrm binary`，同步源不会改掉它们。
 
 同一次安装也提供 `nrm`。命令名是 `nrm` 时，运行的是同一个二进制。`nvm use`、`nvm ls` 和 `nvm current` 只选 Node 版本。`nrm use`、`nrm ls` 和 `nrm current` 才选源。`nvm registry` 是这张表的带前缀别名。
 
@@ -106,12 +106,22 @@ nrm current -u
 nrm add local http://127.0.0.1:4873
 nrm del local
 nrm test taobao
+nrm use auto
 nrm scope add @company https://npm.company.example
 nrm scope ls
 nrm scope del @company
+nrm binary ls
+nrm binary use china
+nrm binary use auto
+nrm binary set electron https://cdn.npmmirror.com/binaries/electron/
+nrm binary reset
 ```
 
-内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use` 以及 `nvm registry china` / `official` 会在地址匹配时选中内置名字，末尾一个斜杠忽略。`nrm del` 不能删除内置名字。在终端里不带参数运行 `nrm` 会打开源菜单。没有终端时打印帮助。`nrm add` 可以多带一个 home 参数，会被忽略。
+内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use` 以及 `nvm registry china` / `official` 会在地址匹配时选中内置名字，末尾一个斜杠忽略。`nrm del` 不能删除内置名字。`nrm use auto` 测量各个源，并写入最快且可用的那个。它不改 `@scope`。`nrm test` 每次都会重新测量。结果在 `$NVM_DIR/mirror-latency.json` 里保留 6 小时。在终端里不带参数运行 `nrm` 会打开菜单，里面有源、scope、二进制镜像和测速。没有终端时打印帮助。`nrm add` 可以多带一个 home 参数，会被忽略。
+
+`nrm binary` 把下载地址写到工具真正读取的地方。`china` 使用 cnpm binary-mirror-config 里的 npmmirror 地址（Electron、electron-builder、Playwright、Cypress、puppeteer、sharp、libvips、node-sass，以及其他常见项）。`official` 清掉这些地址。`set` 只改一个 URL。`auto` 把每个中国镜像和对应的上游地址比一次，留下更快的那边。npm、pnpm 和 yarn v1 的键写在各自的 rc 里，包在 `# nvm binaries` 段中。只认环境变量的值写在 `$NVM_DIR/binaries.env`，`nvm.sh` 会 source 它。`reset` 删掉这个文件和这段配置，源、scope 和其他设置留下。清掉 Node 镜像之后，下载回到 znvm 自己的默认地址。要强制用 nodejs.org，运行 `nrm binary set node https://nodejs.org/dist`。
+
+这里不设置 Docker 镜像。把 Docker daemon 指到镜像需要改特权配置并重启 daemon，留到以后再做。
 
 版本目录与 nvm 相同：`$NVM_DIR/versions/node`（默认 `~/.nvm`），已经装好的版本可以直接用。0.12 之前的 Node 从 `$NVM_DIR/vX.Y.Z` 读取。
 
@@ -123,7 +133,7 @@ nrm scope del @company
 
 进入目录时会根据 `.nvmrc` 切换已安装的版本，找不到 `.nvmrc` 时再读 `.node-version`，都不会自动下载。全局包跟 nvm 一样放在各个 Node 版本里；`reinstall-packages` 和 `--reinstall-packages-from` 会把它们复制到要切换到的版本。
 
-不做源码编译（`-s`，只安装官方二进制）、io.js / `unstable`（已停止维护，不在 Node 镜像上）和 `set-colors`（只影响终端颜色）。`nvm ls` 输出纯文本。
+不做源码编译（`-s`，只安装官方二进制）、io.js / `unstable`（已停止维护，不在 Node 镜像上）和 `set-colors`（只影响终端颜色）。`nvm ls` 输出纯文本。Docker 镜像也不在这里设置。`nrm binary` 管的是工具下载地址，Docker daemon 是另一份需要特权的配置。
 
 ## ⚙️ Shell 配置
 

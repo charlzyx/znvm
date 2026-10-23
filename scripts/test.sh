@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.5.1 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.6.0 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.5.1" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.6.0" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.5.1, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.6.0, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -216,7 +216,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.5.1" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.6.0" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -312,7 +312,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.5.1" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.6.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -364,6 +364,7 @@ grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
 test "$(cat "$INSTALL_HOME/.nvm/bash_completion")" = "original completion"
 test ! -e "$INSTALL_HOME/.nvm/bash_completion.bak"
 test ! -e "$INSTALL_HOME/.nvm/bash_completion.pre-znvm"
+test ! -e "$INSTALL_HOME/.nvm/binaries.env"
 test "$(cat "$INSTALL_HOME/.nvm/versions/node/v1.2.3/marker")" = "keep"
 test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
 env -i \
@@ -381,7 +382,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.5.1" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.6.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -456,7 +457,7 @@ UPGRADE_OUT=$(env -i \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.5.1"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.6.0"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved the previous $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "ok Linked $UPGRADE_HOME/.nvm/nrm -> nvm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -466,7 +467,7 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.5.1" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.6.0" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
@@ -531,9 +532,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.5.1"
+printf '%s\n' "$SRC_OUT" | grep -q "ok Upgraded nvm v2.3.0 -> v2.6.0"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.5.1" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.6.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -658,12 +659,12 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.5.1"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.6.0"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Linked $PLAIN_UP/.local/bin/nrm -> znvm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.5.1" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.6.0" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
@@ -1011,6 +1012,130 @@ if grep -q '@company:registry=' "$NRM_HOME/.npmrc"; then
     echo "scope del left the scope in npmrc" >&2
     exit 1
 fi
+printf '%s\n' 'fund=false' '//registry.npmjs.org/:_authToken=secret' >> "$NRM_HOME/.npmrc"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    NRM_PNPM="$NRM_HOME/Library/Preferences/pnpm/rc"
+else
+    NRM_PNPM="$NRM_HOME/.config/pnpm/rc"
+fi
+nrm_run binary ls >"$NVM_ALIGN_TMP/cmd.out"
+grep -q '^profile official$' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  electron (unset)' "$NVM_ALIGN_TMP/cmd.out"
+nrm_run help | grep -q "binary use"
+nrm_run binary use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "The binary mirrors have been changed to 'china'." "$NVM_ALIGN_TMP/cmd.out"
+grep -q "Wrote $NRM_NVM/binaries.env" "$NVM_ALIGN_TMP/cmd.err"
+grep -q 'electron_mirror=https://cdn.npmmirror.com/binaries/electron/' "$NRM_HOME/.npmrc"
+grep -q 'sharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips' "$NRM_HOME/.npmrc"
+grep -q 'sass_binary_site=https://cdn.npmmirror.com/binaries/node-sass' "$NRM_HOME/.npmrc"
+grep -q 'electron_mirror=https://cdn.npmmirror.com/binaries/electron/' "$NRM_PNPM"
+grep -q 'sharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips' "$NRM_PNPM"
+grep -q 'electron_mirror "https://cdn.npmmirror.com/binaries/electron/"' "$NRM_HOME/.yarnrc"
+grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$NRM_NVM/binaries.env"
+grep -q "export PLAYWRIGHT_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/playwright'" "$NRM_NVM/binaries.env"
+grep -q 'cypress/${version}/${platform}-${arch}/cypress.zip' "$NRM_NVM/binaries.env"
+grep -q "export SASS_BINARY_SITE='https://cdn.npmmirror.com/binaries/node-sass'" "$NRM_NVM/binaries.env"
+grep -q "export PUPPETEER_DOWNLOAD_HOST='https://cdn.npmmirror.com/binaries/chrome-for-testing'" "$NRM_NVM/binaries.env"
+grep -q "export RE2_DOWNLOAD_SKIP_PATH='true'" "$NRM_NVM/binaries.env"
+grep -q "export npm_config_sharp_libvips_binary_host='https://cdn.npmmirror.com/binaries/sharp-libvips'" "$NRM_NVM/binaries.env"
+grep -q '# nvm binaries begin' "$NRM_NVM/binaries.env"
+if grep -q 'znvm' "$NRM_NVM/binaries.env"; then
+    echo "binaries.env mentioned znvm" >&2
+    exit 1
+fi
+grep -q 'fund=false' "$NRM_HOME/.npmrc"
+grep -q '_authToken=secret' "$NRM_HOME/.npmrc"
+nrm_run scope add @company https://npm.company.example >/dev/null
+nrm_run use npm >/dev/null
+grep -q 'electron_mirror=https://cdn.npmmirror.com/binaries/electron/' "$NRM_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+grep -q 'registry=https://registry.npmjs.org/' "$NRM_HOME/.npmrc"
+ENV_OUT=$(env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" "$ZNVM_BIN" env)
+printf '%s\n' "$ENV_OUT" | grep -q 'binaries.env'
+(
+    eval "$ENV_OUT"
+    test "$ELECTRON_MIRROR" = "https://cdn.npmmirror.com/binaries/electron/"
+)
+nrm_run binary set playwright https://example.com/pw | grep -q "set playwright"
+grep -q "export PLAYWRIGHT_DOWNLOAD_HOST='https://example.com/pw'" "$NRM_NVM/binaries.env"
+grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$NRM_NVM/binaries.env"
+nrm_run binary ls | grep -q '^profile custom$'
+nrm_run binary reset | grep -q "binary mirrors reset"
+if grep -q 'electron_mirror=' "$NRM_HOME/.npmrc"; then
+    echo "binary reset left npmrc mirrors" >&2
+    exit 1
+fi
+if grep -q 'nvm binaries' "$NRM_HOME/.npmrc" "$NRM_HOME/.yarnrc" "$NRM_PNPM"; then
+    echo "binary reset left a mirror block" >&2
+    exit 1
+fi
+test ! -e "$NRM_NVM/binaries.env"
+test ! -e "$NRM_NVM/binaries.json"
+grep -q 'fund=false' "$NRM_HOME/.npmrc"
+grep -q '_authToken=secret' "$NRM_HOME/.npmrc"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+grep -q 'registry=https://registry.npmjs.org/' "$NRM_HOME/.npmrc"
+FAKE_CURL_DIR="$EMPTY_ROOT/fake-curl"
+mkdir -p "$FAKE_CURL_DIR"
+cat > "$FAKE_CURL_DIR/curl" << 'EOF'
+#!/bin/sh
+url=
+for arg in "$@"; do
+    url=$arg
+done
+case "$url" in
+    *127.0.0.1*) exit 7 ;;
+esac
+if [ "${ZNVM_FAKE_CURL:-china-fast}" = "official-fast" ]; then
+    case "$url" in
+        *npmmirror*) echo 0.800 ;;
+        *) echo 0.100 ;;
+    esac
+else
+    case "$url" in
+        *npmmirror*) echo 0.050 ;;
+        *) echo 0.400 ;;
+    esac
+fi
+exit 0
+EOF
+chmod +x "$FAKE_CURL_DIR/curl"
+nrm_auto() {
+    env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C PATH="$FAKE_CURL_DIR:/usr/bin:/bin" "$EMPTY_ROOT/nrm-bin/nrm" "$@"
+}
+rm -f "$NRM_NVM/mirror-latency.json"
+nrm_auto test npm | grep -q '^npm 0.400s$'
+nrm_auto use auto | grep -q "The registry has been changed to 'taobao'."
+test "$(nrm_auto current)" = "taobao"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "The registry has been changed to 'taobao'."
+test "$(ZNVM_FAKE_CURL=official-fast nrm_auto current)" = "taobao"
+rm -f "$NRM_NVM/mirror-latency.json"
+ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "The registry has been changed to 'npm'."
+test "$(nrm_auto current)" = "npm"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+rm -f "$NRM_NVM/mirror-latency.json"
+nrm_auto binary test electron >"$NVM_ALIGN_TMP/cmd.out"
+grep -q '^electron china 0.050s$' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '^electron official 0.400s$' "$NVM_ALIGN_TMP/cmd.out"
+nrm_auto binary use auto | grep -q "The binary mirrors have been changed to 'auto'."
+grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$NRM_NVM/binaries.env"
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+rm -f "$NRM_NVM/mirror-latency.json"
+ZNVM_FAKE_CURL=official-fast nrm_auto binary use auto >/dev/null
+if [ -f "$NRM_NVM/binaries.env" ] && grep -q ELECTRON_MIRROR "$NRM_NVM/binaries.env"; then
+    echo "official-fast auto left ELECTRON_MIRROR set" >&2
+    exit 1
+fi
+grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
+set +e
+nrm_run add auto https://example.com >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: auto is reserved." "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "FAIL add auto status=$NRM_STATUS" >&2
+    exit 1
+fi
 set +e
 nrm_run nosuch >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
@@ -1041,7 +1166,7 @@ while time.time() < end:
         if not chunk:
             break
         data += chunk
-        if b"Registries (scopes)" in data and not seen:
+        if b"Test and auto" in data and not seen:
             seen = True
             os.write(master, b"0\n")
     if proc.poll() is not None and seen:
@@ -1056,8 +1181,8 @@ if proc.returncode != 0:
     raise SystemExit(f"nrm menu exit {proc.returncode}\n{text}")
 if "Install Node" in text:
     raise SystemExit(f"nrm opened the full guide\n{text}")
-if "Registries (scopes)" not in text:
-    raise SystemExit(f"nrm menu missing registry title\n{text}")
+if "Registries" not in text or "Binary mirrors" not in text or "Test and auto" not in text:
+    raise SystemExit(f"nrm menu missing a section\n{text}")
 print("pty nrm ok")
 PY
 echo -e "    ${GREEN}✓${NC} nrm command OK"
@@ -1113,6 +1238,26 @@ set -e
 SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
 if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "not installed"; then
     echo "FAIL nvm use taobao status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" binary ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "Unknown command: binary"; then
+    echo "FAIL nvm binary status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" use auto >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+SPLIT_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
+if printf '%s\n' "$SPLIT_OUT" | grep -q "The registry has been changed"; then
+    echo "nvm use auto changed a registry" >&2
     exit 1
 fi
 set +e

@@ -16,7 +16,11 @@ const features = {
     },
     {
       title: "Scope registries",
-      body: "nrm ls, nrm use, nrm current, nrm add, nrm del, and nrm test use the usual registry names. nrm scope add @company <url> keeps several scope routes. nvm registry is the same map. In a terminal, nrm with no arguments opens the registry menu. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+      body: "nrm ls, nrm use, nrm current, nrm add, nrm del, and nrm test use the usual registry names. nrm scope add @company <url> keeps several scope routes. nvm registry is the same map. In a terminal, nrm with no arguments opens a menu for registries, scopes, binary mirrors, and tests. Sync writes ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.",
+    },
+    {
+      title: "Binary mirrors",
+      body: "nrm binary use china writes Electron, Playwright, Cypress, puppeteer, sharp, node-sass, and the other common download hosts. official clears them. nrm test and nrm binary test measure in parallel. nrm use auto and nrm binary use auto keep the fastest healthy mirror. Scope routes stay put. Nothing runs on install.",
     },
   ],
   zh: [
@@ -34,7 +38,11 @@ const features = {
     },
     {
       title: "按 scope 分流源",
-      body: "nrm ls、nrm use、nrm current、nrm add、nrm del 和 nrm test 使用常见的源名字。nrm scope add @company <url> 保存多条 scope。nvm registry 改的是同一张表。在终端里不带参数运行 nrm 会打开源菜单。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+      body: "nrm ls、nrm use、nrm current、nrm add、nrm del 和 nrm test 使用常见的源名字。nrm scope add @company <url> 保存多条 scope。nvm registry 改的是同一张表。在终端里不带参数运行 nrm 会打开菜单，里面有源、scope、二进制镜像和测速。同步会写入 ~/.npmrc、~/.yarnrc、~/.yarnrc.yml、pnpm 的 rc 和 ~/.bunfig.toml。",
+    },
+    {
+      title: "二进制镜像",
+      body: "nrm binary use china 写入 Electron、Playwright、Cypress、puppeteer、sharp、node-sass 和其他常见下载地址。official 会清掉它们。nrm test 和 nrm binary test 并行测量。nrm use auto 和 nrm binary use auto 留下最快且可用的镜像。scope 保持不动。安装时不会测量。",
     },
   ],
 };
@@ -59,8 +67,8 @@ export function Features({ lang = "en" }: { lang?: "en" | "zh" }) {
         </div>
         <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
           {zh
-            ? "Electron 和其他二进制镜像还没有接入。registry 只处理包的源。"
-            : "Electron and other binary mirrors are not wired up. registry only writes package registries."}
+            ? "Docker 镜像还没有做。把 daemon 指到镜像需要改特权配置并重启，留到以后。"
+            : "Docker image mirrors are not set here. Pointing the daemon at a mirror needs a privileged config and a restart, so that stays a later change."}
         </p>
       </div>
     </section>

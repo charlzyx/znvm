@@ -820,6 +820,7 @@ pub fn printHelp() !void {
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
         \\use, ls, and current on this command always select Node versions.
         \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
+        \\nrm binary sets Electron, Playwright, Cypress, puppeteer, sharp, node-sass, and other download mirrors.
         \\
     , .{ program_name, program_name, program_name, program_name });
 }
@@ -830,7 +831,7 @@ pub fn printNrmHelp() !void {
         \\
         \\Commands:
         \\  ls
-        \\  use <name>
+        \\  use <name|auto>
         \\  current [-u|--show-url]
         \\  add <name> <url>
         \\  del <name>
@@ -838,12 +839,19 @@ pub fn printNrmHelp() !void {
         \\  scope ls
         \\  scope add <@scope> <url>
         \\  scope del <@scope>
+        \\  binary ls
+        \\  binary use <china|official|auto>
+        \\  binary set <name> <url>
+        \\  binary reset
+        \\  binary test [name]
         \\  help
         \\  --version, -v
         \\
         \\Built-in names: npm, yarn, tencent, cnpm, taobao, npmMirror, huawei.
         \\Custom names are stored in $NVM_DIR/registries.json.
         \\use and scope write ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
+        \\use auto picks the fastest healthy registry and leaves @scope routes unchanged.
+        \\binary writes Electron, Playwright, Cypress, and other download mirrors.
         \\With no arguments in a terminal, nrm opens the registry menu.
         \\Without a terminal it prints this help.
         \\nvm registry edits the same map.
@@ -853,17 +861,27 @@ pub fn printNrmHelp() !void {
 
 pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     const reg = @import("registry.zig");
+    const binary = @import("binary.zig");
     if (args.len < 2) {
         try printNrmHelp();
         return;
     }
     const sub = args[1];
+    if (mem.eql(u8, sub, "binary")) {
+        binary.cmd(allocator, config.root_dir, args[2..]) catch |err| {
+            try binary.printError(err);
+            process.exit(1);
+        };
+        return;
+    }
     const failed = blk: {
         if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
             try printNrmHelp();
             return;
         } else if ((mem.eql(u8, sub, "ls") or mem.eql(u8, sub, "list")) and args.len == 2) {
             break :blk reg.listNames(allocator, config.root_dir);
+        } else if (mem.eql(u8, sub, "use") and args.len == 3 and mem.eql(u8, args[2], "auto")) {
+            break :blk reg.useAuto(allocator, config.root_dir);
         } else if (mem.eql(u8, sub, "use") and args.len == 3) {
             break :blk reg.useName(allocator, config.root_dir, args[2]);
         } else if (mem.eql(u8, sub, "current") and args.len == 2) {
@@ -970,6 +988,9 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     const shell_script =
         \\# nvm
         \\export NVM_DIR={s}
+        \\if [ -f "$NVM_DIR/binaries.env" ]; then
+        \\  . "$NVM_DIR/binaries.env"
+        \\fi
         \\{s}
         \\__nvm_exe={s}
         \\
@@ -1911,7 +1932,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.5.1\n", .{});
+    try stderr("znvm version: v2.6.0\n", .{});
     try stderr("NVM_DIR: {s}\n", .{config.root_dir});
     try stderr("versions: {s}\n", .{config.versions_dir});
     try stderr("mirror: {s}\n", .{config.mirror});

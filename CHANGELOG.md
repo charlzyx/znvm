@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.6.0] - 2026-10-23
+
+### Added
+
+- `nrm binary ls`, `nrm binary use china|official|auto`, `nrm binary set <name> <url>`, `nrm binary reset`, and `nrm binary test` manage download mirrors for Electron, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other hosts from cnpm's binary-mirror-config.
+- Those values are written where the tools read them: npm, pnpm, and yarn v1 rc keys, plus `$NVM_DIR/binaries.env`. `nvm.sh` sources that file. `nrm binary reset` removes only that block.
+- `nrm test` measures registries in parallel. `nrm use auto` writes the fastest healthy registry. `nrm binary test` and `nrm binary use auto` do the same for binary mirrors, one tool at a time. Results stay in `$NVM_DIR/mirror-latency.json` for 6 hours. Nothing measures on install.
+- `@scope` routes are left unchanged by auto-selection.
+- In a terminal, `nrm` with no arguments opens a menu for registries, scopes, binary mirrors, and tests.
+
+Docker image mirrors are not part of this release. Pointing a Docker daemon at a mirror needs a privileged config and a daemon restart.
+
 ## [v2.5.1] - 2026-10-23
 
 ### Fixed
@@ -275,6 +287,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.6.0]: https://github.com/charlzyx/znvm/compare/v2.5.1...v2.6.0
 [v2.5.1]: https://github.com/charlzyx/znvm/compare/v2.5.0...v2.5.1
 [v2.5.0]: https://github.com/charlzyx/znvm/compare/v2.4.0...v2.5.0
 [v2.4.0]: https://github.com/charlzyx/znvm/compare/v2.3.0...v2.4.0
