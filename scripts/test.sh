@@ -824,6 +824,17 @@ HELP_ONE=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" help ins
 printf '%s\n' "$HELP_ONE" | grep -F -q "Usage: znvm install [version]"
 HELP_ZH=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=zh LC_ALL=C "$GUIDE_BIN" help)
 printf '%s\n' "$HELP_ZH" | grep -q "用法: znvm <命令>"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" lang)" = "en"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=en_US.UTF-8 "$GUIDE_BIN" lang)" = "en"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=fr_FR.UTF-8 "$GUIDE_BIN" lang)" = "en"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=zh_CN.UTF-8 "$GUIDE_BIN" lang)" = "zh"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=en LC_ALL=zh_CN.UTF-8 "$GUIDE_BIN" lang)" = "en"
+test "$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=zh_CN LC_ALL=zh_CN.UTF-8 "$GUIDE_BIN" lang)" = "zh"
+ZH_UNKNOWN=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=zh LC_ALL=C "$GUIDE_BIN" nosuch 2>&1 || true)
+printf '%s\n' "$ZH_UNKNOWN" | grep -q "未知命令: nosuch"
+EN_LS_JSON=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" ls --json)
+ZH_LS_JSON=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" NVM_LANG=zh LC_ALL=C "$GUIDE_BIN" ls --json)
+test "$EN_LS_JSON" = "$ZH_LS_JSON"
 if printf '%s\n' "$HELP_OUT" | grep -q 'completion'; then
     echo "help mentioned completion" >&2
     exit 1

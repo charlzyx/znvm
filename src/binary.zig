@@ -7,7 +7,8 @@ const process = std.process;
 
 const util = @import("util.zig");
 const agent = @import("agent.zig");
-const locale = @import("locale.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
@@ -412,17 +413,18 @@ const State = struct {
     }
 };
 
+fn reportMsg(comptime message: i18n.Msg, args: anytype) !void {
+    var buf: [512]u8 = undefined;
+    try report(i18n.format(message, &buf, args));
+}
+
 pub fn printError(err: anyerror) !void {
     switch (err) {
-        error.InvalidUrl => try report("error: mirror must be an http:// or https:// URL."),
-        error.CurlMissing => try report("error: curl is required for nvm mirror test."),
-        error.NoHome => try report("error: HOME is not set."),
+        error.InvalidUrl => try reportMsg(messages.mirror_url, .{}),
+        error.CurlMissing => try reportMsg(messages.curl_mirror, .{}),
+        error.NoHome => try reportMsg(messages.no_home, .{}),
         error.Explained => {},
-        else => {
-            var buf: [160]u8 = undefined;
-            const message = std.fmt.bufPrint(&buf, "error: mirror failed: {s}", .{@errorName(err)}) catch "error: mirror failed";
-            try report(message);
-        },
+        else => try reportMsg(messages.mirror_failed, .{@errorName(err)}),
     }
 }
 
@@ -446,7 +448,7 @@ pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8)
         if (mem.eql(u8, args[1], "auto")) return useAuto(allocator, root);
         if (mem.eql(u8, args[1], "china")) return useFixed(allocator, root, .china);
         if (mem.eql(u8, args[1], "official")) return useFixed(allocator, root, .official);
-        try stderr("error: mirror profile must be china, official, or auto.\n", .{});
+        try i18n.err(messages.mirror_profile, .{});
         return error.Explained;
     }
     if (mem.eql(u8, sub, "set") and args.len == 3) return setOne(allocator, root, args[1], args[2]);
@@ -480,11 +482,11 @@ pub fn list(allocator: mem.Allocator, root: []const u8) !void {
         try sink.flush();
         return;
     }
-    try stdout("profile {s}\n", .{@tagName(state.mode)});
+    try i18n.out(messages.profile_line, .{@tagName(state.mode)});
     for (tools) |tool| {
         const url = activeUrl(&state, tool);
         if (url.len == 0) {
-            try stdout("  {s} (unset)\n", .{tool.name});
+            try i18n.out(messages.unset_mirror, .{tool.name});
         } else {
             try stdout("* {s} {s}\n", .{ tool.name, url });
         }
@@ -496,12 +498,12 @@ fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
     defer state.deinit(allocator);
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("The mirrors have been changed to '{s}'.\n", .{@tagName(mode)});
+    try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
 }
 
 fn preset(allocator: mem.Allocator, root: []const u8) !void {
     if (try mirrorConfigured(allocator, root)) {
-        try stdout("mirror config already set\n", .{});
+        try i18n.out(messages.mirror_kept, .{});
         return;
     }
     const registry = @import("registry.zig");
@@ -515,7 +517,7 @@ fn preset(allocator: mem.Allocator, root: []const u8) !void {
     try state.put(allocator, "node", "https://nodejs.org/dist");
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("The mirrors have been changed to 'official'.\n", .{});
+    try i18n.out(messages.mirrors_changed, .{"official"});
     try registry.useOfficial(allocator, root);
 }
 
@@ -527,11 +529,12 @@ fn installChina(allocator: mem.Allocator) !bool {
         if (value.len != 0) {
             if (mem.eql(u8, value, "china")) return true;
             if (mem.eql(u8, value, "official")) return false;
-            try stderr("error: NVM_MIRROR must be china or official.\n", .{});
+            try i18n.err(messages.mirror_env, .{});
             return error.Explained;
         }
     }
-    return locale.preferZh(allocator);
+    i18n.init(allocator);
+    return i18n.isZh();
 }
 
 fn mirrorConfigured(allocator: mem.Allocator, root: []const u8) !bool {
@@ -575,7 +578,7 @@ fn pathExists(path: []const u8) bool {
 fn setOne(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
     const name = mem.trim(u8, raw_name, " \t");
     const index = findTool(name) orelse {
-        try stderr("error: {s} is not a mirror.\n", .{name});
+        try i18n.err(messages.not_a_mirror, .{name});
         return error.Explained;
     };
     const url = try normalizeUrl(raw_url);
@@ -586,7 +589,7 @@ fn setOne(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_
     state.mode = .custom;
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("set {s}\n", .{tools[index].name});
+    try i18n.out(messages.set_mirror, .{tools[index].name});
 }
 
 pub fn reset(allocator: mem.Allocator, root: []const u8) !void {
@@ -599,7 +602,7 @@ pub fn reset(allocator: mem.Allocator, root: []const u8) !void {
         error.FileNotFound => {},
         else => return err,
     };
-    try stdout("mirrors reset\n", .{});
+    try i18n.out(messages.mirrors_reset, .{});
 }
 
 fn testMirrors(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
@@ -673,12 +676,12 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
         try state.put(allocator, tool.name, url);
     }
     if (!any_ok) {
-        try stderr("error: no mirror responded.\n", .{});
+        try i18n.err(messages.no_mirror_responded, .{});
         return error.Explained;
     }
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("The mirrors have been changed to 'auto'.\n", .{});
+    try i18n.out(messages.mirrors_changed_auto, .{});
 }
 
 pub fn probeParallel(allocator: mem.Allocator, urls: []const []const u8) ![]Sample {
@@ -732,7 +735,7 @@ pub fn storeRegistries(allocator: mem.Allocator, root: []const u8, rows: []const
 
 fn explainMissing(name: []const u8) error{Explained} {
     var buf: [256]u8 = undefined;
-    const message = std.fmt.bufPrint(&buf, "error: {s} is not a mirror.", .{name}) catch "error: is not a mirror.";
+    const message = i18n.format(messages.not_a_mirror_plain, &buf, .{name});
     return agent.explain(message);
 }
 
@@ -888,12 +891,12 @@ fn applyState(allocator: mem.Allocator, root: []const u8, state: *const State) !
     defer paths.deinit(allocator);
     const payloads = try renderPayloads(allocator, state);
     defer payloads.deinit(allocator);
-    if (try writeMarked(allocator, paths.npmrc, payloads.npm)) try stderr("Wrote {s}\n", .{paths.npmrc});
-    if (try writeMarked(allocator, paths.yarnrc, payloads.yarn)) try stderr("Wrote {s}\n", .{paths.yarnrc});
-    if (try writeMarked(allocator, paths.pnpmrc, payloads.npm)) try stderr("Wrote {s}\n", .{paths.pnpmrc});
+    if (try writeMarked(allocator, paths.npmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.npmrc});
+    if (try writeMarked(allocator, paths.yarnrc, payloads.yarn)) try i18n.err(messages.wrote_path, .{paths.yarnrc});
+    if (try writeMarked(allocator, paths.pnpmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.pnpmrc});
     switch (try writeEnv(allocator, paths.envfile, payloads.env)) {
-        .wrote => try stderr("Wrote {s}\n", .{paths.envfile}),
-        .removed => try stderr("Removed {s}\n", .{paths.envfile}),
+        .wrote => try i18n.err(messages.wrote_path, .{paths.envfile}),
+        .removed => try i18n.err(messages.removed_path, .{paths.envfile}),
         .unchanged => {},
     }
 }

@@ -8,14 +8,15 @@ const version = @import("version.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
 
 const agent = @import("agent.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-fn failFmt(code: u8, comptime fmt: []const u8, args: anytype) noreturn {
+fn failFmt(code: u8, comptime message: i18n.Msg, args: anytype) noreturn {
     var buf: [512]u8 = undefined;
-    const message = std.fmt.bufPrint(&buf, fmt, args) catch "error";
-    agent.fail(code, message);
+    agent.fail(code, i18n.format(message, &buf, args));
 }
 
 fn na() !noreturn {
@@ -260,7 +261,7 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
     defer allocator.free(node_bin);
     std.Io.Dir.accessAbsolute(host.io(), node_bin, .{}) catch {
-        try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
+        try i18n.err(messages.bin_missing, .{ver});
         process.exit(1);
     };
 
@@ -300,7 +301,7 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     try stdout("export NVM_BIN={s}\n", .{quoted_bin});
     try stdout("export NVM_INC={s}\n", .{quoted_inc});
     try stdout("hash -r 2>/dev/null || true\n", .{});
-    if (!silent) try stderr("Using {s}\n", .{ver});
+    if (!silent) try i18n.err(messages.using, .{ver});
 }
 
 fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, message: []const u8) !void {
@@ -381,11 +382,11 @@ fn readAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8) !?[
 
 fn setAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8, target: []const u8) !void {
     if (!validAliasName(name)) {
-        try stderr("Alias name '{s}' is invalid.\n", .{name});
+        try i18n.err(messages.alias_name_invalid, .{name});
         process.exit(1);
     }
     if (target.len == 0 or mem.indexOfScalar(u8, target, '\n') != null) {
-        try stderr("Alias target is invalid.\n", .{});
+        try i18n.err(messages.alias_target_invalid, .{});
         process.exit(1);
     }
     try ensureDir(config.root_dir);
@@ -510,7 +511,7 @@ fn printAliases(allocator: mem.Allocator, config: ZnvmConfig, pattern: ?[]const 
 
 fn rejectUnsupportedSpec(spec: []const u8) !void {
     if (mem.eql(u8, spec, "iojs") or mem.eql(u8, spec, "unstable") or mem.startsWith(u8, spec, "iojs-") or mem.startsWith(u8, spec, "iojs/")) {
-        try stderr("{s} does not manage io.js or the historical \"unstable\" line.\n", .{program_name});
+        try i18n.err(messages.no_iojs, .{program_name});
         process.exit(1);
     }
 }
@@ -572,10 +573,10 @@ fn resolveLocalSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []const 
 
 fn resolveLocalOrExit(allocator: mem.Allocator, config: ZnvmConfig, spec: []const u8, lts_flag: ?[]const u8) !LocalHit {
     const hit = resolveLocalSpec(allocator, config, spec, lts_flag, 0) catch |err| switch (err) {
-        error.AliasCycle => failFmt(8, "The alias \"{s}\" leads to an infinite loop. Aborting.", .{spec}),
+        error.AliasCycle => failFmt(8, messages.alias_cycle, .{spec}),
         else => return err,
     };
-    return hit orelse failFmt(1, "Version '{s}' is not installed. Run '{s} install {s}' first.", .{ spec, program_name, spec });
+    return hit orelse failFmt(1, messages.not_installed_run, .{ spec, program_name, spec });
 }
 
 fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
@@ -605,15 +606,15 @@ fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
 
 fn readVersionFile(allocator: mem.Allocator, path: []const u8, silent: bool) !?[]u8 {
     const content = try readSmallFile(allocator, path) orelse {
-        try stderr("invalid version file: {s}\n", .{path});
+        try i18n.err(messages.invalid_version_file, .{path});
         process.exit(1);
     };
     defer allocator.free(content);
     const spec = version.parseNvmrc(content) orelse {
-        try stderr("invalid version file: {s}\n", .{path});
+        try i18n.err(messages.invalid_version_file, .{path});
         process.exit(1);
     };
-    if (!silent) try stderr("Found '{s}' with version <{s}>\n", .{ path, spec });
+    if (!silent) try i18n.err(messages.found_version, .{ path, spec });
     return try allocator.dupe(u8, spec);
 }
 
@@ -640,7 +641,7 @@ fn writeCwdNvmrc(allocator: mem.Allocator, ver: []const u8, silent: bool) !void 
     defer file.close(host.io());
     try host.writeAll(file, ver);
     try host.writeAll(file, "\n");
-    if (!silent) try stderr("Wrote version number ({s}) to .nvmrc\n", .{ver});
+    if (!silent) try i18n.err(messages.wrote_nvmrc, .{ver});
 }
 
 fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
@@ -655,7 +656,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--lts=")) {
         const name = arg["--lts=".len..];
-        if (name.len == 0) failFmt(55, "Option \"--lts=\" needs an LTS name.", .{});
+        if (name.len == 0) failFmt(55, messages.lts_needs_name, .{});
         parsed.lts = name;
         return true;
     }
@@ -665,7 +666,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--alias=")) {
         const name = arg["--alias=".len..];
-        if (name.len == 0) failFmt(55, "Option \"--alias=\" needs a name.", .{});
+        if (name.len == 0) failFmt(55, messages.alias_needs_name, .{});
         parsed.alias_to = name;
         return true;
     }
@@ -679,7 +680,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
         process.exit(0);
     }
     if (mem.eql(u8, arg, "-s")) {
-        try stderr("{s} installs official Node.js binaries and does not compile from source (-s).\n", .{program_name});
+        try i18n.err(messages.no_source_build, .{program_name});
         process.exit(1);
     }
     if (mem.eql(u8, arg, "-b") or mem.eql(u8, arg, "--no-progress")) return true;
@@ -707,12 +708,12 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
         null;
     if (reinstall_flag) |prefix| {
         const name = arg[prefix.len..];
-        if (name.len == 0) failFmt(55, "Option \"{s}\" needs a version.", .{prefix});
+        if (name.len == 0) failFmt(55, messages.option_needs_version, .{prefix});
         parsed.reinstall_from = name;
         return true;
     }
     if (mem.eql(u8, arg, "--reinstall-packages-from") or mem.eql(u8, arg, "--copy-packages-from")) {
-        failFmt(55, "Option \"{s}\" needs =version.", .{arg});
+        failFmt(55, messages.option_needs_eq_version, .{arg});
     }
     return false;
 }
@@ -734,7 +735,7 @@ fn parseArgs(allocator: mem.Allocator, args: []const []const u8, mode: FlagMode)
                 while (index < args.len) : (index += 1) try parsed.positionals.append(allocator, args[index]);
                 break;
             }
-            failFmt(55, "Unsupported option \"{s}\".", .{arg});
+            failFmt(55, messages.unsupported_option, .{arg});
         }
         try parsed.positionals.append(allocator, arg);
         if (mode == .command) {
@@ -800,7 +801,10 @@ pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     }
     const sub = args[1];
     const failed = blk: {
-        if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
+        if (mem.eql(u8, sub, "lang") and args.len == 2) {
+            try stdout("{s}\n", .{@import("i18n.zig").code()});
+            return;
+        } else if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
             try printNrmHelp();
             return;
         } else if ((mem.eql(u8, sub, "ls") or mem.eql(u8, sub, "list")) and args.len == 2) {
@@ -1010,28 +1014,31 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     try stdout(shell_script, .{ root_dir, optional_text, nvm_exe });
 }
 
-fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, usage: []const u8, silent: bool) ![]u8 {
-    if (parsed.positionals.items.len > 1) failFmt(1, "{s}", .{usage});
+fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, comptime usage: i18n.Msg, silent: bool) ![]u8 {
+    if (parsed.positionals.items.len > 1) failFmt(1, usage, .{program_name});
     if (parsed.lts) |name| return ltsSpec(allocator, name);
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
-    return try readNvmrcSpec(allocator, silent) orelse failFmt(127, "{s}\nNo .nvmrc or .node-version file found.", .{usage});
+    const found = try readNvmrcSpec(allocator, silent);
+    if (found) |spec| return spec;
+    var use_buf: [256]u8 = undefined;
+    const rendered = i18n.format(usage, &use_buf, .{program_name});
+    var buf: [512]u8 = undefined;
+    agent.fail(127, i18n.format(messages.no_version_file, &buf, .{rendered}));
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    const usage = try std.fmt.allocPrint(allocator, "Usage: {s} use [version]", .{program_name});
-    defer allocator.free(usage);
-    const spec = try requireSpec(allocator, &parsed, usage, parsed.silent);
+    const spec = try requireSpec(allocator, &parsed, messages.usage_use, parsed.silent);
     defer allocator.free(spec);
     try rejectUnsupportedSpec(spec);
     const hit = try resolveLocalOrExit(allocator, config, spec, null);
     defer hit.deinit(allocator);
-    try applyHit(allocator, config, hit, parsed.silent, "Using system Node.js");
+    try applyHit(allocator, config, hit, parsed.silent, i18n.t(messages.using_system));
     if (parsed.save) {
         switch (hit) {
             .system => {
-                try stderr("The system Node.js cannot be written to .nvmrc.\n", .{});
+                try i18n.err(messages.system_nvmrc, .{});
                 process.exit(1);
             },
             .version => |ver| try writeCwdNvmrc(allocator, ver, parsed.silent),
@@ -1044,12 +1051,12 @@ fn resolveInstallSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []cons
     const query = version.parseVersionQuery(spec, lts_flag);
     switch (query.special) {
         .system => {
-            try stderr("The system Node.js cannot be installed with {s}.\n", .{program_name});
+            try i18n.err(messages.system_install, .{program_name});
             process.exit(1);
         },
         .current => {
             const current = try getCurrentVersionFromPath(allocator, config) orelse {
-                try stderr("No active Node.js version.\n", .{});
+                try i18n.err(messages.no_active, .{});
                 process.exit(1);
             };
             defer allocator.free(current);
@@ -1057,7 +1064,7 @@ fn resolveInstallSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []cons
         },
         .default => {
             const target = try readAlias(allocator, config, "default") orelse {
-                try stderr("No default version set.\n", .{});
+                try i18n.err(messages.no_default, .{});
                 process.exit(1);
             };
             defer allocator.free(target);
@@ -1080,7 +1087,7 @@ fn aliasTargetIsUsable(allocator: mem.Allocator, config: ZnvmConfig, target: []c
     if (query.special == .latest or query.special == .system or query.special == .current or query.lts != null) return;
     const hit = resolveLocalSpec(allocator, config, target, null, 0) catch |err| switch (err) {
         error.AliasCycle => {
-            try stderr("The alias \"{s}\" leads to an infinite loop. Aborting.\n", .{target});
+            try i18n.err(messages.alias_cycle_nl, .{target});
             process.exit(8);
         },
         else => return err,
@@ -1089,7 +1096,7 @@ fn aliasTargetIsUsable(allocator: mem.Allocator, config: ZnvmConfig, target: []c
         resolved.deinit(allocator);
         return;
     }
-    try stderr("Version '{s}' is not installed. Run '{s} install {s}' first.\n", .{ target, program_name, target });
+    try i18n.err(messages.not_installed_run_nl, .{ target, program_name, target });
     process.exit(1);
 }
 
@@ -1164,7 +1171,7 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
     const npm = try fs.path.join(allocator, &.{ home, "bin", "npm" });
     defer allocator.free(npm);
     std.Io.Dir.accessAbsolute(host.io(), npm, .{}) catch {
-        try stderr("npm was not found for {s}.\n", .{ver});
+        try i18n.err(messages.npm_missing, .{ver});
         process.exit(1);
     };
     const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
@@ -1195,7 +1202,7 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
         else => false,
     };
     if (!ok) {
-        try stderr("npm install -g failed for {s}.\n", .{ver});
+        try i18n.err(messages.npm_install_failed, .{ver});
         process.exit(1);
     }
 }
@@ -1205,13 +1212,13 @@ fn reinstallPackages(allocator: mem.Allocator, config: ZnvmConfig, source_spec: 
     defer source_hit.deinit(allocator);
     const source_ver = switch (source_hit) {
         .system => {
-            try stderr("Reinstalling packages from the system Node.js is not supported.\n", .{});
+            try i18n.err(messages.reinstall_system, .{});
             process.exit(1);
         },
         .version => |ver| ver,
     };
     if (mem.eql(u8, source_ver, dest_ver)) {
-        try stderr("Can not reinstall packages from the current version of node.\n", .{});
+        try i18n.err(messages.reinstall_current, .{});
         process.exit(2);
     }
     const source_dir = try versionHome(allocator, config, source_ver);
@@ -1221,9 +1228,9 @@ fn reinstallPackages(allocator: mem.Allocator, config: ZnvmConfig, source_spec: 
         for (names) |name| allocator.free(name);
         allocator.free(names);
     }
-    try stderr("Reinstalling global packages from {s}...\n", .{source_ver});
+    try i18n.err(messages.reinstalling, .{source_ver});
     if (names.len == 0) {
-        try stderr("No installed global packages found...\n", .{});
+        try i18n.err(messages.no_global_packages, .{});
         return;
     }
     for (names) |name| try stderr("{s}\n", .{name});
@@ -1249,13 +1256,13 @@ fn installDefaultPackages(allocator: mem.Allocator, config: ZnvmConfig, ver: []c
         const line = mem.trim(u8, raw, " \t\r");
         if (line.len == 0 or line[0] == '#') continue;
         if (mem.indexOfScalar(u8, line, ' ') != null or mem.indexOfScalar(u8, line, '\t') != null) {
-            try stderr("Only one package per line is allowed in `{s}`.\n", .{path});
+            try i18n.err(messages.one_package_per_line, .{path});
             process.exit(1);
         }
         try specs.append(allocator, try allocator.dupe(u8, line));
     }
     if (specs.items.len == 0) return;
-    if (!silent) try stderr("Installing default global packages from {s}...\n", .{path});
+    if (!silent) try i18n.err(messages.installing_default_packages, .{path});
     const view = try allocator.alloc([]const u8, specs.items.len);
     defer allocator.free(view);
     for (specs.items, 0..) |item, index| view[index] = item;
@@ -1265,20 +1272,18 @@ fn installDefaultPackages(allocator: mem.Allocator, config: ZnvmConfig, ver: []c
 pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    const usage = try std.fmt.allocPrint(allocator, "Usage: {s} install [version]", .{program_name});
-    defer allocator.free(usage);
-    const spec = try requireSpec(allocator, &parsed, usage, parsed.silent);
+    const spec = try requireSpec(allocator, &parsed, messages.usage_install, parsed.silent);
     defer allocator.free(spec);
     try rejectUnsupportedSpec(spec);
 
     const resolved = resolveInstallSpec(allocator, config, spec, null, 0) catch |err| switch (err) {
         error.AliasCycle => {
-            try stderr("The alias \"{s}\" leads to an infinite loop. Aborting.\n", .{spec});
+            try i18n.err(messages.alias_cycle_nl, .{spec});
             process.exit(8);
         },
         else => return err,
     } orelse {
-        try stderr("Could not resolve version '{s}'\n", .{spec});
+        try i18n.err(messages.could_not_resolve, .{spec});
         process.exit(1);
     };
     defer allocator.free(resolved.version);
@@ -1287,7 +1292,7 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
 
     if (parsed.reinstall_from) |source| {
         const source_dir = try locateVersionDir(allocator, config, source) orelse {
-            try stderr("If --reinstall-packages-from is provided, it must point to an installed version of node.\n", .{});
+            try i18n.err(messages.reinstall_from_installed, .{});
             process.exit(1);
         };
         allocator.free(source_dir);
@@ -1298,9 +1303,9 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
     const existing = try locateVersionDir(allocator, config, ver);
     defer if (existing) |dir_path| allocator.free(dir_path);
     if (existing != null) {
-        if (!parsed.silent) try stderr("Version {s} is already installed.\n", .{ver});
+        if (!parsed.silent) try i18n.err(messages.already_installed, .{ver});
     } else {
-        if (!parsed.silent) try stderr("Installing {s} ({s})...\n", .{ ver, resolved.arch });
+        if (!parsed.silent) try i18n.err(messages.installing, .{ ver, resolved.arch });
         const download_url = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ config.mirror, ver, resolved.filename });
         defer allocator.free(download_url);
         const tar_path = try fs.path.join(allocator, &.{ config.root_dir, ".cache", "bin", resolved.filename });
@@ -1308,14 +1313,14 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try ensureTree(allocator, fs.path.dirname(tar_path) orelse config.root_dir);
         if (!fileNonEmpty(tar_path)) {
             if (parsed.offline) {
-                try stderr("No cached tarball for {s}. Run install once without --offline.\n", .{ver});
+                try i18n.err(messages.no_cached_tarball, .{ver});
                 process.exit(1);
             }
             try version.downloadFile(allocator, download_url, tar_path);
         } else if (!parsed.silent) {
-            try stderr("Using cached {s}\n", .{resolved.filename});
+            try i18n.err(messages.using_cached, .{resolved.filename});
         }
-        if (!parsed.silent) try stderr("Extracting...\n", .{});
+        if (!parsed.silent) try i18n.err(messages.extracting, .{});
         try ensureTree(allocator, install_path);
 
         const argv = &[_][]const u8{ "tar", "-xzf", tar_path, "-C", install_path, "--strip-components=1" };
@@ -1325,22 +1330,22 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
             else => false,
         };
         if (!extracted) {
-            try stderr("Extraction failed.\n", .{});
+            try i18n.err(messages.extraction_failed, .{});
             host.deleteTreeAbsolute(install_path) catch {};
             process.exit(1);
         }
-        if (!parsed.silent) try stderr("Installed {s}\n", .{ver});
+        try i18n.err(messages.installed, .{ver});
     }
 
     const existing_default = try readAlias(allocator, config, "default");
     defer if (existing_default) |value| allocator.free(value);
     if (parsed.set_default or existing_default == null) {
         try setAlias(allocator, config, "default", ver);
-        if (!parsed.silent) try stderr("default -> {s}\n", .{ver});
+        if (!parsed.silent) try i18n.err(messages.default_arrow, .{ver});
     }
     if (parsed.alias_to) |name| {
         try setAlias(allocator, config, name, ver);
-        if (!parsed.silent) try stderr("{s} -> {s}\n", .{ name, ver });
+        if (!parsed.silent) try i18n.err(messages.alias_arrow, .{ name, ver });
     }
     if (parsed.reinstall_from) |source| try reinstallPackages(allocator, config, source, ver);
     if (parsed.latest_npm) try npmInstallGlobal(allocator, config, ver, &.{"npm@latest"});
@@ -1431,9 +1436,9 @@ fn listJson(allocator: mem.Allocator, config: ZnvmConfig, parsed: *const ParsedA
 pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} ls [version]", .{program_name});
+    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_ls, .{program_name});
     if (parsed.no_alias and parsed.positionals.items.len > 0) {
-        failFmt(55, "`--no-alias` is not supported when a version is provided.", .{});
+        failFmt(55, messages.no_alias_flag, .{});
     }
 
     const installed = try version.getInstalledVersions(allocator, config);
@@ -1471,7 +1476,7 @@ pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
     }
 
     if (installed.len == 0) {
-        try stdout("No versions installed.\n", .{});
+        try i18n.out(messages.no_versions, .{});
     } else {
         for (installed) |ver| try printVersionLine(ver, current);
     }
@@ -1490,7 +1495,7 @@ fn printVersionLine(ver: []const u8, current: ?[]const u8) !void {
 pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} ls-remote [version]", .{program_name});
+    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_ls_remote, .{program_name});
     const raw = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else "";
     var query = version.parseVersionQuery(raw, parsed.lts);
     if (query.special == .current or query.special == .system or query.special == .default) try na();
@@ -1498,7 +1503,7 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
     const list_all = query.special == .none and query.lts == null and query.prefix.len == 0;
 
     const index = version.loadRemoteIndex(allocator, config) catch |err| {
-        failFmt(1, "error: Failed to fetch Node.js index ({s})", .{@errorName(err)});
+        failFmt(1, messages.fetch_index, .{@errorName(err)});
     };
     defer index.deinit();
 
@@ -1554,7 +1559,7 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 1 and parsed.lts == null) {
-        try stderr("Usage: {s} uninstall <version>\n", .{program_name});
+        try i18n.err(messages.usage_uninstall, .{program_name});
         process.exit(1);
     }
     const spec = if (parsed.lts) |name| try ltsSpec(allocator, name) else try allocator.dupe(u8, parsed.positionals.items[0]);
@@ -1564,19 +1569,19 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
     defer hit.deinit(allocator);
     switch (hit) {
         .system => {
-            try stderr("The system Node.js cannot be uninstalled with {s}.\n", .{program_name});
+            try i18n.err(messages.system_uninstall, .{program_name});
             process.exit(1);
         },
         .version => |ver| {
             const active = try getCurrentVersionFromPath(allocator, config);
             defer if (active) |value| allocator.free(value);
             const path = try locateVersionDir(allocator, config, ver) orelse {
-                try stderr("Version '{s}' is not installed.\n", .{ver});
+                try i18n.err(messages.version_not_installed, .{ver});
                 process.exit(1);
             };
             defer allocator.free(path);
             try host.deleteTreeAbsolute(path);
-            try stderr("Uninstalled {s}\n", .{ver});
+            try i18n.err(messages.uninstalled, .{ver});
             if (active) |value| {
                 if (mem.eql(u8, value, ver)) try emitDeactivate(allocator, config, true, "");
             }
@@ -1588,7 +1593,7 @@ pub fn cmdAlias(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len > 2) {
-        try stderr("Usage: {s} alias [name [target]]\n", .{program_name});
+        try i18n.err(messages.usage_alias, .{program_name});
         process.exit(1);
     }
     if (parsed.positionals.items.len == 2) {
@@ -1597,13 +1602,13 @@ pub fn cmdAlias(allocator: mem.Allocator, args: []const []const u8, config: Znvm
         try rejectUnsupportedSpec(target);
         try aliasTargetIsUsable(allocator, config, target);
         try setAlias(allocator, config, name, target);
-        try stderr("{s} -> {s}\n", .{ name, target });
+        try i18n.err(messages.alias_arrow, .{ name, target });
         return;
     }
     const pattern = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else null;
     if (!try printAliases(allocator, config, pattern)) {
         if (pattern) |_| {
-            try stderr("No alias found.\n", .{});
+            try i18n.err(messages.no_alias, .{});
             process.exit(1);
         }
     }
@@ -1613,27 +1618,27 @@ pub fn cmdUnalias(allocator: mem.Allocator, args: []const []const u8, config: Zn
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 1) {
-        try stderr("Usage: {s} unalias <name>\n", .{program_name});
+        try i18n.err(messages.usage_unalias, .{program_name});
         process.exit(1);
     }
     const name = parsed.positionals.items[0];
     if (!try deleteAlias(allocator, config, name)) {
-        try stderr("Alias '{s}' does not exist.\n", .{name});
+        try i18n.err(messages.alias_missing, .{name});
         process.exit(1);
     }
-    try stderr("Deleted alias {s}\n", .{name});
+    try i18n.err(messages.deleted_alias, .{name});
 }
 
 pub fn cmdDefault(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len > 1) {
-        try stderr("Usage: {s} default [version]\n", .{program_name});
+        try i18n.err(messages.usage_default, .{program_name});
         process.exit(1);
     }
     if (parsed.positionals.items.len == 0) {
         const target = try readAlias(allocator, config, "default") orelse {
-            try stderr("No default version set.\n", .{});
+            try i18n.err(messages.no_default, .{});
             process.exit(1);
         };
         defer allocator.free(target);
@@ -1644,7 +1649,7 @@ pub fn cmdDefault(allocator: mem.Allocator, args: []const []const u8, config: Zn
     try rejectUnsupportedSpec(target);
     try aliasTargetIsUsable(allocator, config, target);
     try setAlias(allocator, config, "default", target);
-    try stderr("default -> {s}\n", .{target});
+    try i18n.err(messages.default_arrow, .{target});
 }
 
 fn emitVersionLabel(allocator: mem.Allocator, label: []const u8) !void {
@@ -1692,15 +1697,13 @@ pub fn cmdCurrent(allocator: mem.Allocator, args: []const []const u8, config: Zn
 pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    const usage = try std.fmt.allocPrint(allocator, "Usage: {s} which [version]", .{program_name});
-    defer allocator.free(usage);
-    const spec = try requireSpec(allocator, &parsed, usage, parsed.silent);
+    const spec = try requireSpec(allocator, &parsed, messages.usage_which, parsed.silent);
     defer allocator.free(spec);
     const hit = try resolveLocalOrExit(allocator, config, spec, null);
     defer hit.deinit(allocator);
     switch (hit) {
         .system => {
-            const node = try findSystemNode(allocator, config) orelse failFmt(127, "System version of node not found.", .{});
+            const node = try findSystemNode(allocator, config) orelse failFmt(127, messages.system_node_missing, .{});
             defer allocator.free(node);
             try emitWhich(allocator, "system", node);
         },
@@ -1709,7 +1712,7 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
             defer allocator.free(home);
             const node = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node);
-            std.Io.Dir.accessAbsolute(host.io(), node, .{}) catch failFmt(1, "Version '{s}' is installed but bin/node is missing.", .{ver});
+            std.Io.Dir.accessAbsolute(host.io(), node, .{}) catch failFmt(1, messages.bin_missing_plain, .{ver});
             try emitWhich(allocator, ver, node);
         },
     }
@@ -1722,11 +1725,11 @@ pub fn cmdVersion(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try cmdCurrent(allocator, args, config);
         return;
     }
-    if (parsed.positionals.items.len > 1) failFmt(1, "Usage: {s} version [version]", .{program_name});
+    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_version, .{program_name});
     const spec = if (parsed.lts) |name| try ltsSpec(allocator, name) else try allocator.dupe(u8, parsed.positionals.items[0]);
     defer allocator.free(spec);
     const hit = resolveLocalSpec(allocator, config, spec, null, 0) catch |err| switch (err) {
-        error.AliasCycle => failFmt(8, "The alias \"{s}\" leads to an infinite loop. Aborting.", .{spec}),
+        error.AliasCycle => failFmt(8, messages.alias_cycle, .{spec}),
         else => return err,
     };
     if (hit) |resolved| {
@@ -1744,7 +1747,7 @@ pub fn cmdVersionRemote(allocator: mem.Allocator, args: []const []const u8, conf
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len > 1) {
-        try stderr("Usage: {s} version-remote [version]\n", .{program_name});
+        try i18n.err(messages.usage_version_remote, .{program_name});
         process.exit(1);
     }
     const raw = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else "";
@@ -1785,7 +1788,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             _ = env_map.swapRemove("ZNVM_CURRENT");
             _ = env_map.swapRemove("NVM_BIN");
             _ = env_map.swapRemove("NVM_INC");
-            if (!silent) try stderr("Running system node\n", .{});
+            if (!silent) try i18n.err(messages.running_system, .{});
         },
         .version => |ver| {
             const home = try versionHome(allocator, config, ver);
@@ -1793,7 +1796,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             const node_bin = try fs.path.join(allocator, &.{ home, "bin", "node" });
             defer allocator.free(node_bin);
             std.Io.Dir.accessAbsolute(host.io(), node_bin, .{}) catch {
-                try stderr("Version '{s}' is installed but bin/node is missing.\n", .{ver});
+                try i18n.err(messages.bin_missing, .{ver});
                 process.exit(1);
             };
             const bin_path = try fs.path.join(allocator, &.{ home, "bin" });
@@ -1808,7 +1811,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
             }
             try env_map.put("NVM_BIN", bin_path);
             try env_map.put("NVM_INC", inc_path);
-            if (!silent) try stderr("Running node {s}\n", .{ver});
+            if (!silent) try i18n.err(messages.running_node, .{ver});
         },
     }
 
@@ -1825,7 +1828,7 @@ fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *con
         try allocator.dupe(u8, items[0])
     else
         try readNvmrcSpec(allocator, parsed.silent) orelse {
-            try stderr("Usage: {s} {s} [version] [args...]\nNo .nvmrc or .node-version file found.\n", .{ program_name, command_name });
+            try i18n.err(messages.usage_run_missing, .{ program_name, command_name });
             process.exit(127);
         };
     const cmd_args = if (first_is_version) items[1..] else items;
@@ -1838,7 +1841,7 @@ pub fn cmdExec(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
     const prepared = try commandSpecAndArgs(allocator, config, &parsed, "exec");
     defer allocator.free(prepared.spec);
     if (prepared.args.len == 0) {
-        try stderr("Usage: {s} exec [version] <command> [args...]\n", .{program_name});
+        try i18n.err(messages.usage_exec, .{program_name});
         process.exit(127);
     }
     try rejectUnsupportedSpec(prepared.spec);
@@ -1857,7 +1860,7 @@ pub fn cmdRun(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     defer hit.deinit(allocator);
     const node_bin = switch (hit) {
         .system => try findSystemNode(allocator, config) orelse {
-            try stderr("System version of node not found.\n", .{});
+            try i18n.err(messages.system_node_missing_nl, .{});
             process.exit(127);
         },
         .version => |ver| blk: {
@@ -1879,11 +1882,11 @@ pub fn cmdReinstallPackages(allocator: mem.Allocator, args: []const []const u8, 
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 1) {
-        try stderr("Usage: {s} reinstall-packages <version>\n", .{program_name});
+        try i18n.err(messages.usage_reinstall, .{program_name});
         process.exit(127);
     }
     const current = try getCurrentVersionFromPath(allocator, config) orelse {
-        try stderr("No active Node.js version. Run `{s} use <version>` first.\n", .{program_name});
+        try i18n.err(messages.no_active_use_first, .{program_name});
         process.exit(1);
     };
     defer allocator.free(current);
@@ -1894,11 +1897,11 @@ pub fn cmdInstallLatestNpm(allocator: mem.Allocator, args: []const []const u8, c
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 0) {
-        try stderr("Usage: {s} install-latest-npm\n", .{program_name});
+        try i18n.err(messages.usage_latest_npm, .{program_name});
         process.exit(127);
     }
     const current = try getCurrentVersionFromPath(allocator, config) orelse {
-        try stderr("No active Node.js version. Run `{s} use <version>` first.\n", .{program_name});
+        try i18n.err(messages.no_active_use_first, .{program_name});
         process.exit(1);
     };
     defer allocator.free(current);
@@ -1913,7 +1916,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     else
         "";
     if (action.len == 0) {
-        try stderr("Usage: {s} cache dir|clear\n", .{program_name});
+        try i18n.err(messages.usage_cache, .{program_name});
         process.exit(127);
     }
     const cache_dir = try fs.path.join(allocator, &.{ config.root_dir, ".cache" });
@@ -1925,26 +1928,26 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     if (mem.eql(u8, action, "clear")) {
         host.deleteTreeAbsolute(cache_dir) catch {};
         try ensureDir(cache_dir);
-        try stdout("{s} cache cleared.\n", .{program_name});
+        try i18n.out(messages.cache_cleared, .{program_name});
         return;
     }
-    try stderr("Usage: {s} cache dir|clear\n", .{program_name});
+    try i18n.err(messages.usage_cache, .{program_name});
     process.exit(127);
 }
 
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try stderr("znvm version: v2.8.3\n", .{});
-    try stderr("NVM_DIR: {s}\n", .{config.root_dir});
-    try stderr("versions: {s}\n", .{config.versions_dir});
-    try stderr("mirror: {s}\n", .{config.mirror});
-    try stderr("platform: {s}-{s}\n", .{ config.os, config.arch });
-    try stderr("installed: {d}\n", .{installed.len});
+    try i18n.err(messages.debug_version, .{"v2.8.3"});
+    try i18n.err(messages.debug_dir, .{config.root_dir});
+    try i18n.err(messages.debug_versions, .{config.versions_dir});
+    try i18n.err(messages.debug_mirror, .{config.mirror});
+    try i18n.err(messages.debug_platform, .{ config.os, config.arch });
+    try i18n.err(messages.debug_installed, .{installed.len});
     if (config.npm_prefix) |prefix| {
-        try stderr("npm prefix: {s}\n", .{prefix});
+        try i18n.err(messages.debug_prefix, .{prefix});
     } else {
-        try stderr("npm prefix: per Node version\n", .{});
+        try i18n.err(messages.debug_prefix_per_node, .{});
     }
 }
 
@@ -1952,8 +1955,8 @@ pub fn cmdDeactivate(allocator: mem.Allocator, args: []const []const u8, config:
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 0) {
-        try stderr("Usage: {s} deactivate\n", .{program_name});
+        try i18n.err(messages.usage_deactivate, .{program_name});
         process.exit(1);
     }
-    try emitDeactivate(allocator, config, parsed.silent, "Deactivated");
+    try emitDeactivate(allocator, config, parsed.silent, i18n.t(messages.deactivated));
 }

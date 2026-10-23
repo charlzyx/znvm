@@ -75,7 +75,7 @@ nrm use auto
 nvm mirror use auto
 ```
 
-`nrm use taobao` and `nvm registry china` set `https://registry.npmmirror.com` and leave scopes in place. `nvm mirror use china` writes the npmmirror hosts, including the Node dist mirror. `nrm use auto` picks one registry and does not change scopes. `nvm mirror use auto` picks a host per tool. Install writes china when the language is zh, and otherwise writes `https://registry.npmjs.org` plus `https://nodejs.org/dist` with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `auto` stays manual.
+`nrm use taobao` and `nvm registry china` set `https://registry.npmmirror.com` and leave scopes in place. `nvm mirror use china` writes the npmmirror hosts, including the Node dist mirror. `nrm use auto` picks one registry and does not change scopes. `nvm mirror use auto` picks a host per tool. Install writes china when the language is zh, and otherwise writes `https://registry.npmjs.org` plus `https://nodejs.org/dist` with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `auto` stays manual. `NVM_LANG=zh|en` forces the language; otherwise `LC_ALL`, then `LC_MESSAGES`, then `LANG`. `nvm lang` prints `zh` or `en`. `--json` and `--llm` stay English.
 
 ## Download hosts
 

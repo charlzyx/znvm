@@ -9,8 +9,8 @@
 
 ### Added
 
-- Install writes the china preset when the language is zh (`NVM_LANG`, then `LC_ALL` / `LC_MESSAGES` / `LANG`, then the macOS preferred language). Anything else writes `https://registry.npmjs.org` and `https://nodejs.org/dist`, with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `nvm mirror use auto` and `nrm use auto` stay manual.
-- `nvm --help`, `nvm help <command>`, and `nrm --help` are short usage screens in Chinese or English.
+- Install writes the china preset when the language is zh (`NVM_LANG=zh|en` first, then `LC_ALL` / `LC_MESSAGES` / `LANG`; `C`, `POSIX`, and `en` on macOS use `AppleLanguages` from `~/Library/Preferences/.GlobalPreferences.plist`). Anything else writes `https://registry.npmjs.org` and `https://nodejs.org/dist`, with no other binary hosts. `NVM_MIRROR=china|official` overrides that. An existing mirror config is kept. `nvm mirror use auto` and `nrm use auto` stay manual.
+- Human-facing CLI text, including `nvm --help`, `nvm help <command>`, and `nrm --help`, is Chinese or English. `--json`, `--llm`, and machine-parsed lines stay English. `nvm lang` prints `zh` or `en`.
 
 ### Changed
 

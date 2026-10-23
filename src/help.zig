@@ -1,14 +1,15 @@
 const std = @import("std");
 const mem = std.mem;
 
-const locale = @import("locale.zig");
+const i18n = @import("i18n.zig");
+const messages = @import("messages.zig");
 const util = @import("util.zig");
 
 const stdout = util.stdout;
-const stderr = util.stderr;
 
 fn zhNow() bool {
-    return locale.preferZh(std.heap.c_allocator);
+    i18n.init(std.heap.c_allocator);
+    return i18n.isZh();
 }
 
 pub fn printNvm(program_name: []const u8) !void {
@@ -41,6 +42,7 @@ pub fn printNvm(program_name: []const u8) !void {
             \\  env                     打印 shell 配置
             \\  debug                   打印路径
             \\  help [命令]             显示帮助
+            \\  lang                    打印 zh 或 en
             \\
             \\选项:
             \\  --lts[=name] --default --offline --silent --save --json --yes --llm --version
@@ -82,6 +84,7 @@ pub fn printNvm(program_name: []const u8) !void {
         \\  env                     print shell setup
         \\  debug                   print paths
         \\  help [command]          show help
+        \\  lang                    print zh or en
         \\
         \\Options:
         \\  --lts[=name] --default --offline --silent --save --json --yes --llm --version
@@ -113,6 +116,7 @@ pub fn printNrm() !void {
             \\  scope add <@scope> <url>
             \\  scope del <@scope>
             \\  help                    显示帮助
+            \\  lang                    打印 zh 或 en
             \\
             \\环境变量:
             \\  NVM_DIR                 数据目录
@@ -139,6 +143,7 @@ pub fn printNrm() !void {
         \\  scope add <@scope> <url>
         \\  scope del <@scope>
         \\  help                    show help
+        \\  lang                    print zh or en
         \\
         \\Environment:
         \\  NVM_DIR                 data directory
@@ -242,9 +247,5 @@ pub fn printCommand(program_name: []const u8, raw: []const u8) !bool {
 }
 
 pub fn unknownCommand(raw: []const u8) !void {
-    if (zhNow()) {
-        try stderr("未知命令: {s}\n", .{raw});
-    } else {
-        try stderr("Unknown command: {s}\n", .{raw});
-    }
+    try i18n.err(messages.unknown_command, .{raw});
 }
