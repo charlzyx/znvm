@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v2.9.3] - 2026-10-23
+
+### Fixed
+
+- Install scripts fall back to the latest GitHub release that has a binary for this platform when the baked-in tag is not published yet (avoids 404 during release races).
+- Release workflow verifies all four platform assets before bumping `install.sh` / znvm.dev.
+
+### Changed
+
+- `nvm mirror use` prints one summary line (no per-file `Wrote` lines).
+- Install script messages are zh/en; no-op steps stay silent.
+
 ## [v2.9.2] - 2026-10-23
 
 ### Fixed
@@ -343,6 +355,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.9.3]: https://github.com/charlzyx/znvm/compare/v2.9.2...v2.9.3
 [v2.9.2]: https://github.com/charlzyx/znvm/compare/v2.9.1...v2.9.2
 [v2.9.1]: https://github.com/charlzyx/znvm/compare/v2.9.0...v2.9.1
 [v2.9.0]: https://github.com/charlzyx/znvm/compare/v2.8.2...v2.9.0

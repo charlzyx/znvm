@@ -30,13 +30,6 @@ jobs:
         with:
           version: 0.17.0
 
-      - name: Update install.sh version
-        run: |
-          # 在 build 阶段修改 install.sh，不提交
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
-          echo "✅ install scripts updated to ${{ github.ref_name }}"
-
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
 
@@ -50,9 +43,25 @@ jobs:
           files: znvm-${{ github.ref_name }}-${{ matrix.target }}
           fail_on_unmatched_files: true
 
+  verify:
+    name: Verify release assets
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every platform binary is downloadable
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for target in x86_64-linux-musl aarch64-linux-musl x86_64-macos aarch64-macos; do
+            url="https://github.com/charlzyx/znvm/releases/download/${VERSION}/znvm-${VERSION}-${target}"
+            echo "GET $url"
+            curl -fL --retry 5 --retry-delay 3 -o /dev/null "$url"
+          done
+
   update_repo:
     name: Update repository
-    needs: build
+    needs: [build, verify]
     runs-on: ubuntu-latest
     if: success()
     steps:
@@ -64,20 +73,21 @@ jobs:
 
       - name: Update install.sh version
         run: |
-          # 修改版本号（匹配任意当前版本）
+          # Bump install scripts only after all release assets are public.
           sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
           grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
           cp install-as-nvm.sh ./website/public/install.sh
           cp install-as-nvm.sh ./website/public/install-as-nvm.sh
           cmp -s install-as-nvm.sh ./website/public/install.sh
           cmp -s install-as-nvm.sh ./website/public/install-as-nvm.sh
-          echo "✅ install scripts updated to ${{ github.ref_name }}"
+          sed -i "s/const version = \"v[^\"]*\"/const version = \"${{ github.ref_name }}\"/" website/src/components/hero.tsx
+          echo "✅ install scripts and site version updated to ${{ github.ref_name }}"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh install-as-nvm.sh ./website/public/install.sh ./website/public/install-as-nvm.sh
+          git add install.sh install-as-nvm.sh ./website/public/install.sh ./website/public/install-as-nvm.sh website/src/components/hero.tsx
           if git diff --cached --quiet; then
             echo "install scripts already match ${{ github.ref_name }}"
           else

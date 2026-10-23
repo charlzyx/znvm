@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-ZNVM_VERSION="v2.9.2"
+ZNVM_VERSION="v2.9.3"
 REPO_OWNER="charlzyx"
 REPO_NAME="znvm"
 MARKER="nvm: shell setup"
@@ -35,6 +35,75 @@ profile_display() {
     case "$1" in
         "$HOME"/*) printf '~/%s\n' "${1#"$HOME"/}" ;;
         *) printf '%s\n' "$1" ;;
+    esac
+}
+
+shell_lang() {
+    if [ -n "${NVM_LANG:-}" ]; then
+        case "$NVM_LANG" in
+            zh|zh_*) printf 'zh\n'; return ;;
+            en|en_*) printf 'en\n'; return ;;
+        esac
+    fi
+    local loc="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+    case "$loc" in
+        zh*) printf 'zh\n' ;;
+        *) printf 'en\n' ;;
+    esac
+}
+
+INSTALL_MSG_LANG=""
+
+install_lang() {
+    if [ -n "$INSTALL_MSG_LANG" ]; then
+        printf '%s' "$INSTALL_MSG_LANG"
+        return
+    fi
+    if [ -n "${NVM_EXE:-}" ] && [ -x "$NVM_EXE" ]; then
+        INSTALL_MSG_LANG="$(NVM_DIR="${NVM_COMPAT_DIR}" "$NVM_EXE" lang 2>/dev/null || true)"
+    fi
+    if [ -z "$INSTALL_MSG_LANG" ]; then
+        INSTALL_MSG_LANG="$(shell_lang)"
+    fi
+    printf '%s' "$INSTALL_MSG_LANG"
+}
+
+install_msg() {
+    local key="$1"
+    shift
+    case "$(install_lang)" in
+        zh)
+            case "$key" in
+                downloading) printf '正在下载 nvm %s (%s)...\n' "$1" "$2" >&2 ;;
+                download_failed) printf '下载失败: %s\n' "$1" >&2 ;;
+                version_fallback) printf '使用 %s（%s 尚未发布）\n' "$1" "$2" >&2 ;;
+                saved_backup) printf '已备份 %s -> %s\n' "$1" "$2" >&2 ;;
+                upgraded) printf '已升级 nvm %s -> %s\n' "$1" "$2" >&2 ;;
+                wrote_nvm_sh) printf '已写入 %s\n' "$1" >&2 ;;
+                added_profile) printf '已写入 %s\n' "$1" >&2 ;;
+                nrm_link_exists) printf 'nrm 链接已存在: %s\n' "$1" >&2 ;;
+                nrm_link_blocked) printf '未改动 %s；移走后重新安装可在此链接 nrm\n' "$1" >&2 ;;
+                nrm_other) printf '另有 nrm: %s（未删除）\n' "$1" >&2 ;;
+                nrm_path_hint) printf '新 shell 会优先使用 %s 作为 nrm\n' "$1" >&2 ;;
+                *) printf '%s\n' "$*" >&2 ;;
+            esac
+            ;;
+        *)
+            case "$key" in
+                downloading) printf 'Downloading nvm %s (%s)...\n' "$1" "$2" >&2 ;;
+                download_failed) printf 'Download failed: %s\n' "$1" >&2 ;;
+                version_fallback) printf 'Using %s (%s is not published yet)\n' "$1" "$2" >&2 ;;
+                saved_backup) printf 'Saved %s as %s\n' "$1" "$2" >&2 ;;
+                upgraded) printf 'Upgraded nvm %s -> %s\n' "$1" "$2" >&2 ;;
+                wrote_nvm_sh) printf 'Wrote %s\n' "$1" >&2 ;;
+                added_profile) printf 'Wrote %s\n' "$1" >&2 ;;
+                nrm_link_exists) printf 'nrm already linked at %s\n' "$1" >&2 ;;
+                nrm_link_blocked) printf 'Left %s unchanged; move it and reinstall to link nrm here\n' "$1" >&2 ;;
+                nrm_other) printf 'Another nrm at %s (not removed)\n' "$1" >&2 ;;
+                nrm_path_hint) printf 'A new shell prefers %s as nrm\n' "$1" >&2 ;;
+                *) printf '%s\n' "$*" >&2 ;;
+            esac
+            ;;
     esac
 }
 
@@ -77,13 +146,45 @@ installed_version() {
     printf '%s\n' "$out" | tr -d '\r'
 }
 
+release_asset_exists() {
+    local version="$1"
+    local target="$2"
+    local url
+    url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
+    curl -fsSIL -o /dev/null "$url" 2>/dev/null
+}
+
+find_published_version() {
+    local target="$1"
+    local prefer="$2"
+    local tags tag
+    if [ -n "$prefer" ] && release_asset_exists "$prefer" "$target"; then
+        printf '%s\n' "$prefer"
+        return 0
+    fi
+    set +e
+    tags="$(curl -fsSL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases?per_page=30" \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+    set -e
+    for tag in $tags; do
+        if release_asset_exists "$tag" "$target"; then
+            printf '%s\n' "$tag"
+            return 0
+        fi
+    done
+    return 1
+}
+
 resolve_download_version() {
-    local version
+    local version target baked
     version=""
+    baked=""
+    target="$(download_target)" || exit 1
     if [ -n "${ZNVM_VERSION_ARG:-}" ]; then
         version="$ZNVM_VERSION_ARG"
     elif [ "$ZNVM_VERSION" != "main" ]; then
         version="$ZNVM_VERSION"
+        baked="$ZNVM_VERSION"
     else
         set +e
         version=$(curl -fsSL "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
@@ -92,6 +193,19 @@ resolve_download_version() {
     if [ -z "$version" ]; then
         echo "error: Could not determine which nvm version to download." >&2
         exit 1
+    fi
+    if ! release_asset_exists "$version" "$target"; then
+        if [ -n "${ZNVM_VERSION_ARG:-}" ]; then
+            echo "error: No published nvm binary for ${target} (${version})." >&2
+            exit 1
+        fi
+        version="$(find_published_version "$target" "")" || {
+            echo "error: No published nvm binary for ${target}." >&2
+            exit 1
+        }
+        if [ -n "$baked" ] && [ "$version" != "$baked" ]; then
+            install_msg version_fallback "$version" "$baked"
+        fi
     fi
     printf '%s\n' "$version"
 }
@@ -127,10 +241,10 @@ fetch_binary() {
     local target url
     target="$(download_target)" || exit 1
     url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/$version/znvm-$version-$target"
-    echo "> Downloading nvm $version ($target)..." >&2
+    install_msg downloading "$version" "$target"
     if ! curl -fL --retry 3 -o "$dest" "$url"; then
         rm -f "$dest"
-        echo "error: Download failed: $url" >&2
+        install_msg download_failed "$url"
         exit 1
     fi
     chmod +x "$dest"
@@ -156,16 +270,14 @@ backup_and_replace() {
         else
             cp -p "$dest" "$backup"
         fi
-        echo "> Saved the previous $dest as $backup" >&2
-    else
-        echo "ok Previous copy already exists at $backup" >&2
+        install_msg saved_backup "$dest" "$backup"
     fi
     mv -f "$staged" "$dest"
     chmod +x "$dest"
     if [ -z "$old_ver" ]; then
         old_ver="unknown"
     fi
-    echo "ok Upgraded nvm $old_ver -> $new_ver" >&2
+    install_msg upgraded "$old_ver" "$new_ver"
 }
 
 install_binary() {
@@ -183,7 +295,6 @@ install_binary() {
         if [ -x "$dest" ] && [ ! -d "$dest" ]; then
             old_ver="$(installed_version "$dest")"
             if [ -n "$new_ver" ] && [ "$old_ver" = "$new_ver" ]; then
-                echo "ok nvm is already installed at $dest" >&2
                 printf '%s\n' "$dest"
                 return
             fi
@@ -207,7 +318,6 @@ install_binary() {
     if [ -x "$dest" ] && [ ! -d "$dest" ]; then
         old_ver="$(installed_version "$dest")"
         if [ "$old_ver" = "$new_ver" ]; then
-            echo "ok nvm is already installed at $dest" >&2
             printf '%s\n' "$dest"
             return
         fi
@@ -288,7 +398,7 @@ unset __nvm_path
 eval "$("$NVM_BIN" env)"
 EOF
     } | safe_replace "$NVM_COMPAT_DIR/nvm.sh" "$NVM_COMPAT_DIR/nvm.sh.bak"
-    echo "ok Wrote $NVM_COMPAT_DIR/nvm.sh"
+    install_msg wrote_nvm_sh "$NVM_COMPAT_DIR/nvm.sh"
 }
 
 configure_profile() {
@@ -301,7 +411,6 @@ configure_profile() {
     fi
 
     if [ -f "$profile" ] && grep -q 'NVM_DIR/nvm.sh' "$profile"; then
-        echo "ok Shell config already loads nvm ($profile)" >&2
         printf '%s\n' "$profile"
         return
     fi
@@ -314,7 +423,7 @@ configure_profile() {
 export NVM_DIR="$NVM_COMPAT_DIR"
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 EOF
-    echo "> Added nvm startup to $profile" >&2
+    install_msg added_profile "$profile"
     printf '%s\n' "$profile"
 }
 
@@ -328,17 +437,14 @@ link_nrm() {
     if [ -L "$link" ]; then
         target="$(readlink "$link")"
         if [ "$target" = "$base" ] || [ "$target" = "$exe" ]; then
-            echo "ok nrm already linked at $link"
+            :
         else
-            echo "note: $link already exists and was not changed."
-            echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+            install_msg nrm_link_blocked "$link"
         fi
     elif [ -e "$link" ]; then
-        echo "note: $link already exists and was not changed."
-        echo "note: nrm was not linked next to $base. Move that file and run the installer again."
+        install_msg nrm_link_blocked "$link"
     else
         ln -s "$base" "$link"
-        echo "ok Linked $link -> $base"
     fi
     note_other_nrm "$link"
 }
@@ -356,11 +462,11 @@ note_other_nrm() {
         if [ "$cand" = "$ours" ]; then
             continue
         fi
-        echo "note: another nrm is at $cand and was not removed."
+        install_msg nrm_other "$cand"
         if [ -L "$ours" ]; then
             target="$(readlink "$ours")"
             if [ "$target" = "nvm" ] || [ "$target" = "$(dirname "$ours")/nvm" ]; then
-                echo "note: a new shell puts $(dirname "$ours") first on PATH, so $ours runs as nrm."
+                install_msg nrm_path_hint "$ours"
             fi
         fi
         return
@@ -478,6 +584,7 @@ fi
 
 ZNVM_VERSION_ARG="${1:-}"
 NVM_EXE="$(install_binary)"
+INSTALL_MSG_LANG=""
 link_nrm "$NVM_EXE"
 if [ ! -x "$NVM_EXE" ]; then
     echo "nvm was not installed." >&2

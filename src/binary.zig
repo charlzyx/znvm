@@ -425,8 +425,8 @@ pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8)
     }
     if (mem.eql(u8, sub, "use") and args.len == 2) {
         if (mem.eql(u8, args[1], "auto")) return useAuto(allocator, root);
-        if (mem.eql(u8, args[1], "china")) return useFixed(allocator, root, .china);
-        if (mem.eql(u8, args[1], "official")) return useFixed(allocator, root, .official);
+        if (mem.eql(u8, args[1], "china")) return useFixed(allocator, root, .china, true);
+        if (mem.eql(u8, args[1], "official")) return useFixed(allocator, root, .official, true);
         try i18n.err(messages.mirror_profile, .{});
         return error.Explained;
     }
@@ -492,17 +492,18 @@ fn npmrcMirrorKeyCount(state: *const State) usize {
     return count;
 }
 
-fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
+fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode, summarize: bool) !void {
+    agent.mirror_quiet = true;
+    defer agent.mirror_quiet = false;
     var state = State{ .mode = mode };
     defer state.deinit(allocator);
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    if (!agent.mirror_quiet) {
-        try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
-        if (mode == .china) {
-            const n = npmrcMirrorKeyCount(&state);
-            if (n > 0) try i18n.out(messages.mirror_npmrc_warn, .{n});
-        }
+    if (!summarize) return;
+    try i18n.out(messages.mirror_line, .{@tagName(mode)});
+    if (mode == .china) {
+        const n = npmrcMirrorKeyCount(&state);
+        if (n > 0) try i18n.out(messages.mirror_npmrc_warn, .{n});
     }
 }
 
@@ -515,7 +516,7 @@ fn preset(allocator: mem.Allocator, root: []const u8) !void {
     }
     const registry = @import("registry.zig");
     if (try installChina(allocator)) {
-        try useFixed(allocator, root, .china);
+        try useFixed(allocator, root, .china, false);
         try registry.useChina(allocator, root);
         try i18n.out(messages.mirror_line, .{"china"});
         return;
