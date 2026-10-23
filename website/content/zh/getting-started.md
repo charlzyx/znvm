@@ -6,6 +6,44 @@
 
 在终端里不带参数运行 `nvm` 会打开交互引导（`nvm guide` 相同）。没有终端时，它只打印一句说明并退出。
 
+## 给 Agent
+
+不额外安装就能学会 znvm，直接问二进制：
+
+```bash
+nvm --llm
+nrm --llm
+```
+
+两条命令都把 `skills/znvm/SKILL.md` 打到 stdout 然后退出。二进制在编译时嵌入这个文件，所以命令输出和文件一致。
+
+```bash
+npx skills add charlzyx/znvm
+```
+
+如果当前客户端不能安装技能，就把 `skills/znvm/SKILL.md` 复制到它的技能目录。
+
+没有 MCP 服务。`nvm` 和 `nrm` 已经是 shell 命令。MCP 服务只会再包一层同一个二进制。
+
+`nvm` 管 Node 版本。`nrm` 管 npm 源和 `@scope`。`nvm mirror` 管 Electron、Playwright 这些工具的下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，没有再读 `.node-version`。
+
+`--json` 给 `nvm ls`、`nvm ls-remote`（含 `--lts`）、`nvm current`、`nvm which`、`nvm version`、`nvm --version`、`nrm ls`、`nrm current`、`nrm test`、`nrm scope ls`、`nvm mirror ls` 和 `nvm mirror test` 在 stdout 打一个 JSON 对象。错误是 stderr 上的 `{"error":"...","exit":N}`。stdout 为空，退出码与文本模式相同：0 成功，1 用法或失败，3 没有匹配版本，8 别名循环，55 不支持的选项，127 找不到系统 node 或版本文件。
+
+已安装 v18.0.0 和 v20.11.0、别名 `default -> 18`、PATH 上没有 Node 时，`nvm ls --json` 打印：
+
+```json
+{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
+```
+
+菜单只在 stdin 和菜单所在的输出都是终端时才出现。`--yes`、`NVM_NONINTERACTIVE=1`（`true` 和 `yes` 同样生效）以及非空的 `CI` 都会关掉菜单。`NO_COLOR` 保持纯 ASCII。`--guide-step` 把菜单画在 stderr。
+
+找不到命令时：
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+```
+
 ## 安装
 
 ### 快速安装（推荐）
@@ -20,7 +58,7 @@ curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
 nvm
 Node versions go in ~/.nvm. Downloads use https://npmmirror.com/mirrors/node.
 
-> Downloading nvm v2.6.0 (x86_64-linux)...
+> Downloading nvm v2.7.0 (x86_64-linux)...
 ok Linked /home/user/.nvm/nrm -> nvm
 ok Wrote /home/user/.nvm/nvm.sh
 > Added nvm startup to /home/user/.bashrc
