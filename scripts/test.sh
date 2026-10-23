@@ -1231,7 +1231,7 @@ grep -q '"name":"playwright"' "$NVM_ALIGN_TMP/mirror.json"
 grep -q '"name":"puppeteer"' "$NVM_ALIGN_TMP/mirror.json"
 mirror_run use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 grep -q "The mirrors have been changed to 'china'." "$NVM_ALIGN_TMP/cmd.out"
-grep -q "note: 16 npmrc mirror keys may trigger npm warnings" "$NVM_ALIGN_TMP/cmd.out"
+grep -q "note: 14 npmrc mirror keys may trigger npm warnings" "$NVM_ALIGN_TMP/cmd.out"
 grep -q "Wrote $NRM_NVM/binaries.env" "$NVM_ALIGN_TMP/cmd.err"
 if grep -q 'electron_mirror=' "$NRM_HOME/.npmrc" || grep -q 'sass_binary_site=' "$NRM_HOME/.npmrc" || grep -q 'sharp_binary_host=' "$NRM_HOME/.npmrc"; then
     echo "env-backed mirrors should not be written to npmrc" >&2
@@ -1313,7 +1313,10 @@ grep -q 'fund=false' "$NRM_HOME/.npmrc"
 grep -q '_authToken=secret' "$NRM_HOME/.npmrc"
 nrm_run scope add @company https://npm.company.example >/dev/null
 nrm_run use npm >/dev/null
-grep -q 'electron_mirror=https://cdn.npmmirror.com/binaries/electron/' "$NRM_HOME/.npmrc"
+if grep -q 'electron_mirror=' "$NRM_HOME/.npmrc"; then
+    echo "registry scope flow should not rewrite electron_mirror into npmrc" >&2
+    exit 1
+fi
 grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
 grep -q 'registry=https://registry.npmjs.org/' "$NRM_HOME/.npmrc"
 ENV_OUT=$(env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" "$ZNVM_BIN" env)
