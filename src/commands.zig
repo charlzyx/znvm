@@ -801,6 +801,7 @@ pub fn printHelp() !void {
         \\  deactivate [--silent]
         \\  guide, interactive         menu (also: {s} with no arguments in a terminal)
         \\  registry [show|set-default|add|remove|china|official|sync]
+        \\  mirror [ls|use|set|reset|test]
         \\  debug
         \\  env                        shell setup (eval "$({s} env)")
         \\  --version, -v              print the znvm version
@@ -820,7 +821,11 @@ pub fn printHelp() !void {
         \\Other lines in those files stay. A yarn npmScopes block is replaced by the saved scopes.
         \\use, ls, and current on this command always select Node versions.
         \\Named registries are the separate nrm command. nvm registry is the prefixed alias.
-        \\nrm binary sets Electron, Playwright, Cypress, puppeteer, sharp, node-sass, and other download mirrors.
+        \\mirror sets the Node dist host and download mirrors for Electron, Playwright,
+        \\Cypress, puppeteer, sharp, node-sass, and other tools.
+        \\It writes npm, pnpm, and yarn v1 keys, plus $NVM_DIR/binaries.env.
+        \\A new shell sources that file. Scope routes are not changed.
+        \\Docker image mirrors are not set here.
         \\
     , .{ program_name, program_name, program_name, program_name });
 }
@@ -839,11 +844,6 @@ pub fn printNrmHelp() !void {
         \\  scope ls
         \\  scope add <@scope> <url>
         \\  scope del <@scope>
-        \\  binary ls
-        \\  binary use <china|official|auto>
-        \\  binary set <name> <url>
-        \\  binary reset
-        \\  binary test [name]
         \\  help
         \\  --version, -v
         \\
@@ -851,8 +851,8 @@ pub fn printNrmHelp() !void {
         \\Custom names are stored in $NVM_DIR/registries.json.
         \\use and scope write ~/.npmrc, ~/.yarnrc, ~/.yarnrc.yml, the pnpm rc, and ~/.bunfig.toml.
         \\use auto picks the fastest healthy registry and leaves @scope routes unchanged.
-        \\binary writes Electron, Playwright, Cypress, and other download mirrors.
-        \\With no arguments in a terminal, nrm opens the registry menu.
+        \\Download mirrors are the nvm mirror command.
+        \\With no arguments in a terminal, nrm opens a menu for registries, scopes, and tests.
         \\Without a terminal it prints this help.
         \\nvm registry edits the same map.
         \\
@@ -861,19 +861,11 @@ pub fn printNrmHelp() !void {
 
 pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     const reg = @import("registry.zig");
-    const binary = @import("binary.zig");
     if (args.len < 2) {
         try printNrmHelp();
         return;
     }
     const sub = args[1];
-    if (mem.eql(u8, sub, "binary")) {
-        binary.cmd(allocator, config.root_dir, args[2..]) catch |err| {
-            try binary.printError(err);
-            process.exit(1);
-        };
-        return;
-    }
     const failed = blk: {
         if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
             try printNrmHelp();
@@ -947,6 +939,14 @@ pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: Z
     };
     failed catch |err| {
         try reg.printError(err);
+        process.exit(1);
+    };
+}
+
+pub fn cmdMirror(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const mirror = @import("binary.zig");
+    mirror.cmd(allocator, config.root_dir, if (args.len < 2) args[0..0] else args[2..]) catch |err| {
+        try mirror.printError(err);
         process.exit(1);
     };
 }

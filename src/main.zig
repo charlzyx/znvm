@@ -108,6 +108,8 @@ pub fn main() !void {
         try commands.cmdCache(allocator, args, config);
     } else if (mem.eql(u8, cmd, "registry")) {
         try commands.cmdRegistry(allocator, args, config);
+    } else if (mem.eql(u8, cmd, "mirror")) {
+        try commands.cmdMirror(allocator, args, config);
     } else if (mem.eql(u8, cmd, "debug")) {
         try commands.cmdDebug(allocator, config);
     } else {

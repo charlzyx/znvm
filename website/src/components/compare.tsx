@@ -8,7 +8,7 @@ const rows = {
     ["Interactive guide", "no", "no", "yes"],
     ["Several @scope registries at once", "no", "no, one global registry", "yes"],
     ["Writes npm, yarn, pnpm, and bun", "no", "npm", "yes"],
-    ["Electron and other binary mirrors", "no", "optional in nrm", "yes, nrm binary"],
+    ["Electron and other binary mirrors", "no", "optional in nrm", "not in znvm"],
   ],
   zh: [
     ["安装、切换、列出 Node", "有", "无", "有"],
@@ -17,7 +17,7 @@ const rows = {
     ["交互引导", "无", "无", "有"],
     ["同时保存多个 @scope 源", "无", "无，只有一个全局源", "有"],
     ["写入 npm、yarn、pnpm、bun", "无", "npm", "有"],
-    ["Electron 等二进制镜像", "无", "nrm 可选", "有, nrm binary"],
+    ["Electron 等二进制镜像", "无", "nrm 可选", "znvm 还没有"],
   ],
 } as const;
 
@@ -35,8 +35,8 @@ export function Compare({ lang = "en" }: { lang?: "en" | "zh" }) {
           </h2>
           <p className="mt-4 max-w-2xl text-muted-foreground">
             {zh
-              ? "一次安装同时提供 nvm 和 nrm。下面的 nrm 列是原来的 npm 源工具。znvm 的 nrm 还能写多条 scope，管理二进制镜像，并写入 npm、yarn、pnpm 和 bun。Docker 镜像还没有做。"
-              : "One install provides both nvm and nrm. The nrm column is the original npm registry manager. znvm's nrm also writes scope routes, manages binary mirrors, and updates npm, yarn, pnpm, and bun. Docker image mirrors are not part of znvm yet."}
+              ? "一次安装同时提供 nvm 和 nrm。下面的 nrm 列是原来的 npm 源工具。znvm 的 nrm 还能写多条 scope，并写入 npm、yarn、pnpm 和 bun。二进制镜像还没有做。"
+              : "One install provides both nvm and nrm. The nrm column is the original npm registry manager. znvm's nrm also writes scope routes for npm, yarn, pnpm, and bun. Binary mirrors are not part of znvm."}
           </p>
           <div className="mt-8 overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full min-w-[36rem] text-left text-sm">

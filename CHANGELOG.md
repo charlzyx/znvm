@@ -9,11 +9,11 @@
 
 ### Added
 
-- `nrm binary ls`, `nrm binary use china|official|auto`, `nrm binary set <name> <url>`, `nrm binary reset`, and `nrm binary test` manage download mirrors for Electron, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other hosts from cnpm's binary-mirror-config.
-- Those values are written where the tools read them: npm, pnpm, and yarn v1 rc keys, plus `$NVM_DIR/binaries.env`. `nvm.sh` sources that file. `nrm binary reset` removes only that block.
-- `nrm test` measures registries in parallel. `nrm use auto` writes the fastest healthy registry. `nrm binary test` and `nrm binary use auto` do the same for binary mirrors, one tool at a time. Results stay in `$NVM_DIR/mirror-latency.json` for 6 hours. Nothing measures on install.
+- `nvm mirror ls`, `nvm mirror use china|official|auto`, `nvm mirror set <name> <url>`, `nvm mirror reset`, and `nvm mirror test` manage the Node dist mirror and download mirrors for Electron, Playwright, Cypress, puppeteer, sharp, libvips, node-sass, and the other hosts from cnpm's binary-mirror-config. `mirror` is its own `nvm` command. `nrm` does not accept `binary` or `mirror`.
+- Those values are written where the tools read them: npm, pnpm, and yarn v1 rc keys, plus `$NVM_DIR/binaries.env`. `nvm.sh` sources that file. `nvm mirror reset` removes only that block.
+- `nrm test` measures registries in parallel. `nrm use auto` writes the fastest healthy registry. `nvm mirror test` and `nvm mirror use auto` do the same for download mirrors, one tool at a time. Results stay in `$NVM_DIR/mirror-latency.json` for 6 hours. Nothing measures on install.
 - `@scope` routes are left unchanged by auto-selection.
-- In a terminal, `nrm` with no arguments opens a menu for registries, scopes, binary mirrors, and tests.
+- In a terminal, `nrm` with no arguments opens a menu for registries, scopes, and tests. The `nvm` guide adds a Mirrors entry.
 
 Docker image mirrors are not part of this release. Pointing a Docker daemon at a mirror needs a privileged config and a daemon restart.
 

@@ -37,7 +37,6 @@ pub fn runNrm(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const items = [_][2][]const u8{
         .{ "Registries", "源" },
         .{ "Scopes", "scope" },
-        .{ "Binary mirrors", "二进制镜像" },
         .{ "Test and auto", "测速并自动选择" },
     };
     while (true) {
@@ -74,18 +73,9 @@ fn nrmPage(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
             .{ "Add a scope", "添加 scope" },
             .{ "Delete a scope", "删除 scope" },
         }),
-        3 => nrmItems(allocator, config, zh, which, "Binary mirrors", "二进制镜像", &.{
-            .{ "List", "列出" },
-            .{ "Use china", "使用中国镜像" },
-            .{ "Use official", "使用官方地址" },
-            .{ "Set one mirror", "设置一个镜像" },
-            .{ "Reset", "还原" },
-        }),
-        4 => nrmItems(allocator, config, zh, which, "Test and auto", "测速并自动选择", &.{
+        3 => nrmItems(allocator, config, zh, which, "Test and auto", "测速并自动选择", &.{
             .{ "Test registries", "测试源" },
             .{ "Use fastest registry", "使用最快的源" },
-            .{ "Test binary mirrors", "测试二进制镜像" },
-            .{ "Use fastest binary mirrors", "使用最快的二进制镜像" },
         }),
         else => .back,
     };
@@ -128,18 +118,8 @@ fn nrmDispatch(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, menu: usi
             else => {},
         },
         3 => switch (item) {
-            1 => try nrmShow(allocator, config, zh, "nrm binary ls", binary.list),
-            2 => try nrmBinary(allocator, config, zh, "nrm binary use china", binaryUseChina),
-            3 => try nrmBinary(allocator, config, zh, "nrm binary use official", binaryUseOfficial),
-            4 => try promptBinarySet(allocator, config, zh),
-            5 => try nrmBinary(allocator, config, zh, "nrm binary reset", binary.reset),
-            else => {},
-        },
-        4 => switch (item) {
             1 => try nrmReg(allocator, config, zh, "nrm test", registryTestAll),
             2 => try nrmReg(allocator, config, zh, "nrm use auto", registry.useAuto),
-            3 => try nrmBinary(allocator, config, zh, "nrm binary test", binaryTestAll),
-            4 => try nrmBinary(allocator, config, zh, "nrm binary use auto", binary.useAuto),
             else => {},
         },
         else => {},
@@ -184,7 +164,7 @@ fn nrmReg(
     func(allocator, config.root_dir) catch |err| try registry.printError(err);
 }
 
-fn nrmBinary(
+fn mirrorAction(
     allocator: mem.Allocator,
     config: ZnvmConfig,
     zh: bool,
@@ -236,7 +216,7 @@ fn promptBinarySet(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
     defer allocator.free(url_line);
     const url = mem.trim(u8, url_line, " \t");
     if (url.len == 0) return;
-    try running(zh, "nrm binary set <name> <url>");
+    try running(zh, "nvm mirror set <name> <url>");
     binary.cmd(allocator, config.root_dir, &.{ "set", name, url }) catch |err| try binary.printError(err);
 }
 
@@ -339,6 +319,7 @@ fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !Outcome {
         .{ "Uninstall", "卸载(uninstall)" },
         .{ "Install / migrate (install-as-nvm)", "安装 / 迁移(install-as-nvm)" },
         .{ "Registries (scopes)", "镜像源(scope)" },
+        .{ "Mirrors", "下载镜像" },
     };
     while (true) {
         try stderr("\n{s}{s}\n\n", .{ commands.program_name, text(zh, " (interactive guide)", "(交互引导)") });
@@ -410,6 +391,15 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, which: usize)
             .{ "China default, keep scopes", "中国默认源, 保留 scope" },
             .{ "Sync npm, yarn, pnpm, and bun", "同步 npm, yarn, pnpm, bun" },
             .{ "Restore the official registry", "恢复官方源" },
+        }),
+        10 => itemMenu(allocator, config, zh, which, "Mirrors", "下载镜像", &.{
+            .{ "List", "列出" },
+            .{ "Use china", "使用中国镜像" },
+            .{ "Use official", "使用官方地址" },
+            .{ "Set one mirror", "设置一个镜像" },
+            .{ "Reset", "还原" },
+            .{ "Test", "测速" },
+            .{ "Use fastest", "使用最快的一边" },
         }),
         else => .back,
     };
@@ -489,6 +479,16 @@ fn dispatch(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, menu: usize,
             5 => try registryAction(allocator, config, zh, "nvm registry china", registry.useChina),
             6 => try registryAction(allocator, config, zh, "nvm registry sync", registry.sync),
             7 => try registryAction(allocator, config, zh, "nvm registry official", registry.useOfficial),
+            else => {},
+        },
+        10 => switch (item) {
+            1 => try mirrorAction(allocator, config, zh, "nvm mirror ls", binary.list),
+            2 => try mirrorAction(allocator, config, zh, "nvm mirror use china", binaryUseChina),
+            3 => try mirrorAction(allocator, config, zh, "nvm mirror use official", binaryUseOfficial),
+            4 => try promptBinarySet(allocator, config, zh),
+            5 => try mirrorAction(allocator, config, zh, "nvm mirror reset", binary.reset),
+            6 => try mirrorAction(allocator, config, zh, "nvm mirror test", binaryTestAll),
+            7 => try mirrorAction(allocator, config, zh, "nvm mirror use auto", binary.useAuto),
             else => {},
         },
         else => {},

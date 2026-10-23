@@ -875,6 +875,14 @@ code, text, _ = run_pty(
 )
 if code != 0:
     raise SystemExit(f"registry menu exit {code}\n{text}")
+code, text, _ = run_pty(
+    [bin_path],
+    base,
+    ["10\n", "0\n", "0\n"],
+    ["Mirrors", "Use china", "(interactive guide)"],
+)
+if code != 0:
+    raise SystemExit(f"mirror menu exit {code}\n{text}")
 print("pty guide ok")
 PY
 echo -e "    ${GREEN}✓${NC} interactive guide OK"
@@ -1018,12 +1026,36 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
     NRM_PNPM="$NRM_HOME/.config/pnpm/rc"
 fi
-nrm_run binary ls >"$NVM_ALIGN_TMP/cmd.out"
+mirror_run() {
+    env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C "$ZNVM_BIN" mirror "$@"
+}
+if nrm_run help | grep -q 'binary '; then
+    echo "nrm help listed binary mirrors" >&2
+    exit 1
+fi
+nrm_run help | grep -q "nvm mirror"
+env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C "$ZNVM_BIN" help | grep -F -q 'mirror [ls|use|set|reset|test]'
+set +e
+nrm_run binary ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL nrm binary status=$NRM_STATUS" >&2
+    exit 1
+fi
+set +e
+nrm_run mirror ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL nrm mirror status=$NRM_STATUS" >&2
+    exit 1
+fi
+mirror_run ls >"$NVM_ALIGN_TMP/cmd.out"
 grep -q '^profile official$' "$NVM_ALIGN_TMP/cmd.out"
 grep -q '  electron (unset)' "$NVM_ALIGN_TMP/cmd.out"
-nrm_run help | grep -q "binary use"
-nrm_run binary use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
-grep -q "The binary mirrors have been changed to 'china'." "$NVM_ALIGN_TMP/cmd.out"
+mirror_run use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+grep -q "The mirrors have been changed to 'china'." "$NVM_ALIGN_TMP/cmd.out"
 grep -q "Wrote $NRM_NVM/binaries.env" "$NVM_ALIGN_TMP/cmd.err"
 grep -q 'electron_mirror=https://cdn.npmmirror.com/binaries/electron/' "$NRM_HOME/.npmrc"
 grep -q 'sharp_libvips_binary_host=https://cdn.npmmirror.com/binaries/sharp-libvips' "$NRM_HOME/.npmrc"
@@ -1056,17 +1088,17 @@ printf '%s\n' "$ENV_OUT" | grep -q 'binaries.env'
     eval "$ENV_OUT"
     test "$ELECTRON_MIRROR" = "https://cdn.npmmirror.com/binaries/electron/"
 )
-nrm_run binary set playwright https://example.com/pw | grep -q "set playwright"
+mirror_run set playwright https://example.com/pw | grep -q "set playwright"
 grep -q "export PLAYWRIGHT_DOWNLOAD_HOST='https://example.com/pw'" "$NRM_NVM/binaries.env"
 grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$NRM_NVM/binaries.env"
-nrm_run binary ls | grep -q '^profile custom$'
-nrm_run binary reset | grep -q "binary mirrors reset"
+mirror_run ls | grep -q '^profile custom$'
+mirror_run reset | grep -q "mirrors reset"
 if grep -q 'electron_mirror=' "$NRM_HOME/.npmrc"; then
-    echo "binary reset left npmrc mirrors" >&2
+    echo "mirror reset left npmrc mirrors" >&2
     exit 1
 fi
 if grep -q 'nvm binaries' "$NRM_HOME/.npmrc" "$NRM_HOME/.yarnrc" "$NRM_PNPM"; then
-    echo "binary reset left a mirror block" >&2
+    echo "mirror reset left a mirror block" >&2
     exit 1
 fi
 test ! -e "$NRM_NVM/binaries.env"
@@ -1115,14 +1147,17 @@ ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "The registry has been 
 test "$(nrm_auto current)" = "npm"
 grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
 rm -f "$NRM_NVM/mirror-latency.json"
-nrm_auto binary test electron >"$NVM_ALIGN_TMP/cmd.out"
+mirror_auto() {
+    env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C PATH="$FAKE_CURL_DIR:/usr/bin:/bin" "$ZNVM_BIN" mirror "$@"
+}
+mirror_auto test electron >"$NVM_ALIGN_TMP/cmd.out"
 grep -q '^electron china 0.050s$' "$NVM_ALIGN_TMP/cmd.out"
 grep -q '^electron official 0.400s$' "$NVM_ALIGN_TMP/cmd.out"
-nrm_auto binary use auto | grep -q "The binary mirrors have been changed to 'auto'."
+mirror_auto use auto | grep -q "The mirrors have been changed to 'auto'."
 grep -q "export ELECTRON_MIRROR='https://cdn.npmmirror.com/binaries/electron/'" "$NRM_NVM/binaries.env"
 grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
 rm -f "$NRM_NVM/mirror-latency.json"
-ZNVM_FAKE_CURL=official-fast nrm_auto binary use auto >/dev/null
+ZNVM_FAKE_CURL=official-fast mirror_auto use auto >/dev/null
 if [ -f "$NRM_NVM/binaries.env" ] && grep -q ELECTRON_MIRROR "$NRM_NVM/binaries.env"; then
     echo "official-fast auto left ELECTRON_MIRROR set" >&2
     exit 1
@@ -1181,8 +1216,10 @@ if proc.returncode != 0:
     raise SystemExit(f"nrm menu exit {proc.returncode}\n{text}")
 if "Install Node" in text:
     raise SystemExit(f"nrm opened the full guide\n{text}")
-if "Registries" not in text or "Binary mirrors" not in text or "Test and auto" not in text:
+if "Registries" not in text or "Scopes" not in text or "Test and auto" not in text:
     raise SystemExit(f"nrm menu missing a section\n{text}")
+if "Binary mirrors" in text or "Mirrors" in text:
+    raise SystemExit(f"nrm menu listed download mirrors\n{text}")
 print("pty nrm ok")
 PY
 echo -e "    ${GREEN}✓${NC} nrm command OK"
@@ -1248,6 +1285,28 @@ set -e
 SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
 if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "Unknown command: binary"; then
     echo "FAIL nvm binary status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
+    exit 1
+fi
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nvm" mirror ls >"$NVM_ALIGN_TMP/cmd.out"
+grep -q '^profile official$' "$NVM_ALIGN_TMP/cmd.out"
+grep -q '  electron (unset)' "$NVM_ALIGN_TMP/cmd.out"
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" mirror ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL nrm mirror status=$SPLIT_STATUS" >&2
+    exit 1
+fi
+set +e
+env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH="/usr/bin:/bin" \
+    "$SPLIT_HOME/bin/nrm" binary ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+SPLIT_STATUS=$?
+set -e
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL nrm binary status=$SPLIT_STATUS" >&2
     exit 1
 fi
 set +e
@@ -1332,6 +1391,15 @@ bash -c '
     printf "%s\n" "$nrm_ls" | grep -q "taobao https://registry.npmmirror.com/"
     if printf "%s\n" "$nrm_ls" | grep -q "v22.23.4"; then
         echo "shell nrm ls printed Node versions" >&2
+        exit 1
+    fi
+    nvm mirror ls | grep -q "^profile "
+    if nrm mirror ls >/dev/null 2>&1; then
+        echo "shell nrm mirror was accepted" >&2
+        exit 1
+    fi
+    if nrm binary ls >/dev/null 2>&1; then
+        echo "shell nrm binary was accepted" >&2
         exit 1
     fi
     nrm use npm >/dev/null

@@ -327,16 +327,16 @@ const State = struct {
 pub fn printError(err: anyerror) !void {
     switch (err) {
         error.InvalidUrl => try stderr("error: mirror must be an http:// or https:// URL.\n", .{}),
-        error.CurlMissing => try stderr("error: curl is required for nrm test.\n", .{}),
+        error.CurlMissing => try stderr("error: curl is required for nvm mirror test.\n", .{}),
         error.NoHome => try stderr("error: HOME is not set.\n", .{}),
         error.Explained => {},
-        else => try stderr("error: binary mirrors failed: {s}\n", .{@errorName(err)}),
+        else => try stderr("error: mirror failed: {s}\n", .{@errorName(err)}),
     }
 }
 
 pub fn printHelp() !void {
     try stdout(
-        \\nrm binary - binary mirrors
+        \\nvm mirror - download mirrors
         \\
         \\Commands:
         \\  ls
@@ -345,10 +345,11 @@ pub fn printHelp() !void {
         \\  reset
         \\  test [name]
         \\
-        \\china writes the npmmirror hosts. official clears them.
-        \\set stores one URL. auto measures both sides and keeps the faster one.
+        \\china writes the npmmirror hosts, including the Node dist mirror.
+        \\official clears them. set stores one URL.
+        \\auto measures both sides and keeps the faster one.
         \\npm, pnpm, and yarn v1 keys go in their rc files.
-        \\Env-only tools go in $NVM_DIR/binaries.env, sourced by nvm.sh.
+        \\Env-only tools go in $NVM_DIR/binaries.env. A new shell sources it.
         \\Scope routes are not changed. test always measures again.
         \\Latency is cached in $NVM_DIR/mirror-latency.json for 6 hours.
         \\Docker image mirrors are not set here.
@@ -370,7 +371,7 @@ pub fn cmd(allocator: mem.Allocator, root: []const u8, args: []const []const u8)
         if (mem.eql(u8, args[1], "auto")) return useAuto(allocator, root);
         if (mem.eql(u8, args[1], "china")) return useFixed(allocator, root, .china);
         if (mem.eql(u8, args[1], "official")) return useFixed(allocator, root, .official);
-        try stderr("error: binary profile must be china, official, or auto.\n", .{});
+        try stderr("error: mirror profile must be china, official, or auto.\n", .{});
         return error.Explained;
     }
     if (mem.eql(u8, sub, "set") and args.len == 3) return setOne(allocator, root, args[1], args[2]);
@@ -400,13 +401,13 @@ fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
     defer state.deinit(allocator);
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("The binary mirrors have been changed to '{s}'.\n", .{@tagName(mode)});
+    try stdout("The mirrors have been changed to '{s}'.\n", .{@tagName(mode)});
 }
 
 fn setOne(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
     const name = mem.trim(u8, raw_name, " \t");
     const index = findTool(name) orelse {
-        try stderr("error: {s} is not a binary mirror.\n", .{name});
+        try stderr("error: {s} is not a mirror.\n", .{name});
         return error.Explained;
     };
     const url = try normalizeUrl(raw_url);
@@ -430,12 +431,12 @@ pub fn reset(allocator: mem.Allocator, root: []const u8) !void {
         error.FileNotFound => {},
         else => return err,
     };
-    try stdout("binary mirrors reset\n", .{});
+    try stdout("mirrors reset\n", .{});
 }
 
 fn testMirrors(allocator: mem.Allocator, root: []const u8, only: ?[]const u8) !void {
     const first: usize = if (only) |raw| findTool(mem.trim(u8, raw, " \t")) orelse {
-        try stderr("error: {s} is not a binary mirror.\n", .{mem.trim(u8, raw, " \t")});
+        try stderr("error: {s} is not a mirror.\n", .{mem.trim(u8, raw, " \t")});
         return error.Explained;
     } else 0;
     const count: usize = if (only == null) tools.len else 1;
@@ -483,12 +484,12 @@ pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
         try state.put(allocator, tool.name, url);
     }
     if (!any_ok) {
-        try stderr("error: no binary mirror responded.\n", .{});
+        try stderr("error: no mirror responded.\n", .{});
         return error.Explained;
     }
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try stdout("The binary mirrors have been changed to 'auto'.\n", .{});
+    try stdout("The mirrors have been changed to 'auto'.\n", .{});
 }
 
 pub fn probeParallel(allocator: mem.Allocator, urls: []const []const u8) ![]Sample {
