@@ -1,0 +1,63 @@
+name: Linux compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  linux-smoke:
+    name: Smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq zsh
+
+      - name: Unit tests
+        run: zig build test
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Linux smoke (install-as-nvm + Node)
+        env:
+          SMOKE_NODE_VERSION: "22"
+        run: bash scripts/linux-smoke.sh
+
+  production-install-smoke:
+    name: Smoke (znvm.dev install)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq zsh
+
+      - name: Smoke via production install.sh
+        env:
+          USE_PRODUCTION_INSTALL: "1"
+          SMOKE_NODE_VERSION: "22"
+        run: bash scripts/linux-smoke.sh

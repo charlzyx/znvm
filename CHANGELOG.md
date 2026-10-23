@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Linux compatibility CI (`linux-compat.yml`): amd64 (`ubuntu-latest`) and arm64 (`ubuntu-24.04-arm`) smoke tests via `scripts/linux-smoke.sh`; optional scheduled/workflow_dispatch production `install.sh` check.
+
 ### Changed
 
 - Install downloads use silent curl unless stderr is a TTY (then a progress bar). No more `nvm.sh` write line on install. `镜像: 未变` and localized npmrc warning prefix.
