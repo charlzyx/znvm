@@ -1,8 +1,8 @@
 # Quick start
 
-`nvm` and `nrm`, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
+NVM and NRM, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
 
-`nvm` with no arguments opens a guide. No terminal: it prints a notice and exits.
+Run `nvm` to open the guide. With no terminal it prints one line and exits.
 
 ## For agents
 
@@ -43,8 +43,12 @@ export NVM_DIR="$HOME/.nvm"
 ### Install
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` is the same script.
+
+Had the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.
 
 When it finishes, it prints:
 
@@ -101,7 +105,7 @@ Open a new terminal, or `source` that profile. The commands after that are `nvm`
 nvm
 ```
 
-Number keys and Enter. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
+Up and down, then Enter. A number still works. Registries and Mirrors are on the menu. Prompts are Chinese when `LC_ALL`, `LC_MESSAGES`, or `LANG` starts with `zh`.
 
 ## Registries
 

@@ -1488,6 +1488,7 @@ cmp -s "$NVM_ALIGN_TMP/llm-nvm.out" "$NVM_ALIGN_TMP/llm-nrm.out"
 echo -e "    ${GREEN}✓${NC} --llm matches skills/znvm/SKILL.md"
 REPO_ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 bash "$REPO_ROOT/scripts/sync-llm-txt.sh"
+bash "$REPO_ROOT/scripts/sync-install-sh.sh"
 
 echo "  Testing --json output..."
 mkdir -p "$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/cache" "$ALIGN_ROOT/fail-curl" \

@@ -1,14 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "./noto-sans-sc.css";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-sans: var(--font-geist), "Geist Variable", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --color-node: #339933;
   --color-node-bright: var(--node-bright);
@@ -184,7 +182,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-normal text-foreground;
   }
   html {
     @apply bg-background font-sans;
@@ -199,7 +197,7 @@
 
   /* Headings */
   .prose h1 {
-    @apply text-4xl font-semibold tracking-[-0.03em] mt-2 mb-6 text-foreground;
+    @apply text-4xl font-semibold tracking-[-0.04em] mt-2 mb-6 text-foreground;
   }
   .prose h2 {
     @apply text-2xl font-semibold tracking-[-0.02em] mt-12 mb-4 text-foreground sm:text-3xl;
@@ -461,7 +459,8 @@
 }
 
 .term-choice:hover,
-.term-choice:focus-visible {
+.term-choice:focus-visible,
+.term-choice-active {
   background: rgb(51 153 51 / 16%);
   color: #9ed49e;
   box-shadow: inset 3px 0 0 #339933;

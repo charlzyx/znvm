@@ -230,8 +230,8 @@ const menu: Group[] = [
         en: "Print the install-as-nvm.sh curl (does not run it)",
         zh: "指向官网 install-as-nvm.sh(打印 curl, 不替用户 curl)",
         command: null,
-        body: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash\n\nAfter it finishes, the command is nvm and versions live in ~/.nvm.",
-        bodyZh: "curl -fsSL https://znvm.dev/install-as-nvm.sh | bash\n\n结束后命令是 nvm, 版本在 ~/.nvm.",
+        body: "curl -fsSL https://znvm.dev/install.sh | bash\n\nAfter it finishes, the command is nvm and versions live in ~/.nvm.\nHad the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.",
+        bodyZh: "curl -fsSL https://znvm.dev/install.sh | bash\n\n结束后命令是 nvm, 版本在 ~/.nvm.\n装过原版 NVM? 旧的 nvm.sh 和 shell 里的加载行可以清掉, 交给 Agent 处理就行.",
         before: {
           en: "Install command (not run from this menu):\n",
           zh: "安装命令(这个菜单不会替你执行):\n",
@@ -383,6 +383,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
   const [result, setResult] = useState<Leaf | null>(null);
   const [closed, setClosed] = useState(false);
   const [typed, setTyped] = useState("");
+  const [cursor, setCursor] = useState(0);
   const frame = useRef<HTMLDivElement>(null);
 
   const title = group === null
@@ -395,15 +396,22 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
       ? menu.map((entry, index) => ({
           key: entry.en,
           label: zh ? entry.zh : entry.en,
-          onPick: () => setGroup(index),
+          onPick: () => {
+            setCursor(0);
+            setGroup(index);
+          },
         }))
       : menu[group].items.map((entry) => ({
           key: entry.en,
           label: zh ? entry.zh : entry.en,
-          onPick: () => setResult(entry),
+          onPick: () => {
+            setCursor(0);
+            setResult(entry);
+          },
         }));
 
   function goBack() {
+    setCursor(0);
     if (result) {
       setResult(null);
       return;
@@ -417,12 +425,39 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
 
   useEffect(() => {
     setTyped("");
+    setCursor(0);
   }, [group, result, closed]);
 
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
     function onKey(event: KeyboardEvent) {
+      if (closed) return;
+      if (result) {
+        if (event.key === "Enter" || event.key === "0" || event.key === "Escape" || event.key === "q" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          goBack();
+        }
+        return;
+      }
+      if (event.key === "ArrowUp" || event.key === "k") {
+        event.preventDefault();
+        setTyped("");
+        setCursor((current) => (current === 0 ? items.length : current - 1));
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "j") {
+        event.preventDefault();
+        setTyped("");
+        setCursor((current) => (current === items.length ? 0 : current + 1));
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "Escape" || event.key === "q") {
+        event.preventDefault();
+        setTyped("");
+        goBack();
+        return;
+      }
       if (typed === "1" && items.length > 9) {
         if (event.key === "0") {
           event.preventDefault();
@@ -436,13 +471,19 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           items[0]?.onPick();
           return;
         }
-        if (event.key === "Backspace" || event.key === "Escape") {
+        if (event.key === "Backspace") {
           event.preventDefault();
           setTyped("");
           return;
         }
       }
-      if (event.key === "0" || (event.key === "Enter" && result)) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (cursor === items.length) goBack();
+        else items[cursor]?.onPick();
+        return;
+      }
+      if (event.key === "0") {
         event.preventDefault();
         goBack();
         return;
@@ -452,6 +493,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
       if (choice === 1 && items.length > 9) {
         event.preventDefault();
         setTyped("1");
+        setCursor(0);
         return;
       }
       event.preventDefault();
@@ -459,7 +501,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
     }
     node.addEventListener("keydown", onKey);
     return () => node.removeEventListener("keydown", onKey);
-  }, [closed, group, items, result, typed, zh]);
+  }, [closed, cursor, group, items, result, typed, zh]);
 
   const backLabel = group === null ? (zh ? "退出" : "Exit") : zh ? "返回" : "Back";
 
@@ -470,8 +512,8 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
           <h2 className="kicker">{zh ? "引导" : "Guide"}</h2>
           <p className="mt-3 max-w-[36rem] text-base leading-relaxed text-muted-foreground">
             {zh
-              ? "不带参数的 nvm 打开这个菜单。按数字。0 返回，在根菜单则退出。1 再回车打开第一项。1 再 0 打开下载镜像。"
-              : "nvm with no arguments opens this menu. Press a number. 0 goes back, or exits on the root menu. 1 then Enter opens the first item. 1 then 0 opens Mirrors."}
+              ? "直接敲 nvm，上下键选择，回车确认。"
+              : "Run nvm. Up and down to move, Enter to confirm."}
           </p>
           <div
             ref={frame}
@@ -479,7 +521,7 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
             data-ui="terminal"
             tabIndex={0}
             role="group"
-            aria-label={zh ? "nvm 交互引导演示" : "nvm interactive guide demo"}
+            aria-label={zh ? "NVM 交互引导" : "NVM interactive guide"}
           >
             <div className="term-chrome">
               <span className="term-dot" />
@@ -499,15 +541,23 @@ export function GuideTerminal({ lang = "en" }: { lang?: "en" | "zh" }) {
                   <span className="term-menu-title">{title}</span>
                   {"\n\n"}
                   {items.map((item, index) => (
-                    <button key={item.key} type="button" className="term-choice" onClick={item.onPick}>
-                      {`  ${index + 1}  ${item.label}\n`}
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={cursor === index ? "term-choice term-choice-active" : "term-choice"}
+                      onClick={item.onPick}
+                    >
+                      {`${cursor === index ? "> " : "  "}${String(index + 1).padStart(items.length >= 10 ? 2 : 1, " ")}  ${item.label}\n`}
                     </button>
                   ))}
-                  <button type="button" className="term-choice" onClick={goBack}>
-                    {`  0  ${backLabel}\n`}
+                  <button
+                    type="button"
+                    className={cursor === items.length ? "term-choice term-choice-active" : "term-choice"}
+                    onClick={goBack}
+                  >
+                    {`${cursor === items.length ? "> " : "  "}${String(0).padStart(items.length >= 10 ? 2 : 1, " ")}  ${backLabel}\n`}
                   </button>
-                  {"\n"}
-                  <span className="term-prompt">&gt; {typed}</span>
+                  {typed ? <span className="term-prompt">{`\n${typed}`}</span> : null}
                 </>
               )}
             </pre>

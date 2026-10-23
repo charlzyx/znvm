@@ -1,8 +1,8 @@
 # 快速开始
 
-Zig 写的 `nvm` 和 `nrm`。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载用 npmmirror。2026-10-22：暖启动 3.31 ms，冷启动 5.01 ms。
+Zig 写的 NVM 和 NRM。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载走 npmmirror。2026-10-22：热启动 3.31 ms，冷启动 5.01 ms。
 
-不带参数的 `nvm` 打开引导。没有终端时只打印一句说明并退出。
+直接敲 `nvm` 打开引导。没有终端就只打一行，然后退出。
 
 ## 给 Agent
 
@@ -43,8 +43,12 @@ export NVM_DIR="$HOME/.nvm"
 ### 安装命令
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` 是同一个脚本。
+
+装过原版 NVM？旧的 nvm.sh 和 shell 里的加载行可以清掉，交给 Agent 处理就行。
 
 结束后会打印：
 
@@ -101,7 +105,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm
 ```
 
-数字加回车。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
+上下键选择，回车确认。数字仍然可用。菜单里有源和下载镜像。`LC_ALL`、`LC_MESSAGES` 或 `LANG` 以 `zh` 开头时用中文。
 
 ## 镜像源
 

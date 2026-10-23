@@ -20,8 +20,10 @@
 ## 📦 快速安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/main/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
+
+`https://znvm.dev/install-as-nvm.sh` 是同一个脚本。
 
 脚本会安装 `nvm` 命令，把 `nrm` 链接到同一个二进制，并写入 `~/.nvm/nvm.sh`。可以重复执行。如果 `nvm --version` 已经是这一版，就保留现有二进制；如果版本不同，会把旧文件留作 `nvm.bak` 再替换，并打印 `ok Upgraded nvm vX -> vY`。不会重复写入 shell 配置，也不会删除 `~/.nvm/versions/node` 里已有的 Node。不会安装 shell 补全。
 

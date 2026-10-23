@@ -1,18 +1,20 @@
 ## 安装
 
 ```bash
-curl -fsSL https://znvm.dev/install-as-nvm.sh | bash
+curl -fsSL https://znvm.dev/install.sh | bash
 ```
 
-Zig 写的 `nvm` 和 `nrm`。版本在 `~/.nvm`。下载用 npmmirror。不带参数的 `nvm` 打开引导。
+装过原版 NVM？旧的 nvm.sh 和 shell 里的加载行可以清掉，交给 Agent 处理就行。
 
-2026-10-22 暖 / 冷 shell 启动：znvm 3.31 / 5.01 ms，fnm 1.58 / 4.70 ms，nvm 113 / 121 ms。
+Zig 写的 NVM 和 NRM。版本在 `~/.nvm`。下载走 npmmirror。直接敲 `nvm` 打开引导。
+
+2026-10-22 热启动 / 冷启动：ZNVM 3.31 / 5.01 ms，fnm 1.58 / 4.70 ms，NVM 113 / 121 ms。
 
 ## 速度
 
-同一次运行，2026-10-22 15:38-15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。`benchmarks/measure.py`。znvm ReleaseSafe。样本：`benchmarks/results/2026-10-22-cold-warm.json`。
+同一次运行，2026-10-22 15:38–15:40 UTC。4 核 KVM（Intel Xeon），Ubuntu 24.04。`benchmarks/measure.py`。ZNVM ReleaseSafe。样本：`benchmarks/results/2026-10-22-cold-warm.json`。
 
-| 管理器 | 暖启动 | 冷启动 | list 暖 | list 冷 | use 暖 | use 冷 | .nvmrc 暖 | .nvmrc 冷 |
+| 管理器 | 热启动 | 冷启动 | list 热 | list 冷 | use 热 | use 冷 | .nvmrc 热 | .nvmrc 冷 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `nvm` | 113 ms | 121 ms | 559 ms | 557 ms | 158 ms | 221 ms | 166 ms | 222 ms |
 | `fnm` | 1.58 ms | 4.70 ms | 1.26 ms | 6.10 ms | 1.35 ms | 6.19 ms | 1.41 ms | 5.20 ms |
