@@ -1260,7 +1260,7 @@ grep -q '"name":"playwright"' "$NVM_ALIGN_TMP/mirror.json"
 grep -q '"name":"puppeteer"' "$NVM_ALIGN_TMP/mirror.json"
 mirror_run use china >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 grep -q '^mirror: china$' "$NVM_ALIGN_TMP/cmd.out"
-grep -q "note: 14 npmrc mirror keys may trigger npm warnings" "$NVM_ALIGN_TMP/cmd.out"
+grep -q "14 npmrc mirror keys may trigger npm warnings" "$NVM_ALIGN_TMP/cmd.out"
 if grep -q "Wrote $NRM_NVM/binaries.env" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "mirror use china should not print per-file writes" >&2
     exit 1

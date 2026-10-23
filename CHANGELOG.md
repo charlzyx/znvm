@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- Install downloads use silent curl unless stderr is a TTY (then a progress bar). No more `nvm.sh` write line on install. `镜像: 未变` and localized npmrc warning prefix.
+
 ## [v2.9.3] - 2026-10-23
 
 ### Fixed
