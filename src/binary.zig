@@ -498,18 +498,21 @@ fn useFixed(allocator: mem.Allocator, root: []const u8, mode: Mode) !void {
     defer state.deinit(allocator);
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
+    if (!agent.mirror_quiet) try i18n.out(messages.mirrors_changed, .{@tagName(mode)});
 }
 
 fn preset(allocator: mem.Allocator, root: []const u8) !void {
+    agent.mirror_quiet = true;
+    defer agent.mirror_quiet = false;
     if (try mirrorConfigured(allocator, root)) {
-        try i18n.out(messages.mirror_kept, .{});
+        try i18n.out(messages.mirror_line, .{"unchanged"});
         return;
     }
     const registry = @import("registry.zig");
     if (try installChina(allocator)) {
         try useFixed(allocator, root, .china);
         try registry.useChina(allocator, root);
+        try i18n.out(messages.mirror_line, .{"china"});
         return;
     }
     var state = State{ .mode = .custom };
@@ -517,8 +520,8 @@ fn preset(allocator: mem.Allocator, root: []const u8) !void {
     try state.put(allocator, "node", "https://nodejs.org/dist");
     try applyState(allocator, root, &state);
     try saveState(allocator, root, &state);
-    try i18n.out(messages.mirrors_changed, .{"official"});
     try registry.useOfficial(allocator, root);
+    try i18n.out(messages.mirror_line, .{"official"});
 }
 
 fn installChina(allocator: mem.Allocator) !bool {
@@ -891,13 +894,20 @@ fn applyState(allocator: mem.Allocator, root: []const u8, state: *const State) !
     defer paths.deinit(allocator);
     const payloads = try renderPayloads(allocator, state);
     defer payloads.deinit(allocator);
-    if (try writeMarked(allocator, paths.npmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.npmrc});
-    if (try writeMarked(allocator, paths.yarnrc, payloads.yarn)) try i18n.err(messages.wrote_path, .{paths.yarnrc});
-    if (try writeMarked(allocator, paths.pnpmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.pnpmrc});
-    switch (try writeEnv(allocator, paths.envfile, payloads.env)) {
-        .wrote => try i18n.err(messages.wrote_path, .{paths.envfile}),
-        .removed => try i18n.err(messages.removed_path, .{paths.envfile}),
-        .unchanged => {},
+    if (!agent.mirror_quiet) {
+        if (try writeMarked(allocator, paths.npmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.npmrc});
+        if (try writeMarked(allocator, paths.yarnrc, payloads.yarn)) try i18n.err(messages.wrote_path, .{paths.yarnrc});
+        if (try writeMarked(allocator, paths.pnpmrc, payloads.npm)) try i18n.err(messages.wrote_path, .{paths.pnpmrc});
+        switch (try writeEnv(allocator, paths.envfile, payloads.env)) {
+            .wrote => try i18n.err(messages.wrote_path, .{paths.envfile}),
+            .removed => try i18n.err(messages.removed_path, .{paths.envfile}),
+            .unchanged => {},
+        }
+    } else {
+        _ = try writeMarked(allocator, paths.npmrc, payloads.npm);
+        _ = try writeMarked(allocator, paths.yarnrc, payloads.yarn);
+        _ = try writeMarked(allocator, paths.pnpmrc, payloads.npm);
+        _ = try writeEnv(allocator, paths.envfile, payloads.env);
     }
 }
 

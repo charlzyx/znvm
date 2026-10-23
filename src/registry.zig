@@ -769,12 +769,14 @@ fn syncMap(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try rewrite(allocator, files.yarnrc_yml, map, renderYarnYml);
     try rewrite(allocator, files.pnpmrc, map, renderNpmrc);
     try rewrite(allocator, files.bunfig, map, renderBunfig);
-    try printMap(map);
-    try i18n.err(messages.wrote_path, .{files.npmrc});
-    try i18n.err(messages.wrote_path, .{files.yarnrc});
-    try i18n.err(messages.wrote_path, .{files.yarnrc_yml});
-    try i18n.err(messages.wrote_path, .{files.pnpmrc});
-    try i18n.err(messages.wrote_path, .{files.bunfig});
+    if (!agent.mirror_quiet) {
+        try printMap(map);
+        try i18n.err(messages.wrote_path, .{files.npmrc});
+        try i18n.err(messages.wrote_path, .{files.yarnrc});
+        try i18n.err(messages.wrote_path, .{files.yarnrc_yml});
+        try i18n.err(messages.wrote_path, .{files.pnpmrc});
+        try i18n.err(messages.wrote_path, .{files.bunfig});
+    }
     _ = root;
 }
 

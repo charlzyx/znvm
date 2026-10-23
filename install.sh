@@ -4,13 +4,18 @@ set -e
 
 # Header
 if [ "${1:-}" != "--uninstall" ]; then
-    echo "znvm: Zig Node Version Manager"
-    echo "Node.js version manager. nvm-compatible layout."
-    echo ""
+    echo "znvm"
 fi
 
+profile_display() {
+    case "$1" in
+        "$HOME"/*) printf '~/%s\n' "${1#"$HOME"/}" ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
+
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.9.0"
+ZNVM_VERSION="v2.9.1"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"
@@ -392,17 +397,15 @@ else
     echo "$SOURCE_STR" >> "$PROFILE"
 fi
 
-if [ "$BINARY_DOWNLOADED" = true ]; then
-    ZNVM_EXE="$INSTALL_BIN_DIR/znvm"
-    if [ -x "$ZNVM_EXE" ]; then
-        "$ZNVM_EXE" mirror preset
+ZNVM_EXE="$INSTALL_BIN_DIR/znvm"
+if [ "$BINARY_DOWNLOADED" = true ] && [ -x "$ZNVM_EXE" ]; then
+    INSTALL_LANG="$("$ZNVM_EXE" lang)"
+    ZNVM_DIR="$ZNVM_DIR" "$ZNVM_EXE" mirror preset
+    PROFILE_SHORT="$(profile_display "$PROFILE")"
+    if [ "$INSTALL_LANG" = zh ]; then
+        echo "完成"
+    else
+        echo "Done."
     fi
+    echo "  source $PROFILE_SHORT"
 fi
-
-echo ""
-echo "ok 安装完成"
-echo "ok Installation complete."
-echo "请重新打开终端或运行:"
-echo "Open a new terminal, or run:"
-echo "  source $PROFILE"
-echo ""
