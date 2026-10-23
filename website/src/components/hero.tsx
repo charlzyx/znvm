@@ -31,6 +31,9 @@ export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
           ? "命令不变，目录不变，国内镜像开箱即用。"
           : "Same commands, same ~/.nvm, China mirrors built in."}
       </p>
+      <p className="mt-6 overflow-x-auto font-mono text-[13px] text-foreground">
+        curl -fsSL https://znvm.dev/install.sh | bash
+      </p>
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
         <Link
           href={startHref}

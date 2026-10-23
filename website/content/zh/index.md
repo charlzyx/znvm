@@ -4,8 +4,6 @@
 curl -fsSL https://znvm.dev/install.sh | bash
 ```
 
-装过原版 NVM？旧的 nvm.sh 和 shell 里的加载行可以清掉，交给 Agent 处理就行。
-
 Zig 写的 NVM 和 NRM。版本在 `~/.nvm`。下载走 npmmirror。直接敲 `nvm` 打开引导。
 
 2026-10-22 热启动 / 冷启动：ZNVM 3.31 / 5.01 ms，fnm 1.58 / 4.70 ms，NVM 113 / 121 ms。

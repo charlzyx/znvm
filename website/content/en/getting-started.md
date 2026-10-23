@@ -4,40 +4,6 @@ NVM and NRM, written in Zig. Versions live in `$NVM_DIR/versions/node` (default 
 
 Run `nvm` to open the guide. With no terminal it prints one line and exits.
 
-## For agents
-
-```bash
-nvm --llm
-nrm --llm
-```
-
-Same text as `skills/znvm/SKILL.md` and [llm.txt](https://znvm.dev/llm.txt). The binary embeds that file.
-
-```bash
-npx skills add charlzyx/znvm
-```
-
-That installs `skills/znvm/SKILL.md`. No MCP server.
-
-`nvm` selects Node. `nrm` selects registries and `@scope` routes. `nvm mirror` selects download hosts. `nvm install` and `nvm use` with no version read `.nvmrc`, then `.node-version`.
-
-`--json` prints one object for `nvm ls`, `nvm ls-remote` (`--lts` too), `nvm current`, `nvm which`, `nvm version`, `nvm --version`, `nrm ls`, `nrm current`, `nrm test`, `nrm scope ls`, `nvm mirror ls`, and `nvm mirror test`. Errors are `{"error":"...","exit":N}` on stderr, with empty stdout. Exit codes: 0 ok, 1 usage or failure, 3 no match, 8 alias loop, 55 bad option, 127 missing system node or version file.
-
-With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`, `nvm ls --json` prints:
-
-```json
-{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
-```
-
-Menus need a terminal on stdin and on the menu stream. `--yes`, `NVM_NONINTERACTIVE=1` (`true` or `yes`), or a non-empty `CI` keeps them closed. `NO_COLOR` is plain ASCII. `--guide-step` draws on stderr.
-
-If `nvm` is not found:
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-```
-
 ## Installation
 
 ### Install
@@ -47,8 +13,6 @@ curl -fsSL https://znvm.dev/install.sh | bash
 ```
 
 `https://znvm.dev/install-as-nvm.sh` is the same script.
-
-Had the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.
 
 When it finishes, it prints:
 

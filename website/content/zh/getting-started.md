@@ -4,40 +4,6 @@ Zig 写的 NVM 和 NRM。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）
 
 直接敲 `nvm` 打开引导。没有终端就只打一行，然后退出。
 
-## 给 Agent
-
-```bash
-nvm --llm
-nrm --llm
-```
-
-与 `skills/znvm/SKILL.md` 和 [llm.txt](https://znvm.dev/llm.txt) 相同。二进制在编译时嵌入这个文件。
-
-```bash
-npx skills add charlzyx/znvm
-```
-
-这条命令安装 `skills/znvm/SKILL.md`。没有 MCP。
-
-`nvm` 管 Node。`nrm` 管源和 `@scope`。`nvm mirror` 管下载地址。`nvm install` 和 `nvm use` 不带版本时先读 `.nvmrc`，再读 `.node-version`。
-
-`--json` 为 `nvm ls`、`nvm ls-remote`（含 `--lts`）、`nvm current`、`nvm which`、`nvm version`、`nvm --version`、`nrm ls`、`nrm current`、`nrm test`、`nrm scope ls`、`nvm mirror ls`、`nvm mirror test` 打一个对象。错误是 stderr 上的 `{"error":"...","exit":N}`，stdout 为空。退出码：0 成功，1 用法或失败，3 无匹配，8 别名循环，55 错误选项，127 缺少系统 node 或版本文件。
-
-已安装 v18.0.0 和 v20.11.0、别名 `default -> 18`、PATH 上没有 Node 时，`nvm ls --json` 打印：
-
-```json
-{"current":null,"versions":[{"version":"v18.0.0","current":false},{"version":"v20.11.0","current":false}],"aliases":[{"name":"default","target":"18"}]}
-```
-
-菜单需要 stdin 和菜单输出都是终端。`--yes`、`NVM_NONINTERACTIVE=1`（`true` 或 `yes`）或非空 `CI` 会关掉菜单。`NO_COLOR` 是纯 ASCII。`--guide-step` 画在 stderr。
-
-找不到命令时：
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-```
-
 ## 安装
 
 ### 安装命令
@@ -47,8 +13,6 @@ curl -fsSL https://znvm.dev/install.sh | bash
 ```
 
 `https://znvm.dev/install-as-nvm.sh` 是同一个脚本。
-
-装过原版 NVM？旧的 nvm.sh 和 shell 里的加载行可以清掉，交给 Agent 处理就行。
 
 结束后会打印：
 

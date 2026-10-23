@@ -33,11 +33,6 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="https://znvm.dev/llm.txt" className="text-muted-foreground hover:text-foreground">
-                  {isZh ? "给 Agent" : "For Agents"}
-                </a>
-              </li>
-              <li>
                 <Link href={isZh ? "/zh/blog/why-zig" : "/blog/why-zig"} className="text-muted-foreground hover:text-foreground">
                   {isZh ? "为什么选 Zig" : "Why Zig?"}
                 </Link>

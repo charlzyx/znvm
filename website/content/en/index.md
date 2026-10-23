@@ -4,8 +4,6 @@
 curl -fsSL https://znvm.dev/install.sh | bash
 ```
 
-Had the original NVM? Its old nvm.sh and shell lines can go. Let your agent clean them up.
-
 NVM and NRM, written in Zig. Versions live in `~/.nvm`. Downloads use npmmirror. Run `nvm` to open the guide.
 
 Warm / cold shell startup on 2026-10-22: ZNVM 3.31 / 5.01 ms, fnm 1.58 / 4.70 ms, NVM 113 / 121 ms.
