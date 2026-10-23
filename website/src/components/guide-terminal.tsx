@@ -23,7 +23,7 @@ function installBody(version: string) {
     "Extracting...",
     `Installed ${version}`,
     `default -> ${version}`,
-    `Using ${version}`,
+    `Now using node ${version} (npm v10.8.2)`,
   ].join("\n");
 }
 
@@ -65,7 +65,7 @@ const menu: Group[] = [
         zh: "选已安装版本",
         command: "nvm use <version>",
         before: { en: `  1  ${ver}\n  0  Back\n\n> 1`, zh: `  1  ${ver}\n  0  返回\n\n> 1` },
-        body: `Using ${ver}`,
+        body: `Now using node ${ver} (npm v10.8.2)`,
       },
       {
         en: "Enter a version or alias (node, stable, lts/*)",
@@ -75,13 +75,13 @@ const menu: Group[] = [
           en: "Version or alias (node, stable, lts/*)\n\n> 20",
           zh: "版本号或 alias(node, stable, lts/*)\n\n> 20",
         },
-        body: `Using ${ver}`,
+        body: `Now using node ${ver} (npm v10.8.2)`,
       },
       {
         en: "Use .nvmrc / .node-version in this directory",
         zh: "按当前目录 .nvmrc / .node-version",
         command: "nvm use",
-        body: `Found '${home}/proj/.nvmrc' with version <20.11.0>\nUsing ${ver}`,
+        body: `Found '${home}/proj/.nvmrc' with version <20.11.0>\nNow using node ${ver} (npm v10.8.2)`,
       },
     ],
   },
@@ -130,13 +130,13 @@ const menu: Group[] = [
         en: "Read .nvmrc and use",
         zh: "读 .nvmrc 并 use",
         command: "nvm use",
-        body: `Found '${home}/proj/.nvmrc' with version <20.11.0>\nUsing ${ver}`,
+        body: `Found '${home}/proj/.nvmrc' with version <20.11.0>\nNow using node ${ver} (npm v10.8.2)`,
       },
       {
         en: "Create .nvmrc with the current version if missing",
         zh: "没有则创建 .nvmrc(写当前版本)",
         command: "nvm use <current> --save",
-        body: `Wrote version number (${ver}) to .nvmrc\nUsing ${ver}`,
+        body: `Wrote version number (${ver}) to .nvmrc\nNow using node ${ver} (npm v10.8.2)`,
       },
       { en: "Install the .nvmrc version, then use", zh: "install 对齐 .nvmrc 再 use", command: "nvm install", body: installBody(ver) },
     ],

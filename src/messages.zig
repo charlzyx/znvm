@@ -7,7 +7,8 @@ pub const guide_needs_terminal = Msg{
     .en = "{s}: interactive guide needs a terminal.\nRun `{s} help` for commands.\n",
     .zh = "{s}: 交互向导需要终端.\n运行 `{s} help` 查看命令.\n",
 };
-pub const using = Msg{ .en = "Using {s}\n", .zh = "正在使用 {s}\n" };
+pub const using_with_npm = Msg{ .en = "Now using node {s} (npm v{s})\n", .zh = "已切换到 node {s} (npm v{s})\n" };
+pub const using_node_only = Msg{ .en = "Now using node {s}\n", .zh = "已切换到 node {s}\n" };
 pub const using_system = Msg{ .en = "Using system Node.js", .zh = "正在使用系统 Node.js" };
 pub const deactivated = Msg{ .en = "Deactivated", .zh = "已停用" };
 pub const bin_missing = Msg{ .en = "Version '{s}' is installed but bin/node is missing.\n", .zh = "版本 '{s}' 已安装, 但缺少 bin/node.\n" };

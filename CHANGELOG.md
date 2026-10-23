@@ -7,13 +7,15 @@
 
 ## [Unreleased]
 
+## [v2.9.4] - 2026-10-23
+
 ### Added
 
 - Linux compatibility CI (`linux-compat.yml`): amd64 (`ubuntu-latest`) and arm64 (`ubuntu-24.04-arm`) smoke tests via `scripts/linux-smoke.sh`; optional scheduled/workflow_dispatch production `install.sh` check.
 
 ### Changed
 
-- Install downloads use silent curl unless stderr is a TTY (then a progress bar). No more `nvm.sh` write line on install. `镜像: 未变` and localized npmrc warning prefix.
+- `nvm use` (and install / auto-use paths that activate a version) print nvm-style lines: `Now using node vX (npm vY)` / `已切换到 node vX (npm vY)`, reading bundled npm from `lib/node_modules/npm/package.json` without spawning node.
 
 ## [v2.9.3] - 2026-10-23
 
@@ -365,6 +367,7 @@ src/
 - 修订号：bug 修复或文档更新
 
 <!-- 版本对比链接 -->
+[v2.9.4]: https://github.com/charlzyx/znvm/compare/v2.9.3...v2.9.4
 [v2.9.3]: https://github.com/charlzyx/znvm/compare/v2.9.2...v2.9.3
 [v2.9.2]: https://github.com/charlzyx/znvm/compare/v2.9.1...v2.9.2
 [v2.9.1]: https://github.com/charlzyx/znvm/compare/v2.9.0...v2.9.1

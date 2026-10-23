@@ -12,6 +12,7 @@ const locale = @import("locale.zig");
 
 test {
     _ = @import("select.zig");
+    _ = @import("bundled_npm.zig");
 }
 
 fn langOf(nvm: ?[]const u8, lc_all: ?[]const u8, lc_messages: ?[]const u8, lang: ?[]const u8, mac: ?[]const u8) locale.Lang {
@@ -470,4 +471,39 @@ test "findExactInstalled and latestInstalled" {
     try testing.expect(version.findExactInstalled(installed, "20") == null);
     try testing.expectEqualStrings("v22.0.0", version.latestInstalled(installed, "").?);
     try testing.expectEqualStrings("v20.11.1", version.latestInstalled(installed, "20").?);
+}
+
+test "bundled npm: read version from package.json" {
+    const bundled_npm = @import("bundled_npm.zig");
+    const host = @import("host.zig");
+    const allocator = testing.allocator;
+    const root = "/tmp/znvm-npm-pkg-unit-test";
+    host.deleteTreeAbsolute(root) catch {};
+    defer host.deleteTreeAbsolute(root) catch {};
+
+    const pkg_dir = try std.fs.path.join(allocator, &.{ root, "lib", "node_modules", "npm" });
+    defer allocator.free(pkg_dir);
+    try std.Io.Dir.createDirAbsolute(host.io(), root, .default_dir);
+    const lib_dir = try std.fs.path.join(allocator, &.{ root, "lib" });
+    defer allocator.free(lib_dir);
+    const modules_dir = try std.fs.path.join(allocator, &.{ lib_dir, "node_modules" });
+    defer allocator.free(modules_dir);
+    try std.Io.Dir.createDirAbsolute(host.io(), lib_dir, .default_dir);
+    try std.Io.Dir.createDirAbsolute(host.io(), modules_dir, .default_dir);
+    try std.Io.Dir.createDirAbsolute(host.io(), pkg_dir, .default_dir);
+    const pkg_json = try std.fs.path.join(allocator, &.{ pkg_dir, "package.json" });
+    defer allocator.free(pkg_json);
+    const body = "{\"name\":\"npm\",\"version\":\"10.8.2\"}\n";
+    {
+        const file = try std.Io.Dir.createFileAbsolute(host.io(), pkg_json, .{});
+        defer file.close(host.io());
+        try host.writeAll(file, body);
+    }
+
+    const ver = try bundled_npm.readVersion(allocator, root);
+    defer allocator.free(ver.?);
+    try testing.expectEqualStrings("10.8.2", ver.?);
+
+    try std.Io.Dir.deleteFileAbsolute(host.io(), pkg_json);
+    try testing.expect((try bundled_npm.readVersion(allocator, root)) == null);
 }
