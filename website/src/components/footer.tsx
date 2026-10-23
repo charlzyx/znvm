@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
+import { LogoMark } from "@/components/logo-mark";
 import { Separator } from "@/components/ui/separator";
 
 interface FooterProps {
@@ -18,7 +19,7 @@ export function Footer({ lang = "en" }: FooterProps) {
           {/* Brand */}
           <div>
             <Link href={isZh ? "/zh" : "/"} className="flex items-center space-x-2">
-              <Zap className="h-5 w-5 text-node" />
+              <LogoMark className="h-5 w-5" />
               <span className="font-bold">znvm</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
