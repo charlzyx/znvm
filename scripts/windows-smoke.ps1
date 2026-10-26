@@ -23,14 +23,12 @@ try {
     $env:NVM_NODEJS_ORG_MIRROR = 'https://nodejs.org/dist'
     $env:NVM_LANG = 'en'
     $env:NVM_NONINTERACTIVE = '1'
-    # Exclude preinstalled Node and npm while keeping Windows curl.exe/tar.exe.
+    # Exclude preinstalled Node and npm while keeping Windows curl.exe.
     $env:PATH = "$env:SystemRoot\System32;$PSHOME"
     $initialPath = $env:PATH
     # Verify native prerequisite discovery independently of znvm process spawning.
     & curl.exe --version
     Assert-Exit 'native curl prerequisite'
-    & tar.exe --version
-    Assert-Exit 'native tar prerequisite'
 
 
     # Use a copied executable in a quoted path to exercise env script quoting.

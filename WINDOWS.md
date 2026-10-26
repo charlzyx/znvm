@@ -36,7 +36,8 @@ terminal. No profile or persistent PATH is edited. `NVM_DIR` overrides the data
 root, otherwise `HOME` then `USERPROFILE` supplies `.nvm`. Existing nvm-windows
 symlink installations are not imported. The official Windows ZIPs place
 `node.exe` and `node_modules` directly inside each version directory.
-Windows' bundled `curl.exe` and `tar.exe` must be on PATH. `nvm exec` handles
+Windows' bundled `curl.exe` must be on PATH. ZIP extraction is native and
+supports Unicode paths without a tar subprocess. `nvm exec` handles
 `npm` and `npx` through their JavaScript entrypoints. Other commands use Zig's
 Windows process launcher; batch files use Windows shell semantics. Prefer
 explicit `.exe` commands when arguments must remain literal.
@@ -53,3 +54,10 @@ The smoke test uses a disposable data root and restores its process environment.
 Mirror-generated `binaries.env` remains POSIX shell syntax and is not sourced
 by PowerShell yet; direct registry configuration and Node mirror selection
 remain available. Use explicit commands rather than interactive menus.
+
+ZIPs are streamed into a fresh sibling staging directory, checked for the exact
+requested distribution root and a regular `node.exe`, then installed with a
+non-replacing atomic rename. Validation rejects traversal, Windows drive/ADS
+syntax, normalized aliases and duplicate paths. Limits are 100,000 entries,
+1 GiB total uncompressed data and 16 MiB total filename data. Failure removes
+only the new staging directory, not an existing installation.

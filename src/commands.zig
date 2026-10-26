@@ -1359,17 +1359,26 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
             try i18n.err(messages.using_cached, .{resolved.filename});
         }
         if (!parsed.silent) try i18n.err(messages.extracting, .{});
-        try ensureTree(allocator, install_path);
+        if (!platform.windows) try ensureTree(allocator, install_path);
 
-        const argv = &[_][]const u8{ "tar", if (platform.windows) "-xf" else "-xzf", tar_path, "-C", install_path, "--strip-components=1" };
-        const term = try host.spawnWait(argv, null, .ignore);
-        const extracted = switch (term) {
-            .exited => |code| code == 0,
-            else => false,
+        const extracted = if (platform.windows) blk: {
+            const expected_root = resolved.filename[0 .. resolved.filename.len - ".zip".len];
+            @import("archive.zig").extractNodeZip(allocator, tar_path, install_path, expected_root) catch |err| {
+                try stderr("ZIP extraction failed: {s}\n", .{@errorName(err)});
+                break :blk false;
+            };
+            break :blk true;
+        } else blk: {
+            const argv = &[_][]const u8{ "tar", "-xzf", tar_path, "-C", install_path, "--strip-components=1" };
+            const term = try host.spawnWait(argv, null, .ignore);
+            break :blk switch (term) {
+                .exited => |code| code == 0,
+                else => false,
+            };
         };
         if (!extracted) {
             try i18n.err(messages.extraction_failed, .{});
-            host.deleteTreeAbsolute(install_path) catch {};
+            if (!platform.windows) host.deleteTreeAbsolute(install_path) catch {};
             process.exit(1);
         }
         try i18n.err(messages.installed, .{ver});

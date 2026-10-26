@@ -12,6 +12,7 @@ const locale = @import("locale.zig");
 
 test {
     _ = @import("select.zig");
+    _ = @import("archive.zig");
     _ = @import("bundled_npm.zig");
 }
 
