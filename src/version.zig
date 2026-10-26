@@ -254,7 +254,7 @@ fn fetchIndexBody(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
     const cache_path = try fs.path.join(allocator, &.{ config.root_dir, "cache", "index.json" });
     defer allocator.free(cache_path);
 
-    const argv = &[_][]const u8{ "curl", "-fsSL", index_url };
+    const argv = &[_][]const u8{ if (platform.windows) "curl.exe" else "curl", "-fsSL", index_url };
     if (host.run(allocator, argv, 10 * 1024 * 1024)) |result| {
         defer allocator.free(result.stderr);
         const ok = switch (result.term) {
@@ -266,9 +266,13 @@ fn fetchIndexBody(allocator: mem.Allocator, config: ZnvmConfig) ![]u8 {
             return result.stdout;
         }
         allocator.free(result.stdout);
-    } else |_| {}
-
-    return readIndexCache(allocator, cache_path);
+        return readIndexCache(allocator, cache_path) catch {
+            if (result.stderr.len > 0) try @import("util.zig").stderr("{s}", .{result.stderr});
+            return error.DownloadFailed;
+        };
+    } else |err| {
+        return readIndexCache(allocator, cache_path) catch return err;
+    }
 }
 
 pub fn parseIndex(allocator: mem.Allocator, body: []const u8) !json.Parsed([]NodeEntry) {
@@ -313,7 +317,7 @@ pub fn resolveRemoteVersion(allocator: mem.Allocator, query: []const u8, config:
 }
 
 pub fn downloadFile(allocator: mem.Allocator, url: []const u8, dest_path: []const u8) !void {
-    const argv = &[_][]const u8{ "curl", "-sSL", "-o", dest_path, url };
+    const argv = &[_][]const u8{ if (platform.windows) "curl.exe" else "curl", "-fsSL", "-o", dest_path, url };
     const result = try host.run(allocator, argv, 50 * 1024);
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);

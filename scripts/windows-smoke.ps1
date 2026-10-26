@@ -15,7 +15,7 @@ try {
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:HOME = Join-Path $root 'home'
     $env:USERPROFILE = $env:HOME
-    $env:NVM_DIR = Join-Path $root "node data ' quoted"
+    $env:NVM_DIR = Join-Path $root "node 数据 ' quoted ’ smart"
     New-Item -ItemType Directory -Path $env:HOME, $env:NVM_DIR | Out-Null
     foreach ($key in @('ZNVM_DIR', 'ZNVM_NPM_PREFIX', 'ZNVM_CURRENT', 'NVM_BIN', 'NVM_INC', 'NPM_CONFIG_PREFIX', 'ZNVM_NODE_MIRROR')) {
         [Environment]::SetEnvironmentVariable($key, $null, 'Process')
@@ -26,6 +26,12 @@ try {
     # Exclude preinstalled Node and npm while keeping Windows curl.exe/tar.exe.
     $env:PATH = "$env:SystemRoot\System32;$PSHOME"
     $initialPath = $env:PATH
+    # Verify native prerequisite discovery independently of znvm process spawning.
+    & curl.exe --version
+    Assert-Exit 'native curl prerequisite'
+    & tar.exe --version
+    Assert-Exit 'native tar prerequisite'
+
 
     # Use a copied executable in a quoted path to exercise env script quoting.
     $exe = Join-Path $root "nvm binary ' test.exe"
@@ -39,6 +45,32 @@ try {
     Invoke-Expression ($again -join "`n")
     Assert ($env:PATH -eq $initialPath) 'env duplicated or changed PATH'
 
+    # Package-manager output must never be interpreted as PowerShell code.
+    function global:__znvm_smoke_output {
+        '$global:__znvm_smoke_injected = $true'
+        '$env:UNRELATED_VARIABLE=([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''eA=='')))'
+        $global:LASTEXITCODE = 0
+    }
+    $realExe = $global:__znvm_exe
+    try {
+        $global:__znvm_exe = '__znvm_smoke_output'
+        $plainOutput = nvm install 22
+        Assert ($plainOutput.Count -eq 2) 'unknown output was not preserved as text'
+        Assert (-not (Get-Variable __znvm_smoke_injected -Scope Global -ErrorAction SilentlyContinue)) 'stdout was evaluated'
+        Assert ($null -eq $env:UNRELATED_VARIABLE) 'unallowlisted environment assignment was applied'
+    } finally {
+        $global:__znvm_exe = $realExe
+        Remove-Item Function:\__znvm_smoke_output
+    }
+
+    # Successful documentation commands must print text, not evaluate it.
+    $helpText = nvm use --help
+    Assert-Exit 'use --help'
+    Assert (($helpText -join "`n").Length -gt 0) 'missing help output'
+    $skillText = nvm install --llm
+    Assert-Exit 'install --llm'
+    Assert (($skillText -join "`n") -match '# znvm') 'missing skill output'
+    Assert ($env:PATH -eq $initialPath) 'documentation command changed PATH'
     $empty = nvm ls --json | ConvertFrom-Json
     Assert-Exit 'empty ls'
     Assert ($empty.versions.Count -eq 0) 'isolated root unexpectedly contains Node'
@@ -48,8 +80,8 @@ try {
     Assert-Exit 'node --version'
     Assert ($version -match '^v22\.') "unexpected version: $version"
     $activePath = $env:PATH
-    nvm use 22
-    Assert-Exit 'use 22'
+    nvm --yes use 22
+    Assert-Exit '--yes use 22'
     Assert ($env:PATH -eq $activePath) 'repeated use duplicated PATH'
     Assert ((nvm current).Trim() -eq $version) 'current mismatch'
     Assert-Exit 'current'
@@ -66,6 +98,11 @@ try {
     Assert-Exit 'run'
     Assert ((nvm exec 22 node.exe --version).Trim() -eq $version) 'exec mismatch'
     Assert-Exit 'exec'
+    $payload = @('space separated', 'double "quote"', 'amp & dollar $ ; backtick `', ('smart ' + [char]0x2019 + ' 中文'), '')
+    $roundtrip = nvm exec 22 node.exe -e 'console.log(JSON.stringify(process.argv.slice(1)))' -- @payload | ConvertFrom-Json
+    Assert-Exit 'exec argument roundtrip'
+    Assert ($roundtrip.Count -eq $payload.Count) 'exec changed argument count'
+    for ($i = 0; $i -lt $payload.Count; $i++) { Assert ($roundtrip[$i] -ceq $payload[$i]) "exec changed argument $i" }
     $npmVersion = (nvm exec 22 npm --version).Trim()
     Assert-Exit 'exec npm'
     Assert ($npmVersion -match '^\d+\.') 'npm version missing'
@@ -83,6 +120,13 @@ try {
     nvm use 999.999.999 2>$null
     Assert ($global:LASTEXITCODE -ne 0) 'missing version unexpectedly succeeded'
     Assert ($env:PATH -eq $beforeFailure) 'failed use changed PATH'
+    nvm uninstall system 2>$null
+    Assert ($global:LASTEXITCODE -ne 0) 'uninstall system unexpectedly succeeded'
+    Assert ($env:PATH -eq $beforeFailure) 'failed uninstall changed PATH'
+    # Source builds fail before network requests or archive writes.
+    nvm install -s 22 2>$null
+    Assert ($global:LASTEXITCODE -ne 0) 'unsupported source install unexpectedly succeeded'
+    Assert ($env:PATH -eq $beforeFailure) 'failed install changed PATH'
     nvm exec 22 node.exe -e 'process.exit(7)'
     Assert ($global:LASTEXITCODE -eq 7) 'exec did not preserve child exit code'
 
@@ -96,8 +140,13 @@ try {
     Assert-Exit 'deactivate'
     Assert ($env:PATH -eq $initialPath) 'deactivate failed to restore PATH'
     Assert ([string]::IsNullOrEmpty($env:NVM_BIN)) 'deactivate left NVM_BIN'
+    nvm --yes use 22
+    Assert-Exit 'leading flag use after deactivate'
+    Assert ((nvm current).Trim() -eq $version) 'leading flag failed to apply switching'
+    # Removing the active version follows Unix behavior: remove then deactivate.
     nvm uninstall 22
     Assert-Exit 'uninstall'
+    Assert ($env:PATH -eq $initialPath) 'active uninstall failed to restore PATH'
     $final = nvm ls --json | ConvertFrom-Json
     Assert-Exit 'final ls'
     Assert ($final.versions.Count -eq 0) 'uninstall left installed version'

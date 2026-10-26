@@ -40,3 +40,29 @@ test "native Node layout and PATH separator" {
         try std.testing.expect(!pathPrefix("C:\\Other", "c:/users"));
     }
 }
+
+/// Emit ASCII-only code, not a quoted literal. PowerShell also recognizes
+/// Unicode smart quotes as delimiters, and console code pages vary by host.
+pub fn powerShellValue(allocator: std.mem.Allocator, value: []const u8) ![]u8 {
+    const encoder = std.base64.standard.Encoder;
+    const encoded = try allocator.alloc(u8, encoder.calcSize(value.len));
+    defer allocator.free(encoded);
+    _ = encoder.encode(encoded, value);
+    return std.fmt.allocPrint(allocator, "([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{s}')))", .{encoded});
+}
+
+test "PowerShell values are ASCII-only expressions with literal UTF8 payload" {
+    const allocator = std.testing.allocator;
+    const value = "中文‘’; $(exit 42)\n'";
+    const expression = try powerShellValue(allocator, value);
+    defer allocator.free(expression);
+    for (expression) |c| try std.testing.expect(c < 128);
+    try std.testing.expect(std.mem.indexOf(u8, expression, "$(exit") == null);
+    const prefix = "([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('";
+    const encoded = expression[prefix.len .. expression.len - 4];
+    const decoder = std.base64.standard.Decoder;
+    const decoded = try allocator.alloc(u8, try decoder.calcSizeForSlice(encoded));
+    defer allocator.free(decoded);
+    try decoder.decode(decoded, encoded);
+    try std.testing.expectEqualStrings(value, decoded);
+}

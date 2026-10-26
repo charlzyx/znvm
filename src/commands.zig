@@ -27,7 +27,7 @@ fn na() !noreturn {
 }
 
 extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
-extern "c" fn _putenv_s(name: [*:0]const u8, value: [*:0]const u8) c_int;
+extern "kernel32" fn SetEnvironmentVariableW(name: [*:0]const u16, value: ?[*:0]const u16) callconv(.winapi) std.os.windows.BOOL;
 extern "c" fn unsetenv(name: [*:0]const u8) c_int;
 
 pub var program_name: []const u8 = "znvm";
@@ -65,13 +65,14 @@ const ParsedArgs = struct {
 const FlagMode = enum { strict, command };
 
 fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
+    if (platform.windows) return platform.powerShellValue(allocator, value);
     var quoted: std.ArrayList(u8) = .empty;
     errdefer quoted.deinit(allocator);
 
     try quoted.append(allocator, '\'');
     for (value) |char| {
         if (char == '\'') {
-            try quoted.appendSlice(allocator, if (platform.windows) "''" else "'\\''");
+            try quoted.appendSlice(allocator, "'\\''");
         } else {
             try quoted.append(allocator, char);
         }
@@ -82,8 +83,10 @@ fn shellQuote(allocator: mem.Allocator, value: []const u8) ![]u8 {
 
 fn underManagedPrefix(entry: []const u8, root: []const u8) bool {
     if (root.len == 0 or entry.len <= root.len) return false;
-    if (!platform.pathPrefix(entry, root) or !platform.isSep(entry[root.len])) return false;
-    const rest = entry[root.len + 1 ..];
+    if (!platform.pathPrefix(entry, root)) return false;
+    const root_has_separator = platform.isSep(root[root.len - 1]);
+    if (!root_has_separator and !platform.isSep(entry[root.len])) return false;
+    const rest = entry[root.len + @as(usize, if (root_has_separator) 0 else 1) ..];
     if (platform.pathPrefix(rest, "versions/")) return true;
     return rest.len > 2 and rest[0] == 'v' and mem.indexOf(u8, rest, "/bin") != null;
 }
@@ -292,19 +295,19 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const quoted_inc = try shellQuote(allocator, inc_path);
     defer allocator.free(quoted_inc);
 
-    putEnv(allocator, "PATH", new_path);
-    putEnv(allocator, "ZNVM_CURRENT", ver);
-    putEnv(allocator, "NVM_BIN", bin_path);
-    putEnv(allocator, "NVM_INC", inc_path);
+    try putEnv(allocator, "PATH", new_path);
+    try putEnv(allocator, "ZNVM_CURRENT", ver);
+    try putEnv(allocator, "NVM_BIN", bin_path);
+    try putEnv(allocator, "NVM_INC", inc_path);
     try stdout(if (platform.windows) "$env:PATH={s}\n" else "export PATH={s}\n", .{quoted_path});
     try stdout(if (platform.windows) "$env:ZNVM_CURRENT={s}\n" else "export ZNVM_CURRENT={s}\n", .{quoted_version});
     if (config.npm_prefix) |prefix| {
         const quoted_prefix = try shellQuote(allocator, prefix);
         defer allocator.free(quoted_prefix);
-        putEnv(allocator, "NPM_CONFIG_PREFIX", prefix);
+        try putEnv(allocator, "NPM_CONFIG_PREFIX", prefix);
         try stdout(if (platform.windows) "$env:NPM_CONFIG_PREFIX={s}\n" else "export NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
     } else {
-        clearEnv("NPM_CONFIG_PREFIX");
+        try clearEnv("NPM_CONFIG_PREFIX");
         try stdout(if (platform.windows) "Remove-Item Env:NPM_CONFIG_PREFIX -ErrorAction SilentlyContinue\n" else "unset NPM_CONFIG_PREFIX\n", .{});
     }
     try stdout(if (platform.windows) "$env:NVM_BIN={s}\n" else "export NVM_BIN={s}\n", .{quoted_bin});
@@ -334,10 +337,10 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
 
-    putEnv(allocator, "PATH", new_path);
-    clearEnv("ZNVM_CURRENT");
-    clearEnv("NVM_BIN");
-    clearEnv("NVM_INC");
+    try putEnv(allocator, "PATH", new_path);
+    try clearEnv("ZNVM_CURRENT");
+    try clearEnv("NVM_BIN");
+    try clearEnv("NVM_INC");
     try stdout(if (platform.windows) "$env:PATH={s}\n" else "export PATH={s}\n", .{quoted_path});
     try stdout(if (platform.windows) "Remove-Item Env:ZNVM_CURRENT -ErrorAction SilentlyContinue\n" else "unset ZNVM_CURRENT\n", .{});
     try stdout(if (platform.windows) "Remove-Item Env:NVM_BIN -ErrorAction SilentlyContinue\n" else "unset NVM_BIN\n", .{});
@@ -346,19 +349,28 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
     if (!silent and message.len > 0) try stderr("{s}\n", .{message});
 }
 
-fn putEnv(allocator: mem.Allocator, key: [:0]const u8, value: []const u8) void {
-    const owned = allocator.dupeSentinel(u8, value, 0) catch return;
-    defer allocator.free(owned);
+fn putEnv(allocator: mem.Allocator, key: [:0]const u8, value: []const u8) !void {
     if (platform.windows) {
-        _ = _putenv_s(key, owned.ptr);
+        const wide_key = try std.unicode.utf8ToUtf16LeAllocZ(allocator, key);
+        defer allocator.free(wide_key);
+        const wide_value = try std.unicode.utf8ToUtf16LeAllocZ(allocator, value);
+        defer allocator.free(wide_value);
+        if (SetEnvironmentVariableW(wide_key, wide_value) == .FALSE) return error.Unexpected;
     } else {
+        const owned = allocator.dupeSentinel(u8, value, 0) catch return;
+        defer allocator.free(owned);
         _ = setenv(key, owned.ptr, 1);
     }
 }
 
-fn clearEnv(key: [:0]const u8) void {
+fn clearEnv(key: [:0]const u8) !void {
     if (platform.windows) {
-        _ = _putenv_s(key, "");
+        const allocator = std.heap.c_allocator;
+        const wide_key = try std.unicode.utf8ToUtf16LeAllocZ(allocator, key);
+        defer allocator.free(wide_key);
+        if (SetEnvironmentVariableW(wide_key, null) == .FALSE) {
+            if (std.os.windows.GetLastError() != .ENVVAR_NOT_FOUND) return error.Unexpected;
+        }
     } else {
         _ = unsetenv(key);
     }

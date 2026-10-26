@@ -14,7 +14,7 @@
 
 - **实测启动**: 2026-10-22，暖 shell 启动中位数是 znvm **3.31 ms**、fnm **1.58 ms**、nvm **113 ms**。每次丢掉页缓存后，中位数是 **5.01 ms**、**4.70 ms**、**121 ms**。p95 和 shell 内命令见下面的性能对比。
 - **零配置**: 完美支持 `.nvmrc`。只需 `cd` 进入目录，环境立即就绪。
-- **极简专注**: 无冗余依赖，无 Windows 平台的沉重抽象。纯粹为 Unix 性能而生。Windows 暂不支持（计划中，见 [#27](https://github.com/charlzyx/znvm/issues/27)）。
+- **极简专注**: 小型原生 CLI，通过 shell 切换环境。macOS / Linux 原生支持；Windows x64 / PowerShell 7 实验性支持参见 [安装与限制](WINDOWS.md)。
 - **智能架构**: Zig 核心处理复杂的 SemVer 解析；Shell 脚本负责环境切换。
 
 ## 📦 快速安装

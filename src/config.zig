@@ -52,6 +52,12 @@ fn nonempty(value: ?[]const u8) ?[]const u8 {
 }
 
 fn trimTrailingSlash(value: []const u8) []const u8 {
+    if (platform.windows) {
+        var end = value.len;
+        // Preserve a drive root such as C:\ while normalizing directory input.
+        while (end > 3 and platform.isSep(value[end - 1])) : (end -= 1) {}
+        return value[0..end];
+    }
     if (value.len > 1 and value[value.len - 1] == '/') return value[0 .. value.len - 1];
     return value;
 }
@@ -143,4 +149,18 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
         .arch = arch,
         .allocator = allocator,
     };
+}
+
+test "Windows data roots normalize trailing separators without truncating drive roots" {
+    if (!platform.windows) return;
+    const allocator = std.testing.allocator;
+    const dir = try resolveDataRoot(allocator, "C:\\Users\\name\\.nvm\\", null, "unused");
+    defer allocator.free(dir);
+    try std.testing.expectEqualStrings("C:\\Users\\name\\.nvm", dir);
+    const root = try resolveDataRoot(allocator, "C:\\", null, "unused");
+    defer allocator.free(root);
+    try std.testing.expectEqualStrings("C:\\", root);
+    const slash_root = try resolveDataRoot(allocator, "C:/", null, "unused");
+    defer allocator.free(slash_root);
+    try std.testing.expectEqualStrings("C:/", slash_root);
 }
