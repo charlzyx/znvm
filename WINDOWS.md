@@ -77,7 +77,9 @@ is refused, rather than silently corrupting paths containing `!`. Environment
 updates temporarily select UTF-8 console codepage and restore the original;
 this briefly affects the shared console, not system settings. Oversized or
 multiline environment updates are rejected. Ordinary command output is never
-executed as batch code.
+executed as batch code. As with any cmd command line, literal percent signs in
+a directly typed path must follow cmd’s percent-expansion/escaping rules; the
+wrapper preserves literal percent signs once they have reached its environment.
 
 ## Git Bash
 
@@ -92,7 +94,13 @@ nvm deactivate
 Only the trusted initializer is evaluated. Mutation responses are allowlisted
 Base64 data, not shell code. Windows PATH lists are converted with `cygpath`.
 Native arguments are forwarded literally with MSYS automatic argument conversion
-disabled; pass Windows paths to native commands when a pathname is required.
+disabled. For `run` and `exec … node` / `node.exe`, the first script operand
+(or the operand immediately after Node’s `--`) is converted from a POSIX path
+when it resolves to a regular file. This also works with aliases and `.nvmrc`.
+JavaScript supplied to `-e` / `-p` and arguments after the script remain literal.
+We do not parse arbitrary Node flags: when flags precede the script, use
+`cygpath -w` explicitly for that script path. Other native commands likewise
+require Windows-form path arguments.
 No other shell's environment or startup profile is changed.
 
 Run `zig build test` and `./scripts/windows-smoke.ps1 -ExpectedArch x64` (or `arm64`) for native validation.

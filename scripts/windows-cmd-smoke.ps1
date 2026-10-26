@@ -10,8 +10,11 @@ $PSNativeCommandUseErrorActionPreference = $false
 if (-not $IsWindows) { throw 'Native Windows and PowerShell 7 are required.' }
 $Binary = (Resolve-Path $Binary).Path
 $root = Join-Path ([IO.Path]::GetTempPath()) ('znvm-cmd-' + [guid]::NewGuid())
+$originalCodePageText = & "$env:SystemRoot/System32/chcp.com"
+if ($LASTEXITCODE -ne 0 -or $originalCodePageText -notmatch '(\d+)\s*$') { throw 'Cannot read original console codepage' }
+$originalCodePage = $Matches[1]
 function Assert($condition, [string]$message) { if (-not $condition) { throw $message } }
-function Run-Cmd([string]$Script, [string]$Delayed = 'off', [string]$ExtraPath = '') {
+function Run-Cmd([string]$Script, [string]$Delayed = 'off', [string]$ExtraPath = '', [string]$FixturePackage = '', [string]$FixtureTemp = '') {
     $info = [Diagnostics.ProcessStartInfo]::new()
     $info.FileName = Join-Path $env:SystemRoot 'System32/cmd.exe'
     $info.UseShellExecute = $false
@@ -22,13 +25,15 @@ function Run-Cmd([string]$Script, [string]$Delayed = 'off', [string]$ExtraPath =
     $info.Environment['USERPROFILE'] = $info.Environment['HOME']
     $info.Environment['NVM_DIR'] = Join-Path $root "node 数据 ' ’ %PATH% !bang! ^ & (node)"
     $info.Environment['TEMP'] = Join-Path $root "temp 数据 ' %PATH% !bang! ^ & (temp)"
+    if ($FixtureTemp) { $info.Environment['TEMP'] = $FixtureTemp }
+    $info.Environment['ZNVM_CMD_DIAGNOSTICS'] = '1'
     $info.Environment['TMP'] = $info.Environment['TEMP']
     $info.Environment['NVM_NODEJS_ORG_MIRROR'] = 'https://nodejs.org/dist'
     $info.Environment['NVM_LANG'] = 'en'
     $info.Environment['NVM_NONINTERACTIVE'] = '1'
     $info.Environment['PATH'] = "$env:SystemRoot\System32;$PSHOME$ExtraPath"
     $info.Environment['ZNVM_TEST_EXTRA_PATH'] = $ExtraPath
-    $info.Environment['ZNVM_TEST_PACKAGE'] = $package
+    $info.Environment['ZNVM_TEST_PACKAGE'] = if ($FixturePackage) { $FixturePackage } else { $package }
     $info.Environment['ZNVM_TEST_ROOT'] = $root
     $info.Environment['ZNVM_TEST_ARCH'] = $ExpectedArch
     foreach ($dir in @($info.Environment['HOME'], $info.Environment['NVM_DIR'], $info.Environment['TEMP'])) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -48,6 +53,42 @@ try {
     Copy-Item -LiteralPath $Binary -Destination (Join-Path $package 'bin/nvm.exe')
     $shimRoot = if ($PackageRoot) { Join-Path $PackageRoot 'cmd' } else { Join-Path $PSScriptRoot 'cmd' }
     Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd') -Destination (Join-Path $package 'cmd')
+    # Diagnostic isolation only: the full adversarial scenario below remains
+    # mandatory. Probe every case before reporting failure to distinguish batch
+    # filename reopening, percent reparsing, and response-file cleanup failures.
+    @'
+@echo off
+call initialize.cmd
+if errorlevel 1 exit /b 41
+echo znvm-cmd-stage: initialization-returned
+exit /b 0
+'@ | Set-Content -LiteralPath (Join-Path $root 'probe.cmd') -Encoding ascii
+    @'
+@echo znvm-cmd-stage: fixture-trampoline-entered 1>&2
+@"%ZNVM_TEST_PACKAGE%\cmd\init.cmd"
+'@ | Set-Content -LiteralPath (Join-Path $root 'initialize.cmd') -Encoding ascii
+    $probeResults = @()
+    $probesPassed = $true
+    $probeCases = @(
+        @{ Name = 'ascii-cp437'; Package = 'probe-ascii'; Temp = 'temp-ascii'; CP = '437' },
+        @{ Name = 'unicode-package-cp437'; Package = 'probe-数据'; Temp = 'temp-ascii'; CP = '437' },
+        @{ Name = 'percent-package-cp437'; Package = 'probe-%PATH%'; Temp = 'temp-ascii'; CP = '437' },
+        @{ Name = 'unicode-temp-cp437'; Package = 'probe-ascii'; Temp = 'temp-数据'; CP = '437' },
+        @{ Name = 'percent-temp-cp437'; Package = 'probe-ascii'; Temp = 'temp-%PATH%'; CP = '437' },
+        @{ Name = 'unicode-package-cp65001'; Package = 'probe-数据'; Temp = 'temp-ascii'; CP = '65001' }
+    )
+    foreach ($case in $probeCases) {
+        $probePackage = Join-Path $root $case.Package
+        New-Item -ItemType Directory -Force -Path (Join-Path $probePackage 'bin'), (Join-Path $probePackage 'cmd') | Out-Null
+        Copy-Item -LiteralPath $Binary -Destination (Join-Path $probePackage 'bin/nvm.exe') -Force
+        Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd') -Destination (Join-Path $probePackage 'cmd') -Force
+        & "$env:SystemRoot/System32/chcp.com" $case.CP | Out-Null
+        Write-Host "cmd initialization probe: $($case.Name)"
+        $result = Run-Cmd (Join-Path $root 'probe.cmd') 'off' '' $probePackage (Join-Path $root $case.Temp)
+        $probeResults += "$($case.Name)=$result"
+        if ($result -ne 0) { $probesPassed = $false }
+    }
+    Write-Host ('cmd initialization probes: ' + ($probeResults -join ', '))
     # Node reads literal inherited environment and argv, never reparses them as code.
     @'
 const fs = require('fs');
@@ -80,6 +121,7 @@ assert.ok(!fs.existsSync(path.join(root, 'INJECTED')));
     # init is directly chained through a small trampoline: no CALL expansion of
     # the adversarial package path. CALL targets a constant safe filename only.
     @'
+@echo znvm-cmd-stage: fixture-trampoline-entered 1>&2
 @"%ZNVM_TEST_PACKAGE%\cmd\init.cmd"
 '@ | Set-Content -LiteralPath (Join-Path $root 'initialize.cmd') -Encoding ascii
     @'
@@ -132,6 +174,7 @@ exit /b 0
 '@ | Set-Content -LiteralPath (Join-Path $root 'argv.cmd') -Encoding ascii
     $code = Run-Cmd (Join-Path $root 'scenario.cmd')
     Assert ($code -eq 0) "cmd install/use/exec/deactivate/uninstall failed at code $code"
+    Assert $probesPassed ('isolated initialization failed: ' + ($probeResults -join ', '))
     Assert ((Get-Content -Raw -LiteralPath (Join-Path $root 'codepage-before.txt')) -eq (Get-Content -Raw -LiteralPath (Join-Path $root 'codepage-after.txt'))) 'cmd did not restore original codepage'
     # Values inherited through CreateProcess are data, not cmd source. Exercise
     # quotes and operators that Windows filenames cannot contain as PATH data.
@@ -162,5 +205,7 @@ exit /b 0
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'INJECTED'))) 'cmd executed fixture data'
     Write-Host "PASS: native cmd install/use/exec/deactivate/uninstall and delayed-expansion refusal ($ExpectedArch)"
 } finally {
+    & "$env:SystemRoot/System32/chcp.com" $originalCodePage | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot restore smoke-test console codepage' }
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
 }

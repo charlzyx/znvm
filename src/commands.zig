@@ -1965,6 +1965,35 @@ fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *con
     return .{ .spec = spec, .args = cmd_args };
 }
 
+/// Git Bash disables MSYS's broad argument conversion to preserve JavaScript
+/// and arbitrary user arguments. Convert only a known Node script operand.
+/// Leading Node flags deliberately remain opaque; users can supply a Windows
+/// path themselves for those advanced forms.
+fn adaptBashNodeScript(allocator: mem.Allocator, argv: [][]const u8) !?[]u8 {
+    if (!platform.windows or argv.len < 2) return null;
+    var env = try host.envMap(allocator);
+    defer env.deinit();
+    if (!mem.eql(u8, env.get("ZNVM_SHELL") orelse "", "bash")) return null;
+    const index: usize = if (mem.eql(u8, argv[1], "--")) 2 else 1;
+    if (index >= argv.len or argv[index].len == 0 or argv[index][0] != '/') return null;
+    const result = host.run(allocator, &.{ "cygpath.exe", "-w", "--", argv[index] }, 64 * 1024) catch return null;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) return null,
+        else => return null,
+    }
+    const path = mem.trimEnd(u8, result.stdout, "\r\n");
+    if (path.len == 0 or !fs.path.isAbsolute(path) or mem.indexOfScalar(u8, path, 0) != null) return null;
+    const file = std.Io.Dir.openFileAbsolute(host.io(), path, .{}) catch return null;
+    defer file.close(host.io());
+    const stat = file.stat(host.io()) catch return null;
+    if (stat.kind != .file) return null;
+    const owned = try allocator.dupe(u8, path);
+    argv[index] = owned;
+    return owned;
+}
+
 pub fn cmdExec(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .command);
     defer parsed.deinit(allocator);
@@ -1977,6 +2006,13 @@ pub fn cmdExec(allocator: mem.Allocator, args: []const []const u8, config: ZnvmC
     try rejectUnsupportedSpec(prepared.spec);
     const hit = try resolveLocalOrExit(allocator, config, prepared.spec, null);
     defer hit.deinit(allocator);
+    if (platform.windows and (std.ascii.eqlIgnoreCase(prepared.args[0], "node") or std.ascii.eqlIgnoreCase(prepared.args[0], "node.exe"))) {
+        const argv = try allocator.dupe([]const u8, prepared.args);
+        defer allocator.free(argv);
+        const adapted = try adaptBashNodeScript(allocator, argv);
+        defer if (adapted) |owned| allocator.free(owned);
+        try runInHit(allocator, config, hit, argv, parsed.silent);
+    }
     try runInHit(allocator, config, hit, prepared.args, parsed.silent);
 }
 
@@ -2005,6 +2041,8 @@ pub fn cmdRun(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     defer argv.deinit(allocator);
     try argv.append(allocator, node_bin);
     try argv.appendSlice(allocator, prepared.args);
+    const adapted = try adaptBashNodeScript(allocator, argv.items);
+    defer if (adapted) |owned| allocator.free(owned);
     try runInHit(allocator, config, hit, argv.items, parsed.silent);
 }
 

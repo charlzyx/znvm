@@ -1,4 +1,5 @@
 @if "!"=="" goto znvm_delayed_expansion_error
+@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: wrapper-entered 1>&2
 @setlocal DisableDelayedExpansion
 @set "ERRORLEVEL="
 @set "ZNVM_SHELL=cmd"
@@ -7,7 +8,9 @@
 @"%~dp0..\bin\nvm.exe" %*
 @set "_znvm_status=%errorlevel%"
 @if not "%_znvm_status%"=="0" goto znvm_native_error
+@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: native-success 1>&2
 @if not exist "%ZNVM_CMD_ENV_FILE%" goto znvm_no_delta
+@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: delta-ready 1>&2
 @rem Carry only the filename across ENDLOCAL. Direct chaining avoids CALL's
 @rem second expansion of percent signs. The generated file returns to our caller.
 @for %%F in ("%ZNVM_CMD_ENV_FILE%") do (
@@ -16,6 +19,7 @@
 )
 @exit /b 0
 :znvm_no_delta
+@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: no-delta 1>&2
 @endlocal & exit /b 0
 :znvm_native_error
 @rem Native exclusively owns its response file and removes partial files.

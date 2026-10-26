@@ -90,6 +90,30 @@ nvm --yes use 22
 nvm ls --json | node.exe -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{let j=JSON.parse(s);if(j.versions.length!==1||!j.current)process.exit(1)})'
 [[ $(nvm run 22 --version) == "$version" ]] || fail 'run mismatch'
 [[ $(nvm exec 22 npm --version) =~ ^[0-9]+\. ]] || fail 'npm exec failed'
+# Only a real first Node script operand is converted from POSIX to Windows.
+# Trailing script arguments and -e/-p source remain byte-for-byte literal.
+fixture="$HOME/script 数据 ' ’ % ! & (case).js"
+cat > "$fixture" <<'JS'
+if (process.argv.length !== 3 || process.argv[2] !== "/literal/not/a/file") {
+    console.error(process.argv);
+    process.exit(1);
+}
+console.log("fixture-ok");
+JS
+[[ $(nvm run 22 "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'run POSIX script failed'
+[[ $(nvm exec 22 node "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'exec node POSIX script failed'
+[[ $(nvm exec 22 node.exe "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'exec node.exe POSIX script failed'
+[[ $(nvm run 22 -- "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'run -- POSIX script failed'
+[[ $(nvm exec 22 node.exe -- "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'exec node -- POSIX script failed'
+nvm alias script-test 22
+[[ $(nvm run script-test "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'alias run POSIX script failed'
+pushd "$HOME" >/dev/null
+printf '22\n' > .nvmrc
+[[ $(nvm run "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'implicit .nvmrc run POSIX script failed'
+[[ $(nvm exec node.exe "$fixture" '/literal/not/a/file') == fixture-ok ]] || fail 'implicit .nvmrc exec POSIX script failed'
+popd >/dev/null
+[[ $(nvm run 22 -p '"/literal/not/a/file"') == /literal/not/a/file ]] || fail '-p source was rewritten'
+[[ $(nvm exec 22 node.exe -e 'console.log("/literal/not/a/file")') == /literal/not/a/file ]] || fail '-e source was rewritten'
 # MSYS must not reinterpret paths, shell metacharacters, Unicode, or empty args.
 nvm exec 22 node.exe -e 'const expected=["space separated","double \"quote\"","amp & dollar $ ; backtick `","smart ’ 中文","100% ! (paren)","/literal/path",""];if(JSON.stringify(process.argv.slice(1))!==JSON.stringify(expected)){console.error(process.argv);process.exit(1)}' -- 'space separated' 'double "quote"' 'amp & dollar $ ; backtick `' 'smart ’ 中文' '100% ! (paren)' '/literal/path' ''
 if nvm use 999.999.999; then fail 'missing version succeeded'; fi

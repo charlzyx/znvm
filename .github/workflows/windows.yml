@@ -36,12 +36,15 @@ jobs:
       - name: Unit tests
         run: zig build test -Dtarget=${{ matrix.target }}
       - name: Build
+        id: build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
       - name: Isolated native smoke
         run: ./scripts/windows-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
       - name: Isolated cmd smoke
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: ./scripts/windows-cmd-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
       - name: Isolated Git Bash smoke
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: ./scripts/windows-bash-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
       - name: Upload tested Windows binary
         uses: actions/upload-artifact@v4

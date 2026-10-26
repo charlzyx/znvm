@@ -127,13 +127,11 @@ pub fn cmdBatch(allocator: std.mem.Allocator, changes: []const EnvChange) ![]u8 
     try body.appendSlice(allocator, "@\"%SystemRoot%\\System32\\chcp.com\" %_znvm_old_cp% >nul\r\n" ++
         "@if errorlevel 1 goto znvm_codepage_failed\r\n" ++
         "@set _znvm_old_cp=\r\n" ++
-        "@del \"%~f0\" >nul 2>&1\r\n" ++
-        "@exit /b 0\r\n" ++
+        "@del \"%~f0\" >nul 2>&1 & exit /b 0\r\n" ++
         ":znvm_codepage_failed\r\n" ++
         "@if defined _znvm_old_cp \"%SystemRoot%\\System32\\chcp.com\" %_znvm_old_cp% >nul\r\n" ++
         "@set _znvm_old_cp=\r\n" ++
-        "@del \"%~f0\" >nul 2>&1\r\n" ++
-        "@exit /b 1\r\n");
+        "@del \"%~f0\" >nul 2>&1 & exit /b 1\r\n");
     return body.toOwnedSlice(allocator);
 }
 
@@ -141,6 +139,9 @@ test "cmd output preflights all values and escapes one batch parse" {
     const a = std.testing.allocator;
     const batch = try cmdBatch(a, &.{.{ .key = "PATH", .value = "中文 %PATH% !bang! ^ & (x)" }});
     defer a.free(batch);
+    try std.testing.expect(std.mem.indexOf(u8, batch, "@del \"%~f0\" >nul 2>&1 & exit /b 0\r\n") != null);
+    try std.testing.expect(std.mem.indexOf(u8, batch, "@del \"%~f0\" >nul 2>&1 & exit /b 1\r\n") != null);
+    try std.testing.expect(std.mem.indexOf(u8, batch, "@del \"%~f0\" >nul 2>&1\r\n") == null);
     try std.testing.expect(std.mem.indexOf(u8, batch, "中文 %%PATH%% !bang! ^^ ^& ^(x^)") != null);
     try std.testing.expectError(error.InvalidCmdEnvironmentValue, cmdBatch(a, &.{.{ .key = "PATH", .value = "bad\r\necho bad" }}));
     try std.testing.expectError(error.InvalidEnvironmentKey, cmdBatch(a, &.{.{ .key = "BAD&echo", .value = "x" }}));
