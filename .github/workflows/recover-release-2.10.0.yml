@@ -1,0 +1,42 @@
+name: Recover owned v2.10.0 draft 424643933
+on:
+  push:
+    branches: [main]
+    paths: [release-recovery-2.10.0.json]
+permissions:
+  contents: read
+concurrency:
+  group: release-v2.10.0
+  cancel-in-progress: false
+jobs:
+  recover:
+    if: github.repository == 'charlzyx/znvm' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - name: Test recovery and original release guards without remote writes
+        run: |
+          python3 scripts/test-release-request.py
+          python3 scripts/test-recover-release-2.10.0.py
+      - name: Read-only owned-draft and original candidate preflight
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: charlzyx/znvm
+        run: python3 scripts/recover-release-2.10.0.py preflight
+      - name: Download fixed candidate artifact and enforce original ZIP digest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: charlzyx/znvm
+        run: python3 scripts/recover-release-2.10.0.py download candidate
+      - name: Recover only exact owned empty draft, then verify seven public downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: charlzyx/znvm
+        run: python3 scripts/recover-release-2.10.0.py recover candidate

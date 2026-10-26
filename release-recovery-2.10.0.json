@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "release_id": 424643933,
+  "source_sha": "b0f45c7b661e63d93055ae7e809bc877c7af5579",
+  "candidate_run_id": 40361365360,
+  "candidate_artifact_id": 12668716726,
+  "candidate_digest": "sha256:1395d058abc018aac1702478a01278bc2613c5a8762fede8dbb0aced1f56d3a9"
+}
