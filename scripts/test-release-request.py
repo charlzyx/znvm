@@ -120,25 +120,85 @@ class ReleaseGuards(unittest.TestCase):
         with patch.object(r, 'api', return_value={'object': {'type': 'commit', 'sha': SHA}}):
             r.check_main(SHA)
 
+    def ci_runs(self):
+        return [{'id': i + 1, 'path': path, 'event': 'push', 'head_branch': 'main',
+                 'head_sha': SHA, 'status': 'completed', 'conclusion': 'success'}
+                for i, path in enumerate(sorted(r.REQUIRED_MAIN_WORKFLOWS))]
+
+    def test_main_ci_exact_three_success_is_read_only(self):
+        with patch.object(r, 'check_main') as main, patch.object(r, 'api', return_value={'workflow_runs': self.ci_runs()}) as api, patch.object(r.time, 'sleep') as sleep:
+            r.wait_main_ci(SHA, timeout_seconds=0)
+        self.assertEqual(main.call_count, 2)
+        self.assertTrue(all(len(call.args) == 1 and call.args[0].startswith('actions/runs?') for call in api.call_args_list))
+        sleep.assert_not_called()
+
+    def test_main_ci_missing_wrong_sha_path_pr_or_branch_never_passes(self):
+        variants = [[], self.ci_runs()[:2]]
+        for change in ({'head_sha': 'b' * 40}, {'path': '.github/workflows/not-ci.yml'},
+                       {'event': 'pull_request'}, {'head_branch': 'feature'}):
+            runs = self.ci_runs()
+            runs[0].update(change)
+            variants.append(runs)
+        for runs in variants:
+            with patch.object(r, 'check_main'), patch.object(r, 'api', return_value={'workflow_runs': runs}) as api, patch.object(r.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+                r.wait_main_ci(SHA, timeout_seconds=0)
+            self.assertTrue(all(len(call.args) == 1 for call in api.call_args_list))
+            sleep.assert_not_called()
+
+    def test_main_ci_terminal_nonsuccess_stops_without_waiting(self):
+        for conclusion in ('failure', 'cancelled', 'timed_out', 'skipped', 'neutral', None):
+            runs = self.ci_runs()
+            runs[0]['conclusion'] = conclusion
+            with patch.object(r, 'check_main'), patch.object(r, 'api', return_value={'workflow_runs': runs}), patch.object(r.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+                r.wait_main_ci(SHA)
+            sleep.assert_not_called()
+
+    def test_main_ci_queued_then_success_checks_main_each_poll(self):
+        queued = self.ci_runs()
+        queued[0].update(status='queued', conclusion=None)
+        with patch.object(r, 'check_main') as main, patch.object(r, 'api', side_effect=[{'workflow_runs': queued}, {'workflow_runs': self.ci_runs()}]), patch.object(r.time, 'sleep') as sleep:
+            r.wait_main_ci(SHA)
+        self.assertEqual(main.call_count, 3)
+        sleep.assert_called_once()
+        self.assertLessEqual(sleep.call_args.args[0], 30)
+
+    def test_main_ci_pending_main_moves_stops_before_second_query(self):
+        with patch.object(r, 'check_main', side_effect=[None, RuntimeError('main moved')]), patch.object(r, 'api', return_value={'workflow_runs': []}) as api, patch.object(r.time, 'sleep'), self.assertRaises(RuntimeError):
+            r.wait_main_ci(SHA)
+        api.assert_called_once()
+
+    def test_main_ci_paginated_success_checks_all_runs(self):
+        unrelated = [{'path': '.github/workflows/unrelated.yml'}] * 100
+        with patch.object(r, 'check_main'), patch.object(r, 'api', side_effect=[{'workflow_runs': unrelated}, {'workflow_runs': self.ci_runs()}]) as api:
+            r.wait_main_ci(SHA, timeout_seconds=0)
+        self.assertEqual(api.call_count, 2)
+        self.assertTrue(api.call_args.args[0].endswith('page=2'))
+
+    def test_main_ci_gate_failure_has_zero_release_writes(self):
+        with patch.object(r, 'wait_main_ci', side_effect=RuntimeError('missing/failing main CI')), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api') as api, patch.object(r, 'upload_asset') as upload, self.assertRaises(RuntimeError):
+            r.publish('fixture')
+        api.assert_not_called()
+        upload.assert_not_called()
+
     def test_existing_release_noop_requires_remote_hashes(self):
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote', side_effect=RuntimeError('mismatch')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote', side_effect=RuntimeError('mismatch')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
             r.publish('fixture')
         api.assert_not_called()
 
     def test_complete_existing_release_has_no_writes(self):
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote') as remote, patch.object(r, 'verify_public') as public, patch.object(r, 'check_tag_owner'), patch.object(r, 'api') as api:
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote') as remote, patch.object(r, 'verify_public') as public, patch.object(r, 'check_tag_owner'), patch.object(r, 'api') as api:
             r.publish('fixture')
         self.assertEqual(remote.call_args.args[:3], (42, SHA, False))
         public.assert_called_once()
         api.assert_not_called()
 
     def test_main_movement_prevents_draft_creation(self):
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main', side_effect=RuntimeError('main moved')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main', side_effect=RuntimeError('main moved')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
             r.publish('fixture')
         api.assert_not_called()
 
     def test_upload_failure_retains_draft_without_retry_publish_or_cleanup(self):
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', return_value=release_fixture(True, False)) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=RuntimeError('partial upload')) as upload, self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', return_value=release_fixture(True, False)) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=RuntimeError('partial upload')) as upload, self.assertRaises(RuntimeError):
             r.publish('fixture')
         self.assertEqual(api.call_count, 1)
         self.assertEqual(api.call_args.args[1], 'POST')
@@ -147,7 +207,7 @@ class ReleaseGuards(unittest.TestCase):
     def test_main_moves_after_upload_prevents_publish(self):
         draft = release_fixture(True)
         records = r.asset_snapshot(draft, HASHES)
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main', side_effect=[None, None, RuntimeError('main moved')]), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), draft]) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=lambda ident, path, digest: records[path.name]) as upload, patch.object(r, 'verify_remote'), self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main', side_effect=[None, None, RuntimeError('main moved')]), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), draft]) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=lambda ident, path, digest: records[path.name]) as upload, patch.object(r, 'verify_remote'), self.assertRaises(RuntimeError):
             r.publish('fixture')
         self.assertEqual(upload.call_count, 7)
         self.assertFalse(any(len(call.args) > 1 and call.args[1] in ('PATCH', 'DELETE') for call in api.call_args_list))
@@ -157,14 +217,14 @@ class ReleaseGuards(unittest.TestCase):
                    {'target_commitish': 'b' * 40}, {'assets': [{'id': 100}]})
         for change in changes:
             draft = release_fixture(True, False) | change
-            with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', return_value=draft) as api, patch.object(r, 'upload_asset') as upload, self.assertRaises(RuntimeError):
+            with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', return_value=draft) as api, patch.object(r, 'upload_asset') as upload, self.assertRaises(RuntimeError):
                 r.publish('fixture')
             upload.assert_not_called()
             api.assert_called_once()
 
     def test_same_tag_replaced_by_other_draft_stops_upload(self):
         foreign = release_fixture(True, False) | {'id': 99}
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), [foreign]]) as api, patch.object(r, 'upload_asset') as upload, self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), [foreign]]) as api, patch.object(r, 'upload_asset') as upload, self.assertRaises(RuntimeError):
             r.publish('fixture')
         upload.assert_not_called()
         self.assertEqual(api.call_count, 2)
@@ -178,7 +238,7 @@ class ReleaseGuards(unittest.TestCase):
         command.assert_not_called()
 
     def test_existing_release_replaced_after_download_fails(self):
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote'), patch.object(r, 'api', return_value=[release_fixture() | {'id': 99}]), patch.object(r, 'verify_public') as public, self.assertRaises(RuntimeError):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote'), patch.object(r, 'api', return_value=[release_fixture() | {'id': 99}]), patch.object(r, 'verify_public') as public, self.assertRaises(RuntimeError):
             r.publish('fixture')
         public.assert_not_called()
 
@@ -213,7 +273,7 @@ class ReleaseGuards(unittest.TestCase):
     def test_successful_publish_only_patches_created_id(self):
         draft, published = release_fixture(True), release_fixture(False)
         records = r.asset_snapshot(draft, HASHES)
-        with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), draft, published]) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=lambda ident, path, digest: records[path.name]) as upload, patch.object(r, 'verify_remote') as remote, patch.object(r, 'verify_public'):
+        with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=None), patch.object(r, 'api', side_effect=[release_fixture(True, False), draft, published]) as api, patch.object(r, 'check_tag_owner'), patch.object(r, 'upload_asset', side_effect=lambda ident, path, digest: records[path.name]) as upload, patch.object(r, 'verify_remote') as remote, patch.object(r, 'verify_public'):
             r.publish('fixture')
         self.assertTrue(all(call.args[0] == 42 for call in upload.call_args_list))
         self.assertTrue(all(call.args[0] == 42 for call in remote.call_args_list))

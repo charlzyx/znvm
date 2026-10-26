@@ -1,5 +1,4 @@
 @if "!"=="" goto znvm_delayed_expansion_error
-@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: wrapper-entered 1>&2
 @setlocal DisableDelayedExpansion
 @if not exist "%~dp0finish.cmd" goto znvm_missing_finish
 @set "ERRORLEVEL="
@@ -9,15 +8,12 @@
 @"%~dp0..\bin\nvm.exe" %*
 @set "_znvm_status=%errorlevel%"
 @if not "%_znvm_status%"=="0" goto znvm_native_error
-@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: native-success 1>&2
 @if not exist "%ZNVM_CMD_ENV_FILE%" goto znvm_no_delta
-@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: delta-ready 1>&2
 @rem Expand the quoted filename before ENDLOCAL, then directly chain outside
 @rem any FOR/block context. No CALL: literal percent data is not re-expanded.
 @endlocal & "%ZNVM_CMD_ENV_FILE%" "%~dp0finish.cmd"
 @exit /b 0
 :znvm_no_delta
-@if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: no-delta 1>&2
 @endlocal & exit /b 0
 :znvm_native_error
 @rem Native exclusively owns its response file and removes partial files.

@@ -253,6 +253,52 @@ def verify_public(expected):
             time.sleep(min(3 * 2 ** attempt, 12))
 
 
+REQUIRED_MAIN_WORKFLOWS = frozenset({
+    '.github/workflows/ci.yml',
+    '.github/workflows/linux-compat.yml',
+    '.github/workflows/windows.yml',
+})
+
+
+def wait_main_ci(sha, timeout_seconds=1800, interval_seconds=30):
+    """Read-only gate: regular push/main CI must pass for this exact source SHA."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        check_main(sha)
+        matching = {path: [] for path in REQUIRED_MAIN_WORKFLOWS}
+        for page in range(1, 11):
+            response = api(f'actions/runs?event=push&branch=main&head_sha={sha}&per_page=100&page={page}')
+            runs = response.get('workflow_runs')
+            require(type(runs) is list, 'Invalid Actions run listing')
+            for run in runs:
+                path = run.get('path')
+                if (path in matching and run.get('event') == 'push' and
+                        run.get('head_branch') == 'main' and run.get('head_sha') == sha):
+                    matching[path].append(run)
+            if len(runs) < 100:
+                break
+        else:
+            raise RuntimeError('Actions run listing exceeded safety bound')
+        ready = True
+        for path, runs in matching.items():
+            if not runs:
+                ready = False
+            for run in runs:
+                if run.get('status') == 'completed':
+                    require(run.get('conclusion') == 'success',
+                            f'Main CI failed/was cancelled: {path}, run {run.get("id")}, {run.get("conclusion")}')
+                else:
+                    ready = False
+        if ready:
+            check_main(sha)
+            print(f'All three regular push/main workflows succeeded at {sha}.', flush=True)
+            return
+        remaining = deadline - time.monotonic()
+        require(remaining > 0, 'Timed out waiting for all three exact-SHA push/main workflows; no release created')
+        print('Waiting for exact-SHA regular main CI before release creation.', flush=True)
+        time.sleep(min(interval_seconds, remaining))
+
+
 def publish(directory):
     sha = context()
     expected = local_hashes(directory)
@@ -268,6 +314,7 @@ def publish(directory):
         check_main(sha)
         print('Existing exact release ID, source and all tested asset IDs/bytes match; no changes.')
         return
+    wait_main_ci(sha)
     check_main(sha)
     require(state(sha) is None, 'Release appeared concurrently; stop')
     release = api('releases', 'POST', {

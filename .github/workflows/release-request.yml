@@ -221,11 +221,13 @@ jobs:
           ./scripts/windows-bash-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH
 
   publish:
-    name: Guard, draft, upload, verify, publish exact tested bytes
+    name: Guard, wait for main CI, draft and publish exact tested bytes
+    timeout-minutes: 45
     needs: [guard, build, verify, windows_release_smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v5
         with:
