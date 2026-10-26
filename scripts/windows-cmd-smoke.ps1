@@ -52,7 +52,7 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $package 'bin'), (Join-Path $package 'cmd') | Out-Null
     Copy-Item -LiteralPath $Binary -Destination (Join-Path $package 'bin/nvm.exe')
     $shimRoot = if ($PackageRoot) { Join-Path $PackageRoot 'cmd' } else { Join-Path $PSScriptRoot 'cmd' }
-    Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd') -Destination (Join-Path $package 'cmd')
+    Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd'), (Join-Path $shimRoot 'finish.cmd') -Destination (Join-Path $package 'cmd')
     # Diagnostic isolation only: the full adversarial scenario below remains
     # mandatory. Probe every case before reporting failure to distinguish batch
     # filename reopening, percent reparsing, and response-file cleanup failures.
@@ -81,7 +81,7 @@ exit /b 0
         $probePackage = Join-Path $root $case.Package
         New-Item -ItemType Directory -Force -Path (Join-Path $probePackage 'bin'), (Join-Path $probePackage 'cmd') | Out-Null
         Copy-Item -LiteralPath $Binary -Destination (Join-Path $probePackage 'bin/nvm.exe') -Force
-        Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd') -Destination (Join-Path $probePackage 'cmd') -Force
+        Copy-Item -LiteralPath (Join-Path $shimRoot 'nvm.cmd'), (Join-Path $shimRoot 'init.cmd'), (Join-Path $shimRoot 'finish.cmd') -Destination (Join-Path $probePackage 'cmd') -Force
         & "$env:SystemRoot/System32/chcp.com" $case.CP | Out-Null
         Write-Host "cmd initialization probe: $($case.Name)"
         $result = Run-Cmd (Join-Path $root 'probe.cmd') 'off' '' $probePackage (Join-Path $root $case.Temp)
@@ -203,6 +203,8 @@ exit /b 0
     $code = Run-Cmd (Join-Path $root 'delayed.cmd') 'on'
     Assert ($code -eq 55) "delayed expansion was not rejected (code $code)"
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'INJECTED'))) 'cmd executed fixture data'
+    $leftovers = @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter 'znvm-env-*.cmd')
+    Assert ($leftovers.Count -eq 0) 'cmd left environment response files behind'
     Write-Host "PASS: native cmd install/use/exec/deactivate/uninstall and delayed-expansion refusal ($ExpectedArch)"
 } finally {
     & "$env:SystemRoot/System32/chcp.com" $originalCodePage | Out-Null

@@ -12,12 +12,12 @@ permissions:
 
 jobs:
   cmd-parser-probe:
-    name: cmd parser fixture diagnostics
+    name: cmd persistent cleanup regression
     runs-on: windows-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - name: Compare isolated batch chaining primitives
+      - name: Verify persistent batch cleanup and status return
         shell: pwsh
         run: ./scripts/windows-cmd-parser-probe.ps1
 
@@ -48,19 +48,52 @@ jobs:
       - name: Build
         id: build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
-      - name: Isolated native smoke
-        run: ./scripts/windows-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
-      - name: Isolated cmd smoke
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: ./scripts/windows-cmd-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
-      - name: Isolated Git Bash smoke
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: ./scripts/windows-bash-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
-      - name: Upload Windows candidate binary (see smoke results)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      - name: Build deterministic Windows package
+        run: |
+          ./scripts/package-windows.ps1 -Destination candidate.zip
+      - name: Upload Windows candidate ZIP (see smoke results)
         uses: actions/upload-artifact@v4
         with:
           name: znvm-windows-${{ matrix.arch }}
-          path: zig-out/bin/nvm.exe
+          path: |
+            candidate.zip
+            candidate.zip.sha256
           if-no-files-found: error
           retention-days: 7
+      - name: Download the candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: znvm-windows-${{ matrix.arch }}
+          path: downloaded-candidate
+      - name: Verify transfer and extracted package bytes
+        id: package
+        run: |
+          $manifest = Get-Content candidate.zip.sha256 -Raw
+          $expected = $manifest.Split(' ')[0]
+          $downloaded = (Get-FileHash downloaded-candidate/candidate.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($downloaded -cne $expected -or (Get-Content downloaded-candidate/candidate.zip.sha256 -Raw) -cne $manifest) { throw 'Artifact hash changed during transfer' }
+          Expand-Archive -LiteralPath downloaded-candidate/candidate.zip -DestinationPath tested-package
+          $files = [ordered]@{
+            'bin/nvm.exe' = 'zig-out/bin/nvm.exe'
+            'bin/nrm.exe' = 'zig-out/bin/nvm.exe'
+            'cmd/nvm.cmd' = 'scripts/cmd/nvm.cmd'
+            'cmd/init.cmd' = 'scripts/cmd/init.cmd'
+            'cmd/finish.cmd' = 'scripts/cmd/finish.cmd'
+            'WINDOWS.md' = 'WINDOWS.md'
+          }
+          foreach ($name in $files.Keys) {
+            $actual = (Get-FileHash (Join-Path 'tested-package' $name) -Algorithm SHA256).Hash
+            $source = (Get-FileHash $files[$name] -Algorithm SHA256).Hash
+            if ($actual -cne $source) { throw "Extracted package bytes differ: $name" }
+          }
+          Write-Host "Verified uploaded/downloaded ZIP SHA256=$expected and all extracted file hashes"
+          & ./tested-package/bin/nrm.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged nrm.exe failed' }
+      - name: Isolated PowerShell smoke from downloaded ZIP
+        run: ./scripts/windows-smoke.ps1 -Binary ./tested-package/bin/nvm.exe -ExpectedArch ${{ matrix.arch }}
+      - name: Isolated cmd smoke from downloaded ZIP
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        run: ./scripts/windows-cmd-smoke.ps1 -Binary ./tested-package/bin/nvm.exe -PackageRoot ./tested-package -ExpectedArch ${{ matrix.arch }}
+      - name: Isolated Git Bash smoke from downloaded ZIP
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        run: ./scripts/windows-bash-smoke.ps1 -Binary ./tested-package/bin/nvm.exe -ExpectedArch ${{ matrix.arch }}

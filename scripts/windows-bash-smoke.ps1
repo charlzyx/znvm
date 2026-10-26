@@ -21,9 +21,24 @@ $git = Get-Command git.exe -ErrorAction SilentlyContinue
 if ($git) { $candidates = @((Join-Path (Split-Path (Split-Path $git.Source)) 'bin/bash.exe')) + $candidates }
 $bash = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $bash) { throw 'Git Bash is not installed on this runner; native Git Bash verification was not run.' }
-$bashMachine = Read-Machine $bash
-$bashMode = if ($bashMachine -eq $expectedMachine) { 'native' } else { 'emulated; not a native Bash process' }
-Write-Host "Git Bash verification: OS=$osArch nvm PE=$('{0:x}' -f $expectedMachine) Bash PE=$('{0:x}' -f $bashMachine) ($bashMode), path=$bash"
+# Git's bin/bash.exe can be a native launcher for a different-architecture
+# usr/bin/bash.exe. Do not mistake launcher architecture for runtime evidence.
+$launcherMachine = Read-Machine $bash
+$runtimePathOutput = & $bash --noprofile --norc -c 'cygpath --windows /usr/bin/bash.exe'
+if ($LASTEXITCODE -ne 0 -or -not $runtimePathOutput) { throw 'Could not identify the Git Bash runtime executable.' }
+$runtimeBash = ($runtimePathOutput | Select-Object -Last 1).Trim()
+if (-not (Test-Path -LiteralPath $runtimeBash)) { throw "Git Bash runtime executable does not exist: $runtimeBash" }
+$runtimeMachine = Read-Machine $runtimeBash
+$runtimeMode = if ($runtimeMachine -eq $expectedMachine) {
+    'runtime executable matches native OS architecture'
+} elseif ($ExpectedArch -eq 'arm64' -and $runtimeMachine -eq 0x8664) {
+    'x64 Bash runtime under Windows ARM64 emulation; NOT native ARM64 Bash'
+} else {
+    'runtime executable differs from OS architecture; native Bash execution not established'
+}
+Write-Host "Git Bash verification: OS=$osArch nvm PE=$('{0:x}' -f $expectedMachine)"
+Write-Host "Git Bash launcher: PE=$('{0:x}' -f $launcherMachine), path=$bash"
+Write-Host "Git Bash runtime: PE=$('{0:x}' -f $runtimeMachine), path=$runtimeBash ($runtimeMode)"
 $root = Join-Path ([IO.Path]::GetTempPath()) ("znvm Git 数据 ' ’ % ! & (test) " + [guid]::NewGuid())
 $keys = @('NVM_TEST_BINARY', 'NVM_TEST_HOME', 'NVM_TEST_ROOT', 'NVM_TEST_ARCH', 'NVM_TEST_SYSTEMROOT')
 $saved = @{}

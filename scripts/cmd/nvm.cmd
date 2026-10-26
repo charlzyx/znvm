@@ -1,6 +1,7 @@
 @if "!"=="" goto znvm_delayed_expansion_error
 @if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: wrapper-entered 1>&2
 @setlocal DisableDelayedExpansion
+@if not exist "%~dp0finish.cmd" goto znvm_missing_finish
 @set "ERRORLEVEL="
 @set "ZNVM_SHELL=cmd"
 @set "ZNVM_CMD_ENV_FILE=%TEMP%\znvm-env-%RANDOM%-%RANDOM%-%RANDOM%.cmd"
@@ -11,12 +12,9 @@
 @if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: native-success 1>&2
 @if not exist "%ZNVM_CMD_ENV_FILE%" goto znvm_no_delta
 @if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: delta-ready 1>&2
-@rem Carry only the filename across ENDLOCAL. Direct chaining avoids CALL's
-@rem second expansion of percent signs. The generated file returns to our caller.
-@for %%F in ("%ZNVM_CMD_ENV_FILE%") do (
-    @endlocal
-    @"%%~fF"
-)
+@rem Expand the quoted filename before ENDLOCAL, then directly chain outside
+@rem any FOR/block context. No CALL: literal percent data is not re-expanded.
+@endlocal & "%ZNVM_CMD_ENV_FILE%" "%~dp0finish.cmd"
 @exit /b 0
 :znvm_no_delta
 @if defined ZNVM_CMD_DIAGNOSTICS echo znvm-cmd-stage: no-delta 1>&2
@@ -30,3 +28,6 @@
 :znvm_response_collision
 @echo nvm: response file collision; retry the command. 1>&2
 @endlocal & exit /b 56
+:znvm_missing_finish
+@echo nvm: incomplete package; cmd\finish.cmd is missing. 1>&2
+@endlocal & exit /b 57
