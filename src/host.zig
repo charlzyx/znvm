@@ -40,6 +40,7 @@ pub fn io() std.Io {
 }
 
 fn liveEnviron() std.process.Environ {
+    if (comptime builtin.os.tag == .windows) return .{ .block = .global };
     var n: usize = 0;
     while (std.c.environ[n] != null) : (n += 1) {}
     const many: [*:null]const ?[*:0]const u8 = @ptrCast(std.c.environ);

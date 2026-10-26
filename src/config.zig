@@ -1,5 +1,6 @@
 const std = @import("std");
 const host = @import("host.zig");
+const platform = @import("platform.zig");
 const builtin = @import("builtin");
 const process = std.process;
 const fs = std.fs;
@@ -38,7 +39,7 @@ pub const ZnvmConfig = struct {
 pub fn resolveNpmPrefix(allocator: mem.Allocator, configured: ?[]const u8) !?[]u8 {
     const prefix = configured orelse return null;
     if (prefix.len == 0) return null;
-    if (!fs.path.isAbsolute(prefix) or mem.indexOfScalar(u8, prefix, ':') != null) {
+    if (!fs.path.isAbsolute(prefix) or mem.indexOfScalar(u8, prefix, platform.path_delimiter) != null) {
         return error.InvalidNpmPrefix;
     }
     return try allocator.dupe(u8, prefix);
@@ -51,6 +52,12 @@ fn nonempty(value: ?[]const u8) ?[]const u8 {
 }
 
 fn trimTrailingSlash(value: []const u8) []const u8 {
+    if (platform.windows) {
+        var end = value.len;
+        // Preserve a drive root such as C:\ while normalizing directory input.
+        while (end > 3 and platform.isSep(value[end - 1])) : (end -= 1) {}
+        return value[0..end];
+    }
     if (value.len > 1 and value[value.len - 1] == '/') return value[0 .. value.len - 1];
     return value;
 }
@@ -78,19 +85,19 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     var env_map = try host.envMap(allocator);
     defer env_map.deinit();
 
-    const home = env_map.get("HOME") orelse ".";
+    const home = platform.home(&env_map) orelse ".";
     const root_dir = try resolveDataRoot(allocator, env_map.get("NVM_DIR"), env_map.get("ZNVM_DIR"), home);
     errdefer allocator.free(root_dir);
 
     const versions_dir = try fs.path.join(allocator, &.{ root_dir, "versions", "node" });
     errdefer allocator.free(versions_dir);
 
-    var scan : std.ArrayList([]const u8) = .empty;
+    var scan: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (scan.items) |dir| allocator.free(dir);
         scan.deinit(allocator);
     }
-    var managed : std.ArrayList([]const u8) = .empty;
+    var managed: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (managed.items) |dir| allocator.free(dir);
         managed.deinit(allocator);
@@ -114,13 +121,14 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     const npm_prefix = try resolveNpmPrefix(allocator, env_map.get("ZNVM_NPM_PREFIX"));
     errdefer if (npm_prefix) |prefix| allocator.free(prefix);
 
-    const mirror_env = env_map.get("ZNVM_NODE_MIRROR") orelse env_map.get("NVM_NODEJS_ORG_MIRROR") orelse "https://npmmirror.com/mirrors/node";
+    const mirror_env = resolveMirror(env_map.get("ZNVM_NODE_MIRROR"), env_map.get("NVM_NODEJS_ORG_MIRROR"));
     const mirror = try allocator.dupe(u8, mirror_env);
     errdefer allocator.free(mirror);
 
     const os = switch (builtin.os.tag) {
         .macos => "darwin",
         .linux => "linux",
+        .windows => "win",
         else => "unknown",
     };
 
@@ -141,4 +149,28 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
         .arch = arch,
         .allocator = allocator,
     };
+}
+
+test "Windows data roots normalize trailing separators without truncating drive roots" {
+    if (!platform.windows) return;
+    const allocator = std.testing.allocator;
+    const dir = try resolveDataRoot(allocator, "C:\\Users\\name\\.nvm\\", null, "unused");
+    defer allocator.free(dir);
+    try std.testing.expectEqualStrings("C:\\Users\\name\\.nvm", dir);
+    const root = try resolveDataRoot(allocator, "C:\\", null, "unused");
+    defer allocator.free(root);
+    try std.testing.expectEqualStrings("C:\\", root);
+    const slash_root = try resolveDataRoot(allocator, "C:/", null, "unused");
+    defer allocator.free(slash_root);
+    try std.testing.expectEqualStrings("C:/", slash_root);
+}
+
+fn resolveMirror(znvm: ?[]const u8, nvm: ?[]const u8) []const u8 {
+    return nonempty(znvm) orelse nonempty(nvm) orelse "https://npmmirror.com/mirrors/node";
+}
+
+test "empty mirror overrides do not mask configured or default hosts" {
+    try std.testing.expectEqualStrings("https://nodejs.org/dist", resolveMirror("", "https://nodejs.org/dist"));
+    try std.testing.expectEqualStrings("https://npmmirror.com/mirrors/node", resolveMirror("", ""));
+    try std.testing.expectEqualStrings("https://example.test", resolveMirror("https://example.test", "https://nodejs.org/dist"));
 }

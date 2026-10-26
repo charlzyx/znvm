@@ -421,11 +421,11 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
     }
     if (only) |raw| {
         const name = try normalizeName(raw);
-    const found = map.urlForName(name) orelse return explainMissing(name);
-    try entries.append(allocator, .{
-        .name = try allocator.dupe(u8, name),
-        .url = try allocator.dupe(u8, found),
-    });
+        const found = map.urlForName(name) orelse return explainMissing(name);
+        try entries.append(allocator, .{
+            .name = try allocator.dupe(u8, name),
+            .url = try allocator.dupe(u8, found),
+        });
     } else {
         for (builtin_registries) |item| {
             try entries.append(allocator, .{
@@ -921,10 +921,7 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
 
 fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try ensureParent(root);
-    var root_dir = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
-    defer root_dir.close(host.io());
-    const rel_root = if (root.len > 0 and root[0] == '/') root[1..] else root;
-    try root_dir.createDirPath(host.io(), rel_root);
+    try std.Io.Dir.cwd().createDirPath(host.io(), root);
     map.sort();
     map.sortNames();
     var body: std.ArrayList(u8) = .empty;
@@ -988,7 +985,7 @@ const Env = struct {
 fn openEnv(allocator: mem.Allocator) !Env {
     var env_map = try host.envMap(allocator);
     errdefer env_map.deinit();
-    const home = env_map.get("HOME") orelse return error.NoHome;
+    const home = @import("platform.zig").home(&env_map) orelse return error.NoHome;
     if (home.len == 0 or !fs.path.isAbsolute(home)) return error.NoHome;
     const xdg = env_map.get("XDG_CONFIG_HOME");
     const xdg_abs = if (xdg) |value| (if (value.len > 0 and fs.path.isAbsolute(value)) value else null) else null;
@@ -997,11 +994,8 @@ fn openEnv(allocator: mem.Allocator) !Env {
 
 fn ensureParent(path: []const u8) !void {
     const parent = fs.path.dirname(path) orelse return;
-    var root = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
-    defer root.close(host.io());
-    const rel = if (parent.len > 0 and parent[0] == '/') parent[1..] else parent;
-    if (rel.len == 0) return;
-    try root.createDirPath(host.io(), rel);
+    if (parent.len == 0) return;
+    try std.Io.Dir.cwd().createDirPath(host.io(), parent);
 }
 
 fn appendKept(

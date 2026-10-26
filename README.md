@@ -16,7 +16,7 @@
 
 - **Measured startup**: On 2026-10-22, warm shell startup was **3.31 ms** for znvm, **1.58 ms** for fnm, and **113 ms** for nvm. After dropping the page cache on every sample, those medians were **5.01 ms**, **4.70 ms**, and **121 ms**. See Benchmarks for p95 and the in-shell commands.
 - **Zero Configuration**: Perfect support for `.nvmrc`. Just `cd` and you're ready.
-- **Minimal & Focused**: No bloated dependencies, no Windows overhead. Just pure Unix performance.
+- **Minimal & Focused**: A small native CLI with shell-based environment switching.
 - **Smart Architecture**: Zig handles complex SemVer parsing; Shell handles env switching.
 
 ## 📦 Quick Install
@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/charlzyx/znvm/v2.2.2/install-as-nvm
 
 - ⚡ **Instant Performance**: Core logic written in Zig for lightning-fast resolution.
 - 🍎 **Apple Silicon Friendly**: Automatic architecture detection and Rosetta fallback.
-- 🐧 **Unix-First**: Native support for macOS and Linux. Windows: not supported yet (planned; see [#27](https://github.com/charlzyx/znvm/issues/27)).
+- 🐧 **Unix-First**: Native support for macOS and Linux. Native Windows x64 and ARM64 with PowerShell 7, cmd and Git Bash support is available; see [Windows setup and limits](WINDOWS.md).
 - 🔄 **Auto Switch**: Automatic version switching when entering a directory with `.nvmrc`.
 - 📦 **Per-version globals**: Global npm packages stay inside each Node version, as they do with nvm.
 - ⭐ **Default Version**: Set a default version to use when no `.nvmrc` is present.

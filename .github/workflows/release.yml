@@ -2,28 +2,77 @@ name: Release
 
 on:
   release:
-    types: [created]
+    # Includes releases first saved as drafts and then published.
+    types: [published]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ github.ref_name }}
+
 jobs:
+  preflight:
+    name: Check release contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate stable tag and mutable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GH_REPO/releases/tags/$VERSION" > release.json
+          # This workflow uploads after publication; immutable releases need a
+          # separate draft-build/upload-before-publish process instead.
+          jq -e '.draft == false and .prerelease == false and .immutable == false' release.json
+          gh api "repos/$GH_REPO/git/ref/heads/main" | jq -e '.object.sha == env.RELEASE_SHA'
+
   build:
     name: Build (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        target:
-          - x86_64-linux-musl
-          - aarch64-linux-musl
-          - x86_64-macos
-          - aarch64-macos
+        include:
+          - target: x86_64-linux-musl
+            platform: x86_64-linux-musl
+            runner: ubuntu-latest
+            suffix: ''
+          - target: aarch64-linux-musl
+            platform: aarch64-linux-musl
+            runner: ubuntu-latest
+            suffix: ''
+          - target: x86_64-macos
+            platform: x86_64-macos
+            runner: ubuntu-latest
+            suffix: ''
+          - target: aarch64-macos
+            platform: aarch64-macos
+            runner: ubuntu-latest
+            suffix: ''
+          - target: x86_64-windows-gnu
+            platform: x86_64-windows
+            runner: windows-latest
+            suffix: .zip
+          - target: aarch64-windows-gnu
+            platform: aarch64-windows
+            runner: windows-11-arm
+            suffix: .zip
+    env:
+      ASSET: znvm-${{ github.ref_name }}-${{ matrix.platform }}${{ matrix.suffix }}
     steps:
-      - name: Checkout
+      - name: Checkout release tag
         uses: actions/checkout@v5
         with:
           ref: ${{ github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
@@ -33,35 +82,162 @@ jobs:
       - name: Build
         run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
 
-      - name: Rename Artifact
+      - name: Name and hash Unix binary
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
-          mv zig-out/bin/znvm znvm-${{ github.ref_name }}-${{ matrix.target }}
+          set -euo pipefail
+          mv zig-out/bin/znvm "$ASSET"
+          sha256sum "$ASSET" > "$ASSET.sha256"
 
-      - name: Upload Artifact
+      - name: Package deterministic Windows ZIP and hash
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/package-windows.ps1 -Binary zig-out/bin/nvm.exe -Destination $env:ASSET
+
+      - name: Preserve build-time checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksum-${{ matrix.target }}
+          path: ${{ env.ASSET }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload binary without replacing existing assets
         uses: softprops/action-gh-release@v2
         with:
-          files: znvm-${{ github.ref_name }}-${{ matrix.target }}
+          files: ${{ env.ASSET }}
           fail_on_unmatched_files: true
+          overwrite_files: false
 
   verify:
-    name: Verify release assets
+    name: Verify all six published binaries against build checksums
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Check every platform binary is downloadable
+      - name: Download build-time checksum manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: checksum-*
+          path: checksums
+          merge-multiple: true
+
+      - name: Download and verify exact expected assets
         env:
-          VERSION: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          for target in x86_64-linux-musl aarch64-linux-musl x86_64-macos aarch64-macos; do
-            url="https://github.com/charlzyx/znvm/releases/download/${VERSION}/znvm-${VERSION}-${target}"
-            echo "GET $url"
-            curl -fL --retry 5 --retry-delay 3 -o /dev/null "$url"
+          : > SHA256SUMS
+          for target in x86_64-linux-musl aarch64-linux-musl x86_64-macos aarch64-macos x86_64-windows aarch64-windows; do
+            suffix=''
+            [[ "$target" != *-windows ]] || suffix='.zip'
+            asset="znvm-${VERSION}-${target}${suffix}"
+            manifest="checksums/$asset.sha256"
+            # Exactly one hash for the intended basename, not an arbitrary path.
+            [[ $(wc -l < "$manifest") -eq 1 ]]
+            read -r hash name < "$manifest"
+            [[ "$hash" =~ ^[a-f0-9]{64}$ && "$name" == "$asset" ]]
+            curl -fL --retry 5 --retry-delay 3 -o "$asset" "https://github.com/$REPOSITORY/releases/download/$VERSION/$asset"
+            sha256sum --check "$manifest"
+            cat "$manifest" >> SHA256SUMS
           done
+          [[ $(wc -l < SHA256SUMS) -eq 6 ]]
+
+      - name: Publish aggregate checksum manifest without replacement
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SHA256SUMS
+          fail_on_unmatched_files: true
+          overwrite_files: false
+
+      - name: Verify published aggregate matches this build
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 3 -o published-SHA256SUMS "https://github.com/$REPOSITORY/releases/download/$VERSION/SHA256SUMS"
+          cmp SHA256SUMS published-SHA256SUMS
+
+  windows_release_smoke:
+    name: Test downloaded Windows release (${{ matrix.arch }})
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            target: x86_64-windows-gnu
+            platform: x86_64-windows
+          - runner: windows-11-arm
+            arch: arm64
+            target: aarch64-windows-gnu
+            platform: aarch64-windows
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout release tests
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Download, hash-check and test the published executable
+        env:
+          REPOSITORY: ${{ github.repository }}
+          TARGET: ${{ matrix.platform }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = "znvm-$env:VERSION-$env:TARGET.zip"
+          $directory = Join-Path $env:RUNNER_TEMP 'znvm-release-download'
+          New-Item -ItemType Directory -Force $directory | Out-Null
+          $package = Join-Path $directory $asset
+          $manifest = Join-Path $directory 'SHA256SUMS'
+          $base = "https://github.com/$env:REPOSITORY/releases/download/$env:VERSION"
+          & curl.exe -fL --retry 5 --retry-delay 3 -o $package "$base/$asset"
+          if ($LASTEXITCODE -ne 0) { throw 'Release executable download failed' }
+          & curl.exe -fL --retry 5 --retry-delay 3 -o $manifest "$base/SHA256SUMS"
+          if ($LASTEXITCODE -ne 0) { throw 'Release checksum download failed' }
+          $lines = @(Get-Content $manifest)
+          if ($lines.Count -ne 6) { throw 'Expected six release checksums' }
+          $pattern = '^([a-f0-9]{64})  ' + [regex]::Escape($asset) + '$'
+          $entries = @($lines | Where-Object { $_ -cmatch $pattern })
+          if ($entries.Count -ne 1) { throw 'Expected exactly one checksum for executable' }
+          $expected = [regex]::Match($entries[0], $pattern).Groups[1].Value
+          $actual = (Get-FileHash -Algorithm SHA256 $package).Hash.ToLowerInvariant()
+          if ($actual -cne $expected) { throw 'Published ZIP SHA256 mismatch' }
+          $extract = Join-Path $env:RUNNER_TEMP ('znvm release ZIP ' + [guid]::NewGuid())
+          Expand-Archive -LiteralPath $package -DestinationPath $extract
+          $binary = Join-Path $extract 'bin/nvm.exe'
+          $nrm = Join-Path $extract 'bin/nrm.exe'
+          if ((Get-FileHash $binary).Hash -cne (Get-FileHash $nrm).Hash) { throw 'nrm.exe is not the same native binary' }
+          foreach ($relative in @('cmd/nvm.cmd', 'cmd/init.cmd', 'cmd/finish.cmd', 'WINDOWS.md')) {
+            if (-not (Test-Path (Join-Path $extract $relative) -PathType Leaf)) { throw "Missing package file: $relative" }
+          }
+          $version = & $binary --version
+          if ($LASTEXITCODE -ne 0 -or "$version".Trim() -cne $env:VERSION) { throw "Release version mismatch: $version" }
+          # Exercise the packaged nrm dispatcher without touching runner-user state.
+          $env:HOME = Join-Path $extract 'nrm-fixture-home'
+          $env:USERPROFILE = $env:HOME
+          $env:NVM_DIR = Join-Path $env:HOME '.nvm'
+          $env:ZNVM_DIR = $env:NVM_DIR
+          New-Item -ItemType Directory -Force $env:NVM_DIR | Out-Null
+          $nrmVersion = & $nrm --version
+          if ($LASTEXITCODE -ne 0 -or "$nrmVersion".Trim() -cne $env:VERSION) { throw 'Packaged nrm.exe version mismatch' }
+          & $nrm ls
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged nrm.exe registry listing failed' }
+          ./scripts/windows-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH
+          ./scripts/windows-cmd-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH -PackageRoot $extract
+          ./scripts/windows-bash-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH
 
   update_repo:
-    name: Update repository
-    needs: [build, verify]
+    name: Verify repository versions (read-only)
+    needs: [build, verify, windows_release_smoke]
     runs-on: ubuntu-latest
     if: success()
     steps:
@@ -71,26 +247,13 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update install.sh version
+      - name: Verify coherent public versions without promoting the website
         run: |
-          # Bump install scripts only after all release assets are public.
-          sed -i "s/^ZNVM_VERSION=\"[^\"]*\"/ZNVM_VERSION=\"${{ github.ref_name }}\"/" install.sh install-as-nvm.sh
-          grep "ZNVM_VERSION=\"${{ github.ref_name }}\"" install.sh install-as-nvm.sh
-          cp install-as-nvm.sh ./website/public/install.sh
-          cp install-as-nvm.sh ./website/public/install-as-nvm.sh
-          cmp -s install-as-nvm.sh ./website/public/install.sh
-          cmp -s install-as-nvm.sh ./website/public/install-as-nvm.sh
-          sed -i "s/const version = \"v[^\"]*\"/const version = \"${{ github.ref_name }}\"/" website/src/components/hero.tsx
-          echo "✅ install scripts and site version updated to ${{ github.ref_name }}"
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add install.sh install-as-nvm.sh ./website/public/install.sh ./website/public/install-as-nvm.sh website/src/components/hero.tsx
-          if git diff --cached --quiet; then
-            echo "install scripts already match ${{ github.ref_name }}"
-          else
-            git commit -m "Update install.sh for ${{ github.ref_name }}"
-            git push origin main
-          fi
+          python3 - <<'PYTHON'
+          import os
+          import runpy
+          release = runpy.run_path('scripts/release-request.py')
+          # Pending v2.9.4 is intentional. A separate post-release commit may
+          # promote all public files together; neither phase is modified here.
+          release['verify_public_versions'](allowed=('v2.9.4', os.environ['VERSION']))
+          PYTHON

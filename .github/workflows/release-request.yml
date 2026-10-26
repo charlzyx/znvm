@@ -1,0 +1,243 @@
+name: One-shot v2.10.0 release request
+
+on:
+  push:
+    branches: [main]
+    paths: [release-request.json]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-v2.10.0
+  cancel-in-progress: false
+
+env:
+  VERSION: v2.10.0
+
+jobs:
+  guard:
+    name: Validate exact request, main, versions and remote state
+    if: github.repository == 'charlzyx/znvm' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - name: Test release guards (no remote writes)
+        run: python3 scripts/test-release-request.py
+      - name: Validate one-shot request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 scripts/release-request.py guard
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: guard
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-linux-musl
+            platform: x86_64-linux-musl
+            runner: ubuntu-latest
+            suffix: ''
+          - target: aarch64-linux-musl
+            platform: aarch64-linux-musl
+            runner: ubuntu-latest
+            suffix: ''
+          - target: x86_64-macos
+            platform: x86_64-macos
+            runner: ubuntu-latest
+            suffix: ''
+          - target: aarch64-macos
+            platform: aarch64-macos
+            runner: ubuntu-latest
+            suffix: ''
+          - target: x86_64-windows-gnu
+            platform: x86_64-windows
+            runner: windows-latest
+            suffix: .zip
+          - target: aarch64-windows-gnu
+            platform: aarch64-windows
+            runner: windows-11-arm
+            suffix: .zip
+    env:
+      ASSET: znvm-v2.10.0-${{ matrix.platform }}${{ matrix.suffix }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
+
+      - name: Name and hash Unix binary
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv zig-out/bin/znvm "$ASSET"
+          sha256sum "$ASSET" > "$ASSET.sha256"
+
+      - name: Package deterministic Windows ZIP and hash
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/package-windows.ps1 -Binary zig-out/bin/nvm.exe -Destination $env:ASSET
+
+      - name: Preserve build-time checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksum-${{ matrix.target }}
+          path: ${{ env.ASSET }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve candidate binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+          retention-days: 30
+
+  verify:
+    name: Assemble and verify the six build artifacts
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: checksum-*
+          path: checksums
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: candidate
+          merge-multiple: true
+      - name: Compare build-time hashes and assemble SHA256SUMS
+        run: |
+          set -euo pipefail
+          : > candidate/SHA256SUMS
+          for target in x86_64-linux-musl aarch64-linux-musl x86_64-macos aarch64-macos x86_64-windows aarch64-windows; do
+            suffix=''
+            [[ "$target" != *-windows ]] || suffix='.zip'
+            asset="znvm-${VERSION}-${target}${suffix}"
+            manifest="checksums/$asset.sha256"
+            [[ $(wc -l < "$manifest") -eq 1 ]]
+            read -r hash name < "$manifest"
+            [[ "$hash" =~ ^[a-f0-9]{64}$ && "$name" == "$asset" ]]
+            (cd candidate && sha256sum --check "../$manifest")
+            cat "$manifest" >> candidate/SHA256SUMS
+          done
+          [[ $(wc -l < candidate/SHA256SUMS) -eq 6 ]]
+          [[ $(find candidate -maxdepth 1 -type f | wc -l) -eq 7 ]]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: candidate/*
+          if-no-files-found: error
+          retention-days: 30
+
+  windows_release_smoke:
+    name: Test exact Windows release candidate (${{ matrix.arch }})
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            target: x86_64-windows-gnu
+            platform: x86_64-windows
+          - runner: windows-11-arm
+            arch: arm64
+            target: aarch64-windows-gnu
+            platform: aarch64-windows
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout release tests
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: candidate
+      - name: Hash-check, check version and run native candidate smoke
+        env:
+          TARGET: ${{ matrix.platform }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = "znvm-$env:VERSION-$env:TARGET.zip"
+          $package = (Resolve-Path "candidate/$asset").Path
+          $lines = @(Get-Content candidate/SHA256SUMS)
+          if ($lines.Count -ne 6) { throw 'Expected six release checksums' }
+          $pattern = '^([a-f0-9]{64})  ' + [regex]::Escape($asset) + '$'
+          $entries = @($lines | Where-Object { $_ -cmatch $pattern })
+          if ($entries.Count -ne 1) { throw 'Expected exactly one checksum for executable' }
+          $expected = [regex]::Match($entries[0], $pattern).Groups[1].Value
+          $actual = (Get-FileHash -Algorithm SHA256 $package).Hash.ToLowerInvariant()
+          if ($actual -cne $expected) { throw 'Candidate ZIP SHA256 mismatch' }
+          $extract = Join-Path $env:RUNNER_TEMP ('znvm release ZIP ' + [guid]::NewGuid())
+          Expand-Archive -LiteralPath $package -DestinationPath $extract
+          $binary = Join-Path $extract 'bin/nvm.exe'
+          $nrm = Join-Path $extract 'bin/nrm.exe'
+          if ((Get-FileHash $binary).Hash -cne (Get-FileHash $nrm).Hash) { throw 'nrm.exe is not the same native binary' }
+          foreach ($relative in @('cmd/nvm.cmd', 'cmd/init.cmd', 'cmd/finish.cmd', 'WINDOWS.md')) {
+            if (-not (Test-Path (Join-Path $extract $relative) -PathType Leaf)) { throw "Missing package file: $relative" }
+          }
+          $version = & $binary --version
+          if ($LASTEXITCODE -ne 0 -or "$version".Trim() -cne $env:VERSION) { throw "Candidate version mismatch: $version" }
+          # Exercise the packaged nrm dispatcher without touching runner-user state.
+          $env:HOME = Join-Path $extract 'nrm-fixture-home'
+          $env:USERPROFILE = $env:HOME
+          $env:NVM_DIR = Join-Path $env:HOME '.nvm'
+          $env:ZNVM_DIR = $env:NVM_DIR
+          New-Item -ItemType Directory -Force $env:NVM_DIR | Out-Null
+          $nrmVersion = & $nrm --version
+          if ($LASTEXITCODE -ne 0 -or "$nrmVersion".Trim() -cne $env:VERSION) { throw 'Packaged nrm.exe version mismatch' }
+          & $nrm ls
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged nrm.exe registry listing failed' }
+          ./scripts/windows-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH
+          ./scripts/windows-cmd-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH -PackageRoot $extract
+          ./scripts/windows-bash-smoke.ps1 -Binary $binary -ExpectedArch $env:EXPECTED_ARCH
+
+  publish:
+    name: Guard, wait for main CI, draft and publish exact tested bytes
+    timeout-minutes: 45
+    needs: [guard, build, verify, windows_release_smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: candidate
+      - name: Publish only after final main and existing-state guards
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 scripts/release-request.py publish candidate

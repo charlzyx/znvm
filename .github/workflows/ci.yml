@@ -18,6 +18,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Release guard fixtures (no remote writes)
+        run: python3 scripts/test-release-request.py
+
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
