@@ -16,6 +16,7 @@ interface NavLink {
 const navLinks: NavLink[] = [
   { href: "/", label: "Home", labelZh: "首页" },
   { href: "/getting-started", label: "Docs", labelZh: "文档" },
+  { href: "/windows", label: "Windows", labelZh: "Windows" },
   { href: "/blog/why-zig", label: "Blog", labelZh: "博客" },
 ];
 
@@ -45,6 +46,9 @@ export function Navbar() {
 
         <div className="flex flex-1 items-center justify-end gap-4">
           <nav className="hidden items-center gap-3 md:flex">
+            <Link href={isZh ? "/zh/windows" : "/windows"} className="text-sm text-muted-foreground hover:text-foreground">
+              Windows
+            </Link>
             <Link href="/" className={`text-sm ${!isZh ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               English
             </Link>

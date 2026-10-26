@@ -8,14 +8,14 @@ const features = {
   en: [
     { title: "NVM", body: "Same commands you already know." },
     { title: "npmmirror", body: "Node downloads, already mirrored." },
-    { title: "Guide", body: "A menu instead of flags." },
+    { title: "Guide", body: "A menu on macOS and Linux." },
     { title: "Registries", body: "One command changes the registry." },
     { title: "Mirrors", body: "Electron and Playwright, mirrored." },
   ],
   zh: [
     { title: "NVM", body: "命令和原来一样" },
     { title: "npmmirror", body: "Node 下载走国内" },
-    { title: "引导", body: "菜单里直接选" },
+    { title: "引导", body: "macOS 和 Linux 菜单里直接选" },
     { title: "源", body: "一条命令换源" },
     { title: "镜像", body: "二进制也走国内" },
   ],

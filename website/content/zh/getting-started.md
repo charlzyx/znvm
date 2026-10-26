@@ -2,9 +2,11 @@
 
 Zig 写的 NVM 和 NRM。版本在 `$NVM_DIR/versions/node`（默认 `~/.nvm`）。下载走 npmmirror。2026-10-22：热启动 3.31 ms，冷启动 5.01 ms。
 
-直接敲 `nvm` 打开引导。没有终端就只打一行，然后退出。
+macOS/Linux 上直接敲 `nvm` 打开引导。没有终端就只打一行，然后退出。
 
 ## 安装
+
+**Windows x64 / ARM64：**请使用 [Windows ZIP 与终端配置指南](/zh/windows)。下面的安装脚本用于 macOS/Linux。
 
 ### 安装命令
 

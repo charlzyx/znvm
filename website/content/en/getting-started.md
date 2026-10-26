@@ -2,9 +2,11 @@
 
 NVM and NRM, written in Zig. Versions live in `$NVM_DIR/versions/node` (default `~/.nvm`). Downloads use npmmirror. 2026-10-22: warm shell startup 3.31 ms, cold 5.01 ms.
 
-Run `nvm` to open the guide. With no terminal it prints one line and exits.
+On macOS/Linux, run `nvm` to open the guide. With no terminal it prints one line and exits.
 
 ## Installation
+
+**Windows x64 / ARM64:** use the [Windows ZIP and shell setup guide](/windows). The installer below is for macOS/Linux.
 
 ### Install
 

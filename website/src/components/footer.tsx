@@ -33,6 +33,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href={isZh ? "/zh/windows" : "/windows"} className="text-muted-foreground hover:text-foreground">
+                  {isZh ? "Windows 安装" : "Windows setup"}
+                </Link>
+              </li>
+              <li>
                 <Link href={isZh ? "/zh/blog/why-zig" : "/blog/why-zig"} className="text-muted-foreground hover:text-foreground">
                   {isZh ? "为什么选 Zig" : "Why Zig?"}
                 </Link>
@@ -85,7 +90,7 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} ZNVM. {isZh ? "保留所有权利。" : "All rights reserved."}
           </p>
-          <p>Linux, macOS</p>
+          <p>Linux · macOS · Windows x64 / ARM64</p>
         </div>
       </div>
     </footer>
