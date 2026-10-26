@@ -12,8 +12,18 @@ permissions:
 
 jobs:
   windows-smoke:
-    name: Native Windows x64 (PowerShell 7)
-    runs-on: windows-latest
+    name: Native Windows ${{ matrix.arch }} (PowerShell 7)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            target: x86_64-windows-gnu
+          - runner: windows-11-arm
+            arch: arm64
+            target: aarch64-windows-gnu
     timeout-minutes: 25
     defaults:
       run:
@@ -24,15 +34,15 @@ jobs:
         with:
           version: 0.17.0
       - name: Unit tests
-        run: zig build test
+        run: zig build test -Dtarget=${{ matrix.target }}
       - name: Build
-        run: zig build -Doptimize=ReleaseSafe
+        run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
       - name: Isolated native smoke
-        run: ./scripts/windows-smoke.ps1
+        run: ./scripts/windows-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
       - name: Upload tested Windows binary
         uses: actions/upload-artifact@v4
         with:
-          name: znvm-windows-x64
+          name: znvm-windows-${{ matrix.arch }}
           path: zig-out/bin/znvm.exe
           if-no-files-found: error
           retention-days: 7

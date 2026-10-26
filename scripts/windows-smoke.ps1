@@ -1,6 +1,9 @@
 # Native Windows/PowerShell integration test. Never writes real profile or PATH.
 [CmdletBinding()]
-param([string]$Binary = (Join-Path $PSScriptRoot '../zig-out/bin/znvm.exe'))
+param(
+    [string]$Binary = (Join-Path $PSScriptRoot '../zig-out/bin/znvm.exe'),
+    [ValidateSet('x64', 'arm64')][string]$ExpectedArch = 'x64'
+)
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 if (-not $IsWindows) { throw 'This test requires native Windows and PowerShell 7.' }
@@ -12,6 +15,15 @@ foreach ($key in $keys) { $saved[$key] = [Environment]::GetEnvironmentVariable($
 function Assert($condition, [string]$message) { if (-not $condition) { throw $message } }
 function Assert-Exit([string]$operation) { Assert ($global:LASTEXITCODE -eq 0) "$operation exited $global:LASTEXITCODE" }
 try {
+    $osArch = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+    Assert ($osArch -eq $ExpectedArch) "runner OS architecture $osArch is not $ExpectedArch"
+    # Verify the tested znvm binary is native, not an x64 executable emulated on ARM.
+    $pe = [IO.File]::ReadAllBytes($Binary)
+    $peOffset = [BitConverter]::ToInt32($pe, 0x3c)
+    $machine = [BitConverter]::ToUInt16($pe, $peOffset + 4)
+    $expectedMachine = if ($ExpectedArch -eq 'arm64') { 0xaa64 } else { 0x8664 }
+    Assert ($machine -eq $expectedMachine) "znvm PE machine $machine is not native $ExpectedArch"
+    Write-Host "Native verification: OS=$osArch znvm PE=$('{0:x}' -f $machine)"
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:HOME = Join-Path $root 'home'
     $env:USERPROFILE = $env:HOME
@@ -79,6 +91,9 @@ try {
     $version = (node.exe --version).Trim()
     Assert-Exit 'node --version'
     Assert ($version -match '^v22\.') "unexpected version: $version"
+    $nodeArch = (node.exe -p 'process.arch').Trim()
+    Assert-Exit 'node architecture'
+    Assert ($nodeArch -eq $ExpectedArch) "Node architecture $nodeArch is not native $ExpectedArch"
     $activePath = $env:PATH
     nvm --yes use 22
     Assert-Exit '--yes use 22'
@@ -156,7 +171,7 @@ try {
     $final = nvm ls --json | ConvertFrom-Json
     Assert-Exit 'final ls'
     Assert ($final.versions.Count -eq 0) 'uninstall left installed version'
-    Write-Host "PASS: native Windows install/use/current/which/list/run/exec/alias/deactivate/uninstall ($version)"
+    Write-Host "PASS: native Windows install/use/current/which/list/run/exec/alias/deactivate/uninstall ($version, $ExpectedArch)"
 } finally {
     foreach ($key in $keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key], 'Process') }
     Remove-Item Function:\nvm -ErrorAction SilentlyContinue
