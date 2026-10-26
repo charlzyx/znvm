@@ -1,7 +1,7 @@
 # Native Windows/PowerShell integration test. Never writes real profile or PATH.
 [CmdletBinding()]
 param(
-    [string]$Binary = (Join-Path $PSScriptRoot '../zig-out/bin/znvm.exe'),
+    [string]$Binary = (Join-Path $PSScriptRoot '../zig-out/bin/nvm.exe'),
     [ValidateSet('x64', 'arm64')][string]$ExpectedArch = 'x64'
 )
 $ErrorActionPreference = 'Stop'
@@ -9,7 +9,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 if (-not $IsWindows) { throw 'This test requires native Windows and PowerShell 7.' }
 $Binary = (Resolve-Path $Binary).Path
 $root = Join-Path ([IO.Path]::GetTempPath()) ("znvm smoke ' " + [guid]::NewGuid())
-$keys = @('HOME', 'USERPROFILE', 'NVM_DIR', 'ZNVM_DIR', 'ZNVM_NPM_PREFIX', 'ZNVM_CURRENT', 'NVM_BIN', 'NVM_INC', 'NPM_CONFIG_PREFIX', 'NVM_NODEJS_ORG_MIRROR', 'ZNVM_NODE_MIRROR', 'NVM_LANG', 'NVM_NONINTERACTIVE', 'PATH')
+$keys = @('HOME', 'USERPROFILE', 'NVM_DIR', 'ZNVM_DIR', 'ZNVM_NPM_PREFIX', 'ZNVM_CURRENT', 'NVM_BIN', 'NVM_INC', 'NPM_CONFIG_PREFIX', 'NVM_NODEJS_ORG_MIRROR', 'ZNVM_NODE_MIRROR', 'NVM_LANG', 'NVM_NONINTERACTIVE', 'ZNVM_SHELL', 'PATH')
 $saved = @{}
 foreach ($key in $keys) { $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
 function Assert($condition, [string]$message) { if (-not $condition) { throw $message } }
@@ -17,13 +17,15 @@ function Assert-Exit([string]$operation) { Assert ($global:LASTEXITCODE -eq 0) "
 try {
     $osArch = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
     Assert ($osArch -eq $ExpectedArch) "runner OS architecture $osArch is not $ExpectedArch"
+    $processArch = [Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant()
+    Assert ($processArch -eq $ExpectedArch) "PowerShell process architecture $processArch is not native $ExpectedArch"
     # Verify the tested znvm binary is native, not an x64 executable emulated on ARM.
     $pe = [IO.File]::ReadAllBytes($Binary)
     $peOffset = [BitConverter]::ToInt32($pe, 0x3c)
     $machine = [BitConverter]::ToUInt16($pe, $peOffset + 4)
     $expectedMachine = if ($ExpectedArch -eq 'arm64') { 0xaa64 } else { 0x8664 }
     Assert ($machine -eq $expectedMachine) "znvm PE machine $machine is not native $ExpectedArch"
-    Write-Host "Native verification: OS=$osArch znvm PE=$('{0:x}' -f $machine)"
+    Write-Host "Native verification: OS=$osArch PowerShell=$processArch znvm PE=$('{0:x}' -f $machine)"
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:HOME = Join-Path $root 'home'
     $env:USERPROFILE = $env:HOME
@@ -95,6 +97,27 @@ try {
     Assert-Exit 'node architecture'
     Assert ($nodeArch -eq $ExpectedArch) "Node architecture $nodeArch is not native $ExpectedArch"
     $activePath = $env:PATH
+    $priorSelector = [Environment]::GetEnvironmentVariable('ZNVM_SHELL', 'Process')
+    try {
+        $env:ZNVM_SHELL = 'bash'
+        nvm deactivate
+        Assert-Exit 'PowerShell deactivate with inherited Bash selector'
+        Assert ($env:PATH -eq $initialPath) 'inherited selector prevented deactivate'
+        nvm use 22
+        Assert-Exit 'PowerShell use with inherited Bash selector'
+        Assert ($env:ZNVM_SHELL -ceq 'bash') 'PowerShell wrapper did not restore inherited selector'
+        Assert ($env:PATH -eq $activePath) 'inherited selector changed PATH protocol'
+        Remove-Item -LiteralPath Env:ZNVM_SHELL -ErrorAction SilentlyContinue
+        nvm use 22
+        Assert-Exit 'PowerShell use with unset selector'
+        Assert ($null -eq [Environment]::GetEnvironmentVariable('ZNVM_SHELL', 'Process')) 'PowerShell wrapper left selector set'
+    } finally {
+        if ($null -eq $priorSelector) {
+            Remove-Item -LiteralPath Env:ZNVM_SHELL -ErrorAction SilentlyContinue
+        } else {
+            [Environment]::SetEnvironmentVariable('ZNVM_SHELL', $priorSelector, 'Process')
+        }
+    }
     nvm --yes use 22
     Assert-Exit '--yes use 22'
     Assert ($env:PATH -eq $activePath) 'repeated use duplicated PATH'

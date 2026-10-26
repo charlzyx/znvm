@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "znvm",
+        .name = if (target.result.os.tag == .windows) "nvm" else "znvm",
         .root_module = b.createModule(.{
             .root_source_file = b.path("exe_root.zig"),
             .target = target,

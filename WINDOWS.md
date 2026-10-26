@@ -1,28 +1,35 @@
-# Native Windows support (draft)
+# Native Windows support
 
-Tracked by #27. This branch develops native Windows x64 with PowerShell 7,
+Tracked by #27. Native Windows x64 and ARM64 support PowerShell 7, cmd, and Git Bash,
 without administrator privileges, symlinks, junctions, or persistent system PATH
 changes. Node uses the official Windows ZIP layout. Switching changes only the
-current PowerShell process. Existing macOS/Linux behavior must remain unchanged.
+current shell session. Existing macOS/Linux behavior must remain unchanged.
 
 Validation targets: unit tests, Linux/macOS regression suites, and native
-`windows-latest` smoke tests with temporary HOME/USERPROFILE/NVM_DIR. Cross
+`windows-latest` (x64) and `windows-11-arm` (ARM64) smoke tests with temporary HOME/USERPROFILE/NVM_DIR. Cross
 compilation is a build check, not Windows runtime validation.
 
 The first implementation targets install/list/which/current/use/run/exec,
-aliases and removal. cmd.exe integration, automatic directory hooks, native
-interactive arrow-key menus and Windows ARM64 runtime validation are not part
-of the initial support claim. No release is published by this PR.
+aliases and removal. Automatic directory hooks and native interactive arrow-key
+menus are not part of this support claim. This implements znvm’s nvm-compatible
+CLI, not every feature of the separate nvm-windows project.
 
-Implementation and verification are in progress; see the PR checks for results.
+See the PR and release checks for native x64 and ARM64 verification results.
 
-## Build and use (PowerShell 7, Windows 10/11 x64)
+## Download and use (PowerShell 7, Windows x64 or ARM64)
 
-Install Zig **0.17.0**, then from this checkout:
+Download the matching ZIP from [v2.10.0](https://github.com/charlzyx/znvm/releases/tag/v2.10.0):
+
+- x64: `znvm-v2.10.0-x86_64-windows.zip`
+- ARM64: `znvm-v2.10.0-aarch64-windows.zip`
+
+Compare `Get-FileHash <downloaded-file> -Algorithm SHA256` with the release's
+`SHA256SUMS`, then extract the ZIP into a user-owned folder. Each package contains real
+`bin/nvm.exe` and `bin/nrm.exe`, plus the separate `cmd` shim directory.
+The hashes check transfer integrity; obtain both files from the official release.
 
 ```powershell
-zig build -Doptimize=ReleaseSafe
-$setup = & ./zig-out/bin/znvm.exe env
+$setup = & ./bin/nvm.exe env --shell powershell
 if ($LASTEXITCODE -eq 0) { Invoke-Expression ($setup -join "`n") }
 nvm install 22
 nvm use 22
@@ -30,6 +37,10 @@ nvm current
 nvm exec 22 npm --version
 nvm deactivate
 ```
+
+To build from source, install Zig **0.17.0** and run
+`zig build -Doptimize=ReleaseSafe`; the executable is `zig-out/bin/nvm.exe`.
+On ARM64, use native ARM64 Zig or explicitly pass `-Dtarget=aarch64-windows-gnu`.
 
 This installs the `nvm` function in this session only. Repeat `env` in a new
 terminal. No profile or persistent PATH is edited. `NVM_DIR` overrides the data
@@ -42,14 +53,49 @@ supports Unicode paths without a tar subprocess. `nvm exec` handles
 Windows process launcher; batch files use Windows shell semantics. Prefer
 explicit `.exe` commands when arguments must remain literal.
 
-For the registry CLI, copy rather than symlink the binary:
+For the registry CLI, run the packaged `./bin/nrm.exe ls`.
 
-```powershell
-Copy-Item ./zig-out/bin/znvm.exe ./zig-out/bin/nrm.exe
-./zig-out/bin/nrm.exe ls
+## cmd
+
+From the extracted package, initialize the current session:
+
+```bat
+cmd /V:OFF
+cmd\init.cmd
+nvm install 22
+nvm use 22
+node --version
+nvm deactivate
 ```
 
-Run `zig build test` and `./scripts/windows-smoke.ps1` for native validation.
+In another batch file use `call "C:\path to package\cmd\init.cmd"` and
+`call nvm ...`. Initialization puts the separate shim directory before `bin` on
+this session's PATH. Do not run from inside `bin`: cmd searches the current
+directory before PATH, and a direct `nvm.exe` process cannot change its parent
+environment. Use explicit `nvm.cmd` when necessary. Delayed expansion (`/V:ON`)
+is refused, rather than silently corrupting paths containing `!`. Environment
+updates temporarily select UTF-8 console codepage and restore the original;
+this briefly affects the shared console, not system settings. Oversized or
+multiline environment updates are rejected. Ordinary command output is never
+executed as batch code.
+
+## Git Bash
+
+```bash
+eval "$(./bin/nvm.exe env --shell bash)"
+nvm install 22
+nvm use 22
+node --version
+nvm deactivate
+```
+
+Only the trusted initializer is evaluated. Mutation responses are allowlisted
+Base64 data, not shell code. Windows PATH lists are converted with `cygpath`.
+Native arguments are forwarded literally with MSYS automatic argument conversion
+disabled; pass Windows paths to native commands when a pathname is required.
+No other shell's environment or startup profile is changed.
+
+Run `zig build test` and `./scripts/windows-smoke.ps1 -ExpectedArch x64` (or `arm64`) for native validation.
 The smoke test uses a disposable data root and restores its process environment.
 Mirror-generated `binaries.env` remains POSIX shell syntax and is not sourced
 by PowerShell yet; direct registry configuration and Node mirror selection

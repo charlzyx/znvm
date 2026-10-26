@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-const version = "v2.9.4";
+const version = "v2.10.0";
 
 export function Hero({ lang = "en" }: { lang?: "en" | "zh" }) {
   const zh = lang === "zh";

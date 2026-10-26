@@ -15,7 +15,7 @@ profile_display() {
 }
 
 # Version baked in at release time. Update this line when publishing.
-ZNVM_VERSION="v2.9.4"
+ZNVM_VERSION="v2.10.0"
 
 ZNVM_DIR="$HOME/.znvm"
 REPO_URL="https://github.com/charlzyx/znvm.git"

@@ -7,6 +7,25 @@
 
 ## [Unreleased]
 
+## [v2.10.0] - 2026-10-26
+
+### Added
+
+- Native Windows x64 and ARM64 Node version management with PowerShell 7, cmd and Git Bash session-only switching, without administrator rights, symlinks or persistent PATH edits.
+- Windows distribution ZIP handling, Unicode paths and environment variables, native `node`, `npm` and `npx` execution, and copied `nrm.exe` support.
+- Native Windows CI on both architectures, with OS/PE/Node architecture checks and isolated install/use/run/exec/uninstall coverage.
+- Windows release ZIP packages containing `nvm.exe` and `nrm.exe` and six-platform SHA256 verification, followed by native smoke tests of downloaded Windows release assets.
+
+### Fixed
+
+- Ignore empty Node mirror overrides instead of passing an invalid relative URL to curl.
+- Keep PowerShell help and subprocess output as data; only a fixed allowlisted environment protocol changes the current session.
+- Extract Windows ZIPs with bounded validation, reserved-path rejection, streamed CRC32/length checks and non-replacing atomic staging, preserving existing installs on failure.
+
+### Limitations
+
+- PowerShell 7, cmd with delayed expansion disabled, and Git Bash are supported. Automatic directory hooks, interactive arrow-key menus and PowerShell loading of `binaries.env` are not included. Direct executable calls cannot change the parent shell environment; initialize the corresponding shell integration.
+
 ## [v2.9.4] - 2026-10-23
 
 ### Added

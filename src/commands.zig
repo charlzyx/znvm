@@ -286,6 +286,24 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const inc_path = try fs.path.join(allocator, &.{ home, "include", "node" });
     defer allocator.free(inc_path);
 
+    if (platform.windows) {
+        const changes = [_]platform.EnvChange{
+            .{ .key = "PATH", .value = new_path },
+            .{ .key = "ZNVM_CURRENT", .value = ver },
+            .{ .key = "NVM_BIN", .value = bin_path },
+            .{ .key = "NVM_INC", .value = inc_path },
+            .{ .key = "NPM_CONFIG_PREFIX", .value = config.npm_prefix },
+        };
+        try putEnv(allocator, "PATH", new_path);
+        try putEnv(allocator, "ZNVM_CURRENT", ver);
+        try putEnv(allocator, "NVM_BIN", bin_path);
+        try putEnv(allocator, "NVM_INC", inc_path);
+        if (config.npm_prefix) |prefix| try putEnv(allocator, "NPM_CONFIG_PREFIX", prefix) else try clearEnv("NPM_CONFIG_PREFIX");
+        if (!silent) try printUsing(allocator, config, ver);
+        try emitWindowsChanges(allocator, &changes, null);
+        return;
+    }
+
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
     const quoted_version = try shellQuote(allocator, ver);
@@ -334,6 +352,20 @@ fn emitDeactivate(allocator: mem.Allocator, config: ZnvmConfig, silent: bool, me
     defer allocator.free(path);
     const new_path = try pathWithoutVersions(allocator, config, path);
     defer allocator.free(new_path);
+    if (platform.windows) {
+        try putEnv(allocator, "PATH", new_path);
+        try clearEnv("ZNVM_CURRENT");
+        try clearEnv("NVM_BIN");
+        try clearEnv("NVM_INC");
+        if (!silent and message.len > 0) try stderr("{s}\n", .{message});
+        try emitWindowsChanges(allocator, &.{
+            .{ .key = "PATH", .value = new_path },
+            .{ .key = "ZNVM_CURRENT", .value = null },
+            .{ .key = "NVM_BIN", .value = null },
+            .{ .key = "NVM_INC", .value = null },
+        }, null);
+        return;
+    }
     const quoted_path = try shellQuote(allocator, new_path);
     defer allocator.free(quoted_path);
 
@@ -927,8 +959,14 @@ pub fn cmdMirror(allocator: mem.Allocator, args: []const []const u8, config: Znv
 }
 
 pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
-    _ = args;
-    if (platform.windows) return emitPowerShellEnv(allocator, config);
+    if (platform.windows) {
+        const shell = try envShellArg(args);
+        return switch (shell) {
+            .powershell => emitPowerShellEnv(allocator, config),
+            .cmd => emitCmdEnv(allocator, config),
+            .bash => emitBashEnv(allocator, config),
+        };
+    }
     const root_dir = try shellQuote(allocator, config.root_dir);
     defer allocator.free(root_dir);
 
@@ -2030,7 +2068,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try i18n.err(messages.debug_version, .{"v2.9.4"});
+    try i18n.err(messages.debug_version, .{"v2.10.0"});
     try i18n.err(messages.debug_dir, .{config.root_dir});
     try i18n.err(messages.debug_versions, .{config.versions_dir});
     try i18n.err(messages.debug_mirror, .{config.mirror});
@@ -2067,4 +2105,83 @@ fn emitPowerShellEnv(allocator: mem.Allocator, config: ZnvmConfig) !void {
         try stdout("$env:NPM_CONFIG_PREFIX={s}\n", .{quoted_prefix});
     }
     try stdout("{s}\n", .{@embedFile("../scripts/nvm.ps1")});
+}
+
+fn envShellArg(args: []const []const u8) !platform.Shell {
+    if (args.len == 2) return .powershell;
+    if (args.len == 4 and mem.eql(u8, args[2], "--shell")) return platform.parseShell(args[3]);
+    if (args.len == 3 and mem.startsWith(u8, args[2], "--shell=")) return platform.parseShell(args[2]["--shell=".len..]);
+    return error.InvalidShellArguments;
+}
+
+fn emitWindowsChanges(allocator: mem.Allocator, changes: []const platform.EnvChange, explicit_shell: ?platform.Shell) !void {
+    var env = try host.envMap(allocator);
+    defer env.deinit();
+    const shell = explicit_shell orelse try platform.parseShell(env.get("ZNVM_SHELL") orelse "powershell");
+    if (shell == .cmd) {
+        const output = env.get("ZNVM_CMD_ENV_FILE") orelse return error.CmdWrapperRequired;
+        if (!fs.path.isAbsolute(output)) return error.InvalidCmdEnvironmentPath;
+        const batch = try platform.cmdBatch(allocator, changes);
+        defer allocator.free(batch);
+        const file = try std.Io.Dir.createFileAbsolute(host.io(), output, .{ .exclusive = true });
+        var complete = false;
+        defer {
+            file.close(host.io());
+            if (!complete) std.Io.Dir.deleteFileAbsolute(host.io(), output) catch {};
+        }
+        try host.writeAll(file, batch);
+        complete = true;
+        return;
+    }
+    for (changes) |change| {
+        if (change.value) |value| {
+            const encoded = if (shell == .bash) try platform.base64Value(allocator, value) else try platform.powerShellValue(allocator, value);
+            defer allocator.free(encoded);
+            if (shell == .bash) try stdout("ZNVM_ENV|{s}|{s}\n", .{ change.key, encoded }) else try stdout("$env:{s}={s}\n", .{ change.key, encoded });
+        } else {
+            if (shell == .bash) try stdout("ZNVM_UNSET|{s}\n", .{change.key}) else try stdout("Remove-Item Env:{s} -ErrorAction SilentlyContinue\n", .{change.key});
+        }
+    }
+}
+
+fn emitCmdEnv(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    const exe = try std.process.executablePathAlloc(host.io(), allocator);
+    defer allocator.free(exe);
+    const bin = fs.path.dirname(exe) orelse return error.InvalidExecutablePath;
+    const package = fs.path.dirname(bin) orelse return error.InvalidExecutablePath;
+    const cmd = try fs.path.join(allocator, &.{ package, "cmd" });
+    defer allocator.free(cmd);
+    const old_path = try currentPath(allocator);
+    defer allocator.free(old_path);
+    var path: std.ArrayList(u8) = .empty;
+    defer path.deinit(allocator);
+    try path.appendSlice(allocator, cmd);
+    try path.append(allocator, ';');
+    try path.appendSlice(allocator, bin);
+    var entries = mem.splitScalar(u8, old_path, ';');
+    while (entries.next()) |entry| {
+        if (entry.len == 0 or platform.sameWindowsPath(entry, cmd) or platform.sameWindowsPath(entry, bin)) continue;
+        try path.append(allocator, ';');
+        try path.appendSlice(allocator, entry);
+    }
+    try emitWindowsChanges(allocator, &.{
+        .{ .key = "PATH", .value = path.items },
+        .{ .key = "NVM_DIR", .value = config.root_dir },
+    }, .cmd);
+}
+
+fn emitBashEnv(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    const exe = try std.process.executablePathAlloc(host.io(), allocator);
+    defer allocator.free(exe);
+    const encoded_exe = try platform.base64Value(allocator, exe);
+    defer allocator.free(encoded_exe);
+    const root = try platform.base64Value(allocator, config.root_dir);
+    defer allocator.free(root);
+    try stdout("__znvm_exe=$(printf %s '{s}' | base64 --decode)\n__znvm_exe=$(cygpath -u \"$__znvm_exe\")\nexport NVM_DIR=\"$(printf %s '{s}' | base64 --decode)\"\n", .{ encoded_exe, root });
+    if (config.npm_prefix) |prefix| {
+        const encoded = try platform.base64Value(allocator, prefix);
+        defer allocator.free(encoded);
+        try stdout("export NPM_CONFIG_PREFIX=\"$(printf %s '{s}' | base64 --decode)\"\n", .{encoded});
+    }
+    try stdout("{s}\n", .{@embedFile("../scripts/nvm.bash")});
 }

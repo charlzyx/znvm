@@ -66,3 +66,109 @@ test "PowerShell values are ASCII-only expressions with literal UTF8 payload" {
     try decoder.decode(decoded, encoded);
     try std.testing.expectEqualStrings(value, decoded);
 }
+
+pub const Shell = enum { powershell, cmd, bash };
+pub const EnvChange = struct { key: []const u8, value: ?[]const u8 };
+
+pub fn parseShell(value: []const u8) !Shell {
+    inline for (.{ Shell.powershell, Shell.cmd, Shell.bash }) |shell| {
+        if (std.mem.eql(u8, value, @tagName(shell))) return shell;
+    }
+    return error.UnsupportedShell;
+}
+
+pub fn base64Value(allocator: std.mem.Allocator, value: []const u8) ![]u8 {
+    const encoder = std.base64.standard.Encoder;
+    const result = try allocator.alloc(u8, encoder.calcSize(value.len));
+    _ = encoder.encode(result, value);
+    return result;
+}
+
+fn allowedEnvKey(key: []const u8) bool {
+    inline for (.{ "PATH", "NVM_DIR", "ZNVM_CURRENT", "NVM_BIN", "NVM_INC", "NPM_CONFIG_PREFIX" }) |allowed| {
+        if (std.mem.eql(u8, key, allowed)) return true;
+    }
+    return false;
+}
+
+/// CMD only: generated batch is directly chained, never passed through CALL.
+/// Caller must have delayed expansion disabled. Preflight every assignment
+/// before returning any bytes, including cmd.exe's UTF-16 line-length budget.
+pub fn cmdBatch(allocator: std.mem.Allocator, changes: []const EnvChange) ![]u8 {
+    var body: std.ArrayList(u8) = .empty;
+    errdefer body.deinit(allocator);
+    try body.appendSlice(allocator, "@set _znvm_old_cp=\r\n" ++
+        "@for /f \"tokens=2 delims=:\" %%C in ('\"\"%SystemRoot%\\System32\\chcp.com\"\"') do @set _znvm_old_cp=%%C\r\n" ++
+        "@if not defined _znvm_old_cp goto znvm_codepage_failed\r\n" ++
+        "@\"%SystemRoot%\\System32\\chcp.com\" 65001 >nul\r\n" ++
+        "@if errorlevel 1 goto znvm_codepage_failed\r\n");
+    for (changes) |change| {
+        if (!allowedEnvKey(change.key)) return error.InvalidEnvironmentKey;
+        const start = body.items.len;
+        try body.appendSlice(allocator, "@set ");
+        try body.appendSlice(allocator, change.key);
+        try body.append(allocator, '=');
+        if (change.value) |value| {
+            for (value) |c| {
+                if (c == 0 or c == '\r' or c == '\n') return error.InvalidCmdEnvironmentValue;
+                if (c == '%') {
+                    try body.appendSlice(allocator, "%%");
+                } else {
+                    if (std.mem.indexOfScalar(u8, "^&|<>()\"", c) != null) try body.append(allocator, '^');
+                    try body.append(allocator, c);
+                }
+            }
+        }
+        const wide = try std.unicode.utf8ToUtf16LeAlloc(allocator, body.items[start..]);
+        defer allocator.free(wide);
+        if (wide.len > 8000) return error.CmdEnvironmentTooLong;
+        try body.appendSlice(allocator, "\r\n");
+    }
+    try body.appendSlice(allocator, "@\"%SystemRoot%\\System32\\chcp.com\" %_znvm_old_cp% >nul\r\n" ++
+        "@if errorlevel 1 goto znvm_codepage_failed\r\n" ++
+        "@set _znvm_old_cp=\r\n" ++
+        "@del \"%~f0\" >nul 2>&1\r\n" ++
+        "@exit /b 0\r\n" ++
+        ":znvm_codepage_failed\r\n" ++
+        "@if defined _znvm_old_cp \"%SystemRoot%\\System32\\chcp.com\" %_znvm_old_cp% >nul\r\n" ++
+        "@set _znvm_old_cp=\r\n" ++
+        "@del \"%~f0\" >nul 2>&1\r\n" ++
+        "@exit /b 1\r\n");
+    return body.toOwnedSlice(allocator);
+}
+
+test "cmd output preflights all values and escapes one batch parse" {
+    const a = std.testing.allocator;
+    const batch = try cmdBatch(a, &.{.{ .key = "PATH", .value = "中文 %PATH% !bang! ^ & (x)" }});
+    defer a.free(batch);
+    try std.testing.expect(std.mem.indexOf(u8, batch, "中文 %%PATH%% !bang! ^^ ^& ^(x^)") != null);
+    try std.testing.expectError(error.InvalidCmdEnvironmentValue, cmdBatch(a, &.{.{ .key = "PATH", .value = "bad\r\necho bad" }}));
+    try std.testing.expectError(error.InvalidEnvironmentKey, cmdBatch(a, &.{.{ .key = "BAD&echo", .value = "x" }}));
+    const long = try a.alloc(u8, 8001);
+    defer a.free(long);
+    @memset(long, 'a');
+    try std.testing.expectError(error.CmdEnvironmentTooLong, cmdBatch(a, &.{.{ .key = "PATH", .value = long }}));
+}
+
+pub fn sameWindowsPath(a: []const u8, b: []const u8) bool {
+    var left = a;
+    var right = b;
+    while (left.len > 3 and (left[left.len - 1] == '/' or left[left.len - 1] == '\\')) left = left[0 .. left.len - 1];
+    while (right.len > 3 and (right[right.len - 1] == '/' or right[right.len - 1] == '\\')) right = right[0 .. right.len - 1];
+    if (left.len != right.len) return false;
+    for (left, right) |x, y| {
+        if ((x == '/' or x == '\\') and (y == '/' or y == '\\')) continue;
+        if (std.ascii.toLower(x) != std.ascii.toLower(y)) return false;
+    }
+    return true;
+}
+
+test "shell names are explicit and Windows PATH dedup normalizes separators" {
+    try std.testing.expectEqual(Shell.cmd, try parseShell("cmd"));
+    try std.testing.expectEqual(Shell.bash, try parseShell("bash"));
+    try std.testing.expectEqual(Shell.powershell, try parseShell("powershell"));
+    try std.testing.expectError(error.UnsupportedShell, parseShell("pwsh"));
+    try std.testing.expectError(error.UnsupportedShell, parseShell("cmd & echo bad"));
+    try std.testing.expect(sameWindowsPath("C:/Package/CMD/", "c:\\package\\cmd"));
+    try std.testing.expect(!sameWindowsPath("C:/Package/CMD-other", "c:\\package\\cmd"));
+}
