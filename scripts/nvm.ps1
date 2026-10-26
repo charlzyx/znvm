@@ -36,7 +36,7 @@ function global:nvm {
                     }
                     [Environment]::SetEnvironmentVariable($key, $value, 'Process')
                 } elseif ($line -cmatch $remove) {
-                    [Environment]::SetEnvironmentVariable($Matches[1], $null, 'Process')
+                    Remove-Item -LiteralPath "Env:$($Matches[1])" -ErrorAction SilentlyContinue
                 } else {
                     Write-Output $line
                 }

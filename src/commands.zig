@@ -1853,6 +1853,31 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
         },
     }
 
+    // Windows spawning resolves bare executables against the parent PATH,
+    // not environ_map. Resolve Node explicitly so exec selects the requested
+    // version even when the caller is deactivated or has another Node active.
+    if (platform.windows and argv.len > 0 and
+        (std.ascii.eqlIgnoreCase(argv[0], "node") or std.ascii.eqlIgnoreCase(argv[0], "node.exe")))
+    {
+        const node = switch (hit) {
+            .version => |ver| blk: {
+                const home = try versionHome(allocator, config, ver);
+                defer allocator.free(home);
+                break :blk try platform.nodePath(allocator, home);
+            },
+            .system => try findSystemNode(allocator, config) orelse {
+                try i18n.err(messages.system_node_missing_nl, .{});
+                process.exit(127);
+            },
+        };
+        defer allocator.free(node);
+        const node_args = try allocator.alloc([]const u8, argv.len);
+        defer allocator.free(node_args);
+        @memcpy(node_args, argv);
+        node_args[0] = node;
+        exitWith(try host.spawnWait(node_args, &env_map, .inherit));
+    }
+
     // Invoke bundled npm through Node instead of cmd.exe: preserves literal
     // arguments (including shell metacharacters) without a second shell parse.
     if (platform.windows and argv.len > 0 and (mem.eql(u8, argv[0], "npm") or mem.eql(u8, argv[0], "npx"))) {

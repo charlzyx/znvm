@@ -121,7 +121,7 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     const npm_prefix = try resolveNpmPrefix(allocator, env_map.get("ZNVM_NPM_PREFIX"));
     errdefer if (npm_prefix) |prefix| allocator.free(prefix);
 
-    const mirror_env = env_map.get("ZNVM_NODE_MIRROR") orelse env_map.get("NVM_NODEJS_ORG_MIRROR") orelse "https://npmmirror.com/mirrors/node";
+    const mirror_env = resolveMirror(env_map.get("ZNVM_NODE_MIRROR"), env_map.get("NVM_NODEJS_ORG_MIRROR"));
     const mirror = try allocator.dupe(u8, mirror_env);
     errdefer allocator.free(mirror);
 
@@ -163,4 +163,14 @@ test "Windows data roots normalize trailing separators without truncating drive 
     const slash_root = try resolveDataRoot(allocator, "C:/", null, "unused");
     defer allocator.free(slash_root);
     try std.testing.expectEqualStrings("C:/", slash_root);
+}
+
+fn resolveMirror(znvm: ?[]const u8, nvm: ?[]const u8) []const u8 {
+    return nonempty(znvm) orelse nonempty(nvm) orelse "https://npmmirror.com/mirrors/node";
+}
+
+test "empty mirror overrides do not mask configured or default hosts" {
+    try std.testing.expectEqualStrings("https://nodejs.org/dist", resolveMirror("", "https://nodejs.org/dist"));
+    try std.testing.expectEqualStrings("https://npmmirror.com/mirrors/node", resolveMirror("", ""));
+    try std.testing.expectEqualStrings("https://example.test", resolveMirror("https://example.test", "https://nodejs.org/dist"));
 }

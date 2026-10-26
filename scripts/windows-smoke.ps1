@@ -18,7 +18,7 @@ try {
     $env:NVM_DIR = Join-Path $root "node 数据 ' quoted ’ smart"
     New-Item -ItemType Directory -Path $env:HOME, $env:NVM_DIR | Out-Null
     foreach ($key in @('ZNVM_DIR', 'ZNVM_NPM_PREFIX', 'ZNVM_CURRENT', 'NVM_BIN', 'NVM_INC', 'NPM_CONFIG_PREFIX', 'ZNVM_NODE_MIRROR')) {
-        [Environment]::SetEnvironmentVariable($key, $null, 'Process')
+        Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue
     }
     $env:NVM_NODEJS_ORG_MIRROR = 'https://nodejs.org/dist'
     $env:NVM_LANG = 'en'
@@ -74,6 +74,8 @@ try {
     $empty = nvm ls --json | ConvertFrom-Json
     Assert-Exit 'empty ls'
     Assert ($empty.versions.Count -eq 0) 'isolated root unexpectedly contains Node'
+    nvm debug
+    Assert-Exit 'debug configuration'
     nvm install 22
     Assert-Exit 'install 22'
     $version = (node.exe --version).Trim()
@@ -140,6 +142,12 @@ try {
     Assert-Exit 'deactivate'
     Assert ($env:PATH -eq $initialPath) 'deactivate failed to restore PATH'
     Assert ([string]::IsNullOrEmpty($env:NVM_BIN)) 'deactivate left NVM_BIN'
+    Assert ((nvm exec 22 node --version).Trim() -eq $version) 'deactivated exec node mismatch'
+    Assert-Exit 'deactivated exec node'
+    Assert ((nvm exec 22 node.exe --version).Trim() -eq $version) 'deactivated exec node.exe mismatch'
+    Assert-Exit 'deactivated exec node.exe'
+    Assert ($env:PATH -eq $initialPath) 'exec changed deactivated caller PATH'
+    Assert ([string]::IsNullOrEmpty($env:NVM_BIN)) 'exec activated the caller'
     nvm --yes use 22
     Assert-Exit 'leading flag use after deactivate'
     Assert ((nvm current).Trim() -eq $version) 'leading flag failed to apply switching'

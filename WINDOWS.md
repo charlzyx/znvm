@@ -37,8 +37,9 @@ root, otherwise `HOME` then `USERPROFILE` supplies `.nvm`. Existing nvm-windows
 symlink installations are not imported. The official Windows ZIPs place
 `node.exe` and `node_modules` directly inside each version directory.
 Windows' bundled `curl.exe` and `tar.exe` must be on PATH. `nvm exec` handles
-`npm` and `npx` through their JavaScript entrypoints; arbitrary `.cmd`/`.bat`
-commands are not shell-interpreted (invoke the desired shell explicitly).
+`npm` and `npx` through their JavaScript entrypoints. Other commands use Zig's
+Windows process launcher; batch files use Windows shell semantics. Prefer
+explicit `.exe` commands when arguments must remain literal.
 
 For the registry CLI, copy rather than symlink the binary:
 
