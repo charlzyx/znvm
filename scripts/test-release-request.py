@@ -69,12 +69,12 @@ class ReleaseGuards(unittest.TestCase):
             self.assertIsNotNone(r.state(SHA))
 
     def test_main_moved_fails(self):
-        with patch.object(r, 'api', return_value={'object': {'sha': 'b' * 40}}), self.assertRaises(RuntimeError):
+        with patch.object(r, 'api', return_value={'object': {'type': 'commit', 'sha': 'b' * 40}}), self.assertRaises(RuntimeError):
             r.check_main(SHA)
 
     def test_wrong_event_or_branch_fails(self):
         for env in ({'GITHUB_EVENT_NAME': 'pull_request'}, {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/feature'}):
-            with patch.dict(os.environ, env, clear=True), self.assertRaises(RuntimeError):
+            with patch.dict(os.environ, {'GITHUB_REPOSITORY': r.REPOSITORY, 'GH_REPO': r.REPOSITORY} | env, clear=True), self.assertRaises(RuntimeError):
                 r.context()
 
     def test_api_error_is_not_absence(self):
@@ -88,12 +88,37 @@ class ReleaseGuards(unittest.TestCase):
             self.assertIsNone(r.api('releases/tags/v2.10.0', optional=True))
 
     def test_marker_exact_boolean_version_and_fields(self):
-        env = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': SHA}
+        env = {'GITHUB_REPOSITORY': r.REPOSITORY, 'GH_REPO': r.REPOSITORY, 'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': SHA}
         invalid = ({'enabled': 1, 'version': '2.10.0'}, {'enabled': True, 'version': '9.0.0'},
                    {'enabled': True, 'version': '2.10.0', 'extra': 'unsafe'}, {'enabled': False, 'version': '2.10.0'})
         for marker in invalid:
             with patch.dict(os.environ, env, clear=True), patch.object(r.Path, 'read_text', return_value=json.dumps(marker)), self.assertRaises(RuntimeError):
                 r.context()
+
+    def test_repository_is_literal_not_fork_or_override(self):
+        for github_repo, gh_repo in (('fork/znvm', r.REPOSITORY), (r.REPOSITORY, 'other/repo'), ('CHARLZYX/znvm', r.REPOSITORY)):
+            with patch.dict(os.environ, {'GITHUB_REPOSITORY': github_repo, 'GH_REPO': gh_repo}, clear=True), patch.object(r.subprocess, 'run') as command, self.assertRaises(RuntimeError):
+                r.context()
+            command.assert_not_called()
+
+    def test_checkout_head_must_equal_event_sha(self):
+        from subprocess import CompletedProcess
+        env = {'GITHUB_REPOSITORY': r.REPOSITORY, 'GH_REPO': r.REPOSITORY, 'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': SHA}
+        marker = '{"enabled": true, "version": "2.10.0"}'
+        for result in (CompletedProcess([], 0, ('b' * 40).encode(), b''), CompletedProcess([], 1, b'', b'git failed')):
+            with patch.dict(os.environ, env, clear=True), patch.object(r.Path, 'read_text', return_value=marker), patch.object(r.subprocess, 'run', return_value=result), patch.object(r, 'verify_versions') as versions, self.assertRaises(RuntimeError):
+                r.context()
+            versions.assert_not_called()
+        with patch.dict(os.environ, env, clear=True), patch.object(r.Path, 'read_text', return_value=marker), patch.object(r.subprocess, 'run', return_value=CompletedProcess([], 0, (SHA + '\n').encode(), b'')) as command, patch.object(r, 'verify_versions'):
+            self.assertEqual(r.context(), SHA)
+        self.assertEqual(command.call_args.args[0], ['git', 'rev-parse', '--verify', 'HEAD^{commit}'])
+
+    def test_main_ref_must_be_commit_not_tag_object(self):
+        for kind in ('tag', 'tree', None):
+            with patch.object(r, 'api', return_value={'object': {'type': kind, 'sha': SHA}}), self.assertRaises(RuntimeError):
+                r.check_main(SHA)
+        with patch.object(r, 'api', return_value={'object': {'type': 'commit', 'sha': SHA}}):
+            r.check_main(SHA)
 
     def test_existing_release_noop_requires_remote_hashes(self):
         with patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote', side_effect=RuntimeError('mismatch')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
@@ -168,7 +193,7 @@ class ReleaseGuards(unittest.TestCase):
                 result = r.upload_asset(42, path, digest)
             self.assertEqual(result['id'], 123)
             args = command.call_args.args[0]
-            self.assertIn('https://uploads.github.com/repos/fixture/fixture/releases/42/assets?name=fixture.zip', args)
+            self.assertIn('https://uploads.github.com/repos/charlzyx/znvm/releases/42/assets?name=fixture.zip', args)
             self.assertNotIn('--clobber', args)
 
     def test_download_targets_recorded_asset_id_not_tag(self):
@@ -182,7 +207,7 @@ class ReleaseGuards(unittest.TestCase):
             return CompletedProcess(args, 0, b'', b'')
         with patch.dict(os.environ, {'GH_REPO': 'fixture/fixture'}), patch.object(r, 'api', return_value=release), patch.object(r, 'local_hashes', return_value=expected), patch.object(r.subprocess, 'run', side_effect=download) as command:
             r.verify_remote(42, SHA, True, expected, records)
-        self.assertIn('repos/fixture/fixture/releases/assets/123', command.call_args.args[0])
+        self.assertIn('repos/charlzyx/znvm/releases/assets/123', command.call_args.args[0])
         self.assertNotIn(r.VERSION, command.call_args.args[0])
 
     def test_successful_publish_only_patches_created_id(self):
@@ -296,11 +321,41 @@ class ReleaseGuards(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 r.local_hashes(p)
 
+    def test_manifest_must_be_regular_nonsymlink_bounded_nonempty(self):
+        for mode in ('symlink', 'directory', 'oversized', 'empty'):
+            with tempfile.TemporaryDirectory() as temp:
+                p = Path(temp) / 'candidate'
+                p.mkdir()
+                for name in r.ASSETS:
+                    (p / name).write_bytes(b'fixture')
+                manifest = p / 'SHA256SUMS'
+                if mode == 'symlink':
+                    outside = Path(temp) / 'outside'
+                    outside.write_text('fixture')
+                    manifest.symlink_to(outside)
+                elif mode == 'directory':
+                    manifest.mkdir()
+                else:
+                    manifest.write_bytes(b'x' * (r.MAX_MANIFEST_BYTES + 1) if mode == 'oversized' else b'')
+                with self.assertRaises(RuntimeError):
+                    r.local_hashes(p)
+
+    def test_platform_assets_are_also_size_bounded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p = Path(temp)
+            for name in r.ASSETS:
+                (p / name).write_bytes(b'fixture')
+            (p / 'SHA256SUMS').write_text('placeholder')
+            with (p / r.ASSETS[0]).open('wb') as asset:
+                asset.truncate(r.MAX_ASSET_BYTES + 1)
+            with self.assertRaises(RuntimeError):
+                r.local_hashes(p)
+
     def test_checksum_traversal_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             p = Path(temp)
             for name in r.ASSETS:
-                (p / name).write_bytes(b'')
+                (p / name).write_bytes(b'fixture')
             (p / 'SHA256SUMS').write_text(('0' * 64 + '  ../escape\n') * 6)
             with self.assertRaises(RuntimeError):
                 r.local_hashes(p)

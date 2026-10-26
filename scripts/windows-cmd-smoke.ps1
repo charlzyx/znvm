@@ -158,8 +158,12 @@ call argv.cmd
 if errorlevel 1 exit /b 21
 call nvm deactivate
 if errorlevel 1 exit /b 22
-call nvm exec 22 node "%ZNVM_TEST_ROOT%\verify.js" inactive
+"%ZNVM_TEST_ROOT%\fixture-node.exe" "%ZNVM_TEST_ROOT%\verify.js" inactive
 if errorlevel 1 exit /b 23
+call nvm exec 22 node --version
+if errorlevel 1 exit /b 29
+"%ZNVM_TEST_ROOT%\fixture-node.exe" "%ZNVM_TEST_ROOT%\verify.js" inactive
+if errorlevel 1 exit /b 30
 call nvm use 22
 if errorlevel 1 exit /b 24
 call nvm uninstall 22

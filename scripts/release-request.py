@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,7 +18,10 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
+REPOSITORY = 'charlzyx/znvm'
 VERSION = 'v2.10.0'
+MAX_ASSET_BYTES = 128 * 1024 * 1024
+MAX_MANIFEST_BYTES = 4096
 TARGETS = ('x86_64-linux-musl', 'aarch64-linux-musl', 'x86_64-macos',
            'aarch64-macos', 'x86_64-windows', 'aarch64-windows')
 ASSETS = tuple(f'znvm-{VERSION}-{t}' + ('.zip' if 'windows' in t else '') for t in TARGETS)
@@ -30,7 +34,7 @@ def require(condition, message):
 
 
 def api(path, method='GET', data=None, optional=False):
-    cmd = ['gh', 'api', f'repos/{os.environ["GH_REPO"]}/{path}', '--method', method]
+    cmd = ['gh', 'api', f'repos/{REPOSITORY}/{path}', '--method', method]
     if data is not None:
         cmd += ['--input', '-']
     p = subprocess.run(cmd, input=json.dumps(data).encode() if data is not None else None,
@@ -43,6 +47,8 @@ def api(path, method='GET', data=None, optional=False):
 
 
 def context():
+    require(os.environ.get('GITHUB_REPOSITORY') == REPOSITORY and os.environ.get('GH_REPO') == REPOSITORY,
+            'Only the literal charlzyx/znvm repository is authorized')
     require(os.environ.get('GITHUB_EVENT_NAME') == 'push', 'Only push events allowed')
     require(os.environ.get('GITHUB_REF') == 'refs/heads/main', 'Only main allowed')
     sha = os.environ.get('GITHUB_SHA', '')
@@ -50,6 +56,10 @@ def context():
     marker = json.loads(Path('release-request.json').read_text())
     require(marker == {'enabled': True, 'version': '2.10.0'} and marker['enabled'] is True,
             'Request must be literal enabled=true/version=2.10.0 only')
+    head = subprocess.run(['git', 'rev-parse', '--verify', 'HEAD^{commit}'],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    require(head.returncode == 0 and head.stdout.decode().strip() == sha,
+            'Checked-out HEAD differs from GITHUB_SHA')
     verify_versions()
     return sha
 
@@ -72,7 +82,8 @@ def verify_versions():
 
 
 def check_main(sha):
-    require(api('git/ref/heads/main')['object']['sha'] == sha,
+    obj = api('git/ref/heads/main')['object']
+    require(obj.get('type') == 'commit' and obj.get('sha') == sha,
             'main moved; stop release without modifying tags/assets')
 
 
@@ -158,7 +169,7 @@ def check_tag_owner(release_id, sha, draft):
 
 def upload_asset(release_id, path, digest):
     path = Path(path)
-    url = f'https://uploads.github.com/repos/{os.environ["GH_REPO"]}/releases/{release_id}/assets?name={quote(path.name, safe="")}'
+    url = f'https://uploads.github.com/repos/{REPOSITORY}/releases/{release_id}/assets?name={quote(path.name, safe="")}'
     # Direct numeric release endpoint, one request, never --clobber/retry.
     p = subprocess.run(['gh', 'api', url, '--method', 'POST',
                         '--header', 'Content-Type: application/octet-stream', '--input', str(path)],
@@ -174,6 +185,11 @@ def upload_asset(release_id, path, digest):
 def local_hashes(directory):
     directory = Path(directory)
     require({p.name for p in directory.iterdir()} == NAMES, 'Expected exactly seven staged files')
+    for name in NAMES:
+        info = (directory / name).lstat()
+        require(stat.S_ISREG(info.st_mode), f'Staged asset is not a regular non-symlink file: {name}')
+        limit = MAX_MANIFEST_BYTES if name == 'SHA256SUMS' else MAX_ASSET_BYTES
+        require(0 < info.st_size <= limit, f'Staged asset size is outside bounds: {name}')
     expected = {}
     lines = (directory / 'SHA256SUMS').read_text().splitlines()
     require(len(lines) == 6, 'Expected six checksum records')
@@ -201,7 +217,7 @@ def verify_remote(release_id, sha, draft, expected, records):
             destination = Path(temp) / name
             with destination.open('wb') as output:
                 p = subprocess.run(['gh', 'api',
-                    f'repos/{os.environ["GH_REPO"]}/releases/assets/{record["id"]}',
+                    f'repos/{REPOSITORY}/releases/assets/{record["id"]}',
                     '--header', 'Accept: application/octet-stream'], stdout=output, stderr=subprocess.PIPE)
             require(p.returncode == 0, f'Asset ID download failed: {p.stderr.decode()}')
             require(destination.stat().st_size == record['size'], 'Downloaded asset size differs')
@@ -216,7 +232,7 @@ def verify_public(expected):
     # and connection failures are retryable reads; bad hashes and auth errors are not.
     attempts = 5
     for name, digest in expected.items():
-        url = f'https://github.com/{os.environ["GH_REPO"]}/releases/download/{VERSION}/{name}'
+        url = f'https://github.com/{REPOSITORY}/releases/download/{VERSION}/{name}'
         for attempt in range(attempts):
             try:
                 with urlopen(url, timeout=120) as response:

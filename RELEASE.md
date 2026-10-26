@@ -20,7 +20,7 @@
 
 流程如下：
 
-1. 只读 guard 检查 push/main、完整 commit SHA、固定 marker、源码/安装器/网站版本、网站安装器 byte 一致、Zig pin、当前远端 main 与该 SHA 一致。查询 GitHub tag/release，release 发现使用分页列表以覆盖可见 draft（不依赖仅保证 published 的按 tag 查询）；重复同 tag 对象即停止，403/网络错误不能被当作“不存在”。初始只读 token 可能不可见 draft，因此其通过只是预检；最终发布 job 使用 write token 重复全部状态检查，不把只读不可见当作发布依据。
+1. 只读 guard 检查 literal `charlzyx/znvm` 仓库（拒绝 fork/任意 GH_REPO）、push/main、checkout HEAD 等于完整事件 SHA、远端 main ref 类型为 commit、固定 marker、源码/安装器/网站版本、网站安装器 byte 一致、Zig pin、当前远端 main 与该 SHA 一致。查询 GitHub tag/release，release 发现使用分页列表以覆盖可见 draft（不依赖仅保证 published 的按 tag 查询）；重复同 tag 对象即停止，403/网络错误不能被当作“不存在”。初始只读 token 可能不可见 draft，因此其通过只是预检；最终发布 job 使用 write token 重复全部状态检查，不把只读不可见当作发布依据。
 2. 构建四个 Unix 二进制及两个 Windows ZIP，并保存独立的 build-time SHA-256 manifest 到 Actions artifact。Unix 沿用 Ubuntu 交叉编译，Windows 在对应 `windows-latest` / `windows-11-arm` 原生 runner 构建。Windows ZIP 固定 entry 顺序与时间戳，包含 `bin/nvm.exe`、同字节的 `bin/nrm.exe`、`cmd/nvm.cmd`、`cmd/init.cmd`、`cmd/finish.cmd` 和根 `WINDOWS.md`。
 3. 下载构建 artifacts，与构建时 hash 比对，汇总成六行 `SHA256SUMS`，形成七文件 release candidate artifact。
 4. Windows x64、ARM64 原生 runner 下载该 candidate，检查 hash、`--version` 与版本一致，解压 ZIP 后执行 `windows-smoke.ps1`、`windows-cmd-smoke.ps1`、`windows-bash-smoke.ps1`，都传入真实解压的 `bin/nvm.exe` 和 `-ExpectedArch x64/arm64`；cmd smoke 另传 `-PackageRoot` 使用 ZIP 内真实 shim。还执行打包的 `nrm.exe --version` / `nrm.exe ls`。测试检查 OS/PowerShell/PE 架构，在临时 HOME/PATH 中安装并运行对应架构真实 Node，验证 npm/npx、切换和失败隔离。
@@ -60,7 +60,7 @@ znvm-v2.10.0-aarch64-windows.zip
 SHA256SUMS
 ```
 
-Actions candidate/manifests 保留 30 天，release 的公开 `SHA256SUMS` 持续用于完整性校验；它不是代码签名。Unix 下载目标二进制及同一 release 的 manifest 后使用 `sha256sum --check --ignore-missing SHA256SUMS`；Windows 使用 `Get-FileHash -Algorithm SHA256 <zip>` 与对应行比较。`--version` 应输出 `v2.10.0`。
+候选文件必须全部为 regular 非 symlink 文件；每个平台资产最多 128 MiB，`SHA256SUMS` 非空且最多 4096 bytes，读取前先核验这些限制。Actions candidate/manifests 保留 30 天，release 的公开 `SHA256SUMS` 持续用于完整性校验；它不是代码签名。Unix 下载目标二进制及同一 release 的 manifest 后使用 `sha256sum --check --ignore-missing SHA256SUMS`；Windows 使用 `Get-FileHash -Algorithm SHA256 <zip>` 与对应行比较。`--version` 应输出 `v2.10.0`。
 
 Unix 安装示例（Windows 见 README / WINDOWS.md 的三 shell 步骤）：
 

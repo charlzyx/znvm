@@ -101,6 +101,9 @@ JavaScript supplied to `-e` / `-p` and arguments after the script remain literal
 We do not parse arbitrary Node flags: when flags precede the script, use
 `cygpath -w` explicitly for that script path. Other native commands likewise
 require Windows-form path arguments.
+On the Windows ARM64 hosted runner, Git's launcher is ARM64 but its MSYS
+`usr/bin/bash.exe` runtime is x64 under Windows emulation. The tested `nvm.exe`
+and Node processes are native ARM64; this is not a native-ARM64 Bash runtime claim.
 No other shell's environment or startup profile is changed.
 
 Run `zig build test` and `./scripts/windows-smoke.ps1 -ExpectedArch x64` (or `arm64`) for native validation.
