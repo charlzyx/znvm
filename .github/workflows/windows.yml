@@ -11,6 +11,16 @@ permissions:
   contents: read
 
 jobs:
+  cmd-parser-probe:
+    name: cmd parser fixture diagnostics
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compare isolated batch chaining primitives
+        shell: pwsh
+        run: ./scripts/windows-cmd-parser-probe.ps1
+
   windows-smoke:
     name: Native Windows ${{ matrix.arch }} (PowerShell, cmd, Git Bash)
     runs-on: ${{ matrix.runner }}
@@ -46,7 +56,8 @@ jobs:
       - name: Isolated Git Bash smoke
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: ./scripts/windows-bash-smoke.ps1 -ExpectedArch ${{ matrix.arch }}
-      - name: Upload tested Windows binary
+      - name: Upload Windows candidate binary (see smoke results)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: znvm-windows-${{ matrix.arch }}
