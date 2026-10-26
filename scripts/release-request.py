@@ -64,19 +64,42 @@ def context():
     return sha
 
 
+def verify_public_versions(allowed=('v2.9.4',)):
+    # Public promotion is a separate, post-release commit. The release candidate
+    # must retain the currently published installer/site version without mixing.
+    versions = []
+    for path in ('install.sh', 'install-as-nvm.sh'):
+        values = re.findall(r'^ZNVM_VERSION="([^"]+)"$', Path(path).read_text(), re.MULTILINE)
+        require(len(values) == 1, f'Ambiguous public installer version: {path}')
+        versions.extend(values)
+    hero = re.findall(r'const version = "([^"]+)";', Path('website/src/components/hero.tsx').read_text())
+    require(len(hero) == 1, 'Ambiguous public website version')
+    versions.extend(hero)
+    skill = Path('skills/znvm/SKILL.md').read_text()
+    tool_example = re.findall(r'are the tool: `\{"version":"([^"]+)"\}`', skill)
+    require(len(tool_example) == 1, 'Ambiguous public skill tool-version example')
+    versions.extend(tool_example)
+    # Audited sync contract: copies this source byte-for-byte into both ignored
+    # public llm files, then cmp-checks them. Any script change needs fresh review.
+    sync_script = Path('scripts/sync-llm-txt.sh').read_text().encode()
+    require(hashlib.sha256(sync_script).hexdigest() ==
+            '0531179fc0e94f8752d41d09a1bcd05f3debc9dfdb800e52edc27ad643134638',
+            'Public llm sync contract changed; review before publishing')
+    require(len(set(versions)) == 1 and versions[0] in allowed,
+            'Public installers/site are mixed or promoted before release completion')
+    source = Path('install-as-nvm.sh').read_bytes()
+    for path in ('website/public/install.sh', 'website/public/install-as-nvm.sh'):
+        require(Path(path).read_bytes() == source, f'Installer not synchronized: {path}')
+
+
 def verify_versions():
     checks = {
         'src/main.zig': 'const ZNVM_VERSION = "v2.10.0";',
         'src/commands.zig': '"v2.10.0"',
-        'install.sh': 'ZNVM_VERSION="v2.10.0"',
-        'install-as-nvm.sh': 'ZNVM_VERSION="v2.10.0"',
-        'website/src/components/hero.tsx': 'const version = "v2.10.0";',
     }
     for path, expected in checks.items():
-        require(expected in Path(path).read_text(), f'Version mismatch: {path}')
-    source = Path('install-as-nvm.sh').read_bytes()
-    for path in ('website/public/install.sh', 'website/public/install-as-nvm.sh'):
-        require(Path(path).read_bytes() == source, f'Installer not synchronized: {path}')
+        require(expected in Path(path).read_text(), f'Binary version mismatch: {path}')
+    verify_public_versions()  # frozen v2.9.4 until release is fully verified
     for path in ('.github/workflows/release.yml', '.github/workflows/release-request.yml'):
         require('version: 0.17.0' in Path(path).read_text(), f'Zig pin mismatch: {path}')
 

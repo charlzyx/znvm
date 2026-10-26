@@ -180,6 +180,66 @@ class ReleaseGuards(unittest.TestCase):
         api.assert_not_called()
         upload.assert_not_called()
 
+    def version_fixture(self, public='v2.9.4', binary='v2.10.0'):
+        installer = f'ZNVM_VERSION="{public}"\n'
+        return {
+            'release-request.json': '{"enabled": true, "version": "2.10.0"}',
+            'skills/znvm/SKILL.md': 'are the tool: `{"version":"' + public + '"}`',
+            'scripts/sync-llm-txt.sh': Path(__file__).with_name('sync-llm-txt.sh').read_text(),
+            'src/main.zig': f'const ZNVM_VERSION = "{binary}";',
+            'src/commands.zig': f'"{binary}"',
+            'install.sh': installer, 'install-as-nvm.sh': installer,
+            'website/public/install.sh': installer,
+            'website/public/install-as-nvm.sh': installer,
+            'website/src/components/hero.tsx': f'const version = "{public}";',
+            '.github/workflows/release.yml': 'version: 0.17.0',
+            '.github/workflows/release-request.yml': 'version: 0.17.0',
+        }
+
+    def test_release_context_requires_binary_next_and_public_previous(self):
+        from subprocess import CompletedProcess
+        env = {'GITHUB_REPOSITORY': r.REPOSITORY, 'GH_REPO': r.REPOSITORY, 'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': SHA}
+        for public, should_pass in (('v2.9.4', True), ('v2.10.0', False)):
+            files = self.version_fixture(public=public)
+            with patch.dict(os.environ, env, clear=True), patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), patch.object(r.Path, 'read_bytes', autospec=True, side_effect=lambda path: files[str(path)].encode()), patch.object(r.subprocess, 'run', return_value=CompletedProcess([], 0, SHA.encode(), b'')):
+                if should_pass:
+                    self.assertEqual(r.context(), SHA)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        r.context()
+
+    def test_public_mixed_or_premature_versions_fail(self):
+        for path in ('install.sh', 'install-as-nvm.sh', 'website/src/components/hero.tsx', 'skills/znvm/SKILL.md'):
+            files = self.version_fixture()
+            files[path] = files[path].replace('v2.9.4', 'v2.10.0')
+            with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), patch.object(r.Path, 'read_bytes', autospec=True, side_effect=lambda path: files[str(path)].encode()), self.assertRaises(RuntimeError):
+                r.verify_versions()
+        files = self.version_fixture(binary='v2.9.4')
+        with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), self.assertRaises(RuntimeError):
+            r.verify_versions()
+
+    def test_public_llm_sync_contract_change_fails(self):
+        files = self.version_fixture()
+        files['scripts/sync-llm-txt.sh'] += '\necho unexpected change\n'
+        with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), patch.object(r.Path, 'read_bytes', autospec=True, side_effect=lambda path: files[str(path)].encode()), self.assertRaises(RuntimeError):
+            r.verify_versions()
+
+    def test_public_mirror_drift_fails(self):
+        for path in ('website/public/install.sh', 'website/public/install-as-nvm.sh'):
+            files = self.version_fixture()
+            files[path] += '# drift\n'
+            with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), patch.object(r.Path, 'read_bytes', autospec=True, side_effect=lambda path: files[str(path)].encode()), self.assertRaises(RuntimeError):
+                r.verify_versions()
+
+    def test_manual_postrelease_check_accepts_only_coherent_public_phase(self):
+        for public in ('v2.9.4', 'v2.10.0'):
+            files = self.version_fixture(public=public)
+            with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), patch.object(r.Path, 'read_bytes', autospec=True, side_effect=lambda path: files[str(path)].encode()):
+                r.verify_public_versions(allowed=('v2.9.4', 'v2.10.0'))
+            files['install.sh'] = files['install.sh'].replace(public, 'v0.0.0')
+            with patch.object(r.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]), self.assertRaises(RuntimeError):
+                r.verify_public_versions(allowed=('v2.9.4', 'v2.10.0'))
+
     def test_existing_release_noop_requires_remote_hashes(self):
         with patch.object(r, 'wait_main_ci'), patch.object(r, 'context', return_value=SHA), patch.object(r, 'local_hashes', return_value=HASHES), patch.object(r, 'check_main'), patch.object(r, 'state', return_value=release_fixture()), patch.object(r, 'verify_remote', side_effect=RuntimeError('mismatch')), patch.object(r, 'api') as api, self.assertRaises(RuntimeError):
             r.publish('fixture')

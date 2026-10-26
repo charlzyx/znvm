@@ -247,10 +247,13 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify pre-synchronized versions without changing main
+      - name: Verify coherent public versions without promoting the website
         run: |
-          set -euo pipefail
-          grep -Fx "ZNVM_VERSION=\"$VERSION\"" install.sh install-as-nvm.sh
-          cmp -s install-as-nvm.sh website/public/install.sh
-          cmp -s install-as-nvm.sh website/public/install-as-nvm.sh
-          grep -F "const version = \"$VERSION\";" website/src/components/hero.tsx
+          python3 - <<'PYTHON'
+          import os
+          import runpy
+          release = runpy.run_path('scripts/release-request.py')
+          # Pending v2.9.4 is intentional. A separate post-release commit may
+          # promote all public files together; neither phase is modified here.
+          release['verify_public_versions'](allowed=('v2.9.4', os.environ['VERSION']))
+          PYTHON

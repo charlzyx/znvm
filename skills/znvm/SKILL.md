@@ -150,7 +150,7 @@ nvm mirror ls --json
 nvm mirror test electron --json
 ```
 
-`nvm version --json` is the active Node version (`{"version":"v20.11.0"}`, `"system"`, or `"none"`). `nvm --version --json`, `znvm version --json`, and `nrm --version --json` are the tool: `{"version":"v2.10.0"}`. A missing match is exit 3 with `{"error":"N/A","exit":3}` on stderr, not a version of `N/A`. Text mode still prints `N/A` on stdout.
+`nvm version --json` is the active Node version (`{"version":"v20.11.0"}`, `"system"`, or `"none"`). `nvm --version --json`, `znvm version --json`, and `nrm --version --json` are the tool: `{"version":"v2.9.4"}`. A missing match is exit 3 with `{"error":"N/A","exit":3}` on stderr, not a version of `N/A`. Text mode still prints `N/A` on stdout.
 
 With v18.0.0 and v20.11.0 installed, alias `default -> 18`, and no Node on `PATH`:
 

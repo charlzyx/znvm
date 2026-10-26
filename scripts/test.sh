@@ -48,6 +48,11 @@ else
     exit 1
 fi
 
+# Installer defaults intentionally remain at the last published release until
+# release verification succeeds. Fixture installs must explicitly request the
+# binary under test, rather than accidentally downgrade to that baked default.
+TEST_BINARY_VERSION="$VERSION_OUTPUT"
+
 # Test env command
 echo "  Testing env command..."
 ENV_OUTPUT=$("$ZNVM_BIN" env)
@@ -340,7 +345,7 @@ INSTALL_OUT=$(env -i \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$INSTALL_OUT" | grep -q '^Done\.$'
 printf '%s\n' "$INSTALL_OUT" | grep -q 'source ~/.bashrc'
 printf '%s\n' "$INSTALL_OUT" | grep -q '^mirror: official$'
@@ -382,7 +387,7 @@ env -i \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    bash ./install-as-nvm.sh >/dev/null
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" >/dev/null
 test "$(grep -c 'NVM_DIR/nvm.sh' "$INSTALL_HOME/.bashrc")" -eq 1
 grep -q '# keep-me' "$INSTALL_HOME/.nvm/binaries.env"
 grep -q "echo original-nvm" "$INSTALL_HOME/.nvm/nvm.sh.bak"
@@ -412,7 +417,7 @@ preset_install() {
         ${2:+LC_ALL="$2"} \
         ${3:+NVM_MIRROR="$3"} \
         ${4:+NVM_LANG="$4"} \
-        bash ./install-as-nvm.sh
+        bash ./install-as-nvm.sh "$TEST_BINARY_VERSION"
 }
 ZH_HOME="$NVM_ALIGN_TMP/zh-home"
 mkdir -p "$ZH_HOME"
@@ -555,7 +560,7 @@ UPGRADE_OUT=$(env -i \
     HOME="$UPGRADE_HOME" \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 # install_msg writes progress to stderr; 2>&1 above keeps tests stable.
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.0"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
@@ -584,7 +589,7 @@ SECOND_OUT=$(env -i \
     HOME="$UPGRADE_HOME" \
     PATH="$CURL_DIR:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 if printf '%s\n' "$SECOND_OUT" | grep -q 'Upgraded'; then
     echo "matching version was upgraded again" >&2
     exit 1
@@ -614,7 +619,7 @@ FAIL_OUT=$(env -i \
     HOME="$FAIL_HOME" \
     PATH="$FAIL_CURL:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 FAIL_ST=$?
 set -e
 if [ "$FAIL_ST" -eq 0 ]; then
@@ -635,7 +640,7 @@ SRC_OUT=$(env -i \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$SRC_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.0"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
 if [ "$ver" != "v2.10.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
@@ -661,7 +666,7 @@ FOREIGN_OUT=$(env -i \
     PATH="$FOREIGN_HOME/other:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$FOREIGN_OUT" | grep -q "Another nrm at $FOREIGN_HOME/other/nrm (not removed)"
 test -L "$FOREIGN_HOME/.nvm/nrm"
 test "$(readlink "$FOREIGN_HOME/.nvm/nrm")" = "nvm"
@@ -682,7 +687,7 @@ OCCUPIED_OUT=$(env -i \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ALIGN_BIN" \
-    bash ./install-as-nvm.sh 2>&1)
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$OCCUPIED_OUT" | grep -q "Left $OCCUPIED/.nvm/nrm unchanged"
 test ! -L "$OCCUPIED/.nvm/nrm"
 test "$(bash "$OCCUPIED/.nvm/nrm")" = "occupied-nrm"
@@ -762,7 +767,7 @@ PLAIN_UP_OUT=$(env -i \
     HOME="$PLAIN_UP" \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install.sh 2>&1)
+    bash ./install.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.10.0"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 test -L "$PLAIN_UP/.local/bin/nrm"
@@ -784,7 +789,7 @@ PLAIN_SECOND=$(env -i \
     HOME="$PLAIN_UP" \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install.sh 2>&1)
+    bash ./install.sh "$TEST_BINARY_VERSION" 2>&1)
 printf '%s\n' "$PLAIN_SECOND" | grep -q "ok znvm is already installed at $PLAIN_UP/.local/bin/znvm"
 if printf '%s\n' "$PLAIN_SECOND" | grep -q 'Upgraded'; then
     echo "install.sh upgraded a matching version" >&2
@@ -804,7 +809,7 @@ PLAIN_FAIL_OUT=$(env -i \
     HOME="$PLAIN_FAIL" \
     PATH="$PLAIN_FAIL_CURL:$PLAIN_FAIL/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
-    bash ./install.sh 2>&1)
+    bash ./install.sh "$TEST_BINARY_VERSION" 2>&1)
 PLAIN_FAIL_ST=$?
 set -e
 if [ "$PLAIN_FAIL_ST" -eq 0 ]; then
@@ -1623,7 +1628,7 @@ env -i \
     PATH="/usr/bin:/bin" \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$ZNVM_BIN" \
-    bash ./install-as-nvm.sh >/dev/null
+    bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" >/dev/null
 if grep -q 'nrm()' "$SPLIT_NVM/nvm.sh"; then
     echo "nvm.sh defined an nrm function" >&2
     exit 1
