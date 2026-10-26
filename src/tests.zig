@@ -225,7 +225,7 @@ test "path: extract version from PATH" {
 
 test "version list: sorting by semantic version" {
     const allocator = std.testing.allocator;
-    var versions : std.ArrayList([]const u8) = .empty;
+    var versions: std.ArrayList([]const u8) = .empty;
     defer versions.deinit(allocator);
 
     try versions.append(allocator, "v22.0.0");
@@ -255,16 +255,17 @@ test "npm prefix: empty value keeps nvm's per-version prefix" {
 
 test "npm prefix: accepts absolute path" {
     const allocator = std.testing.allocator;
-    const prefix = try config.resolveNpmPrefix(allocator, "/tmp/shared npm");
+    const expected = if (@import("builtin").os.tag == .windows) "C:\\tmp\\shared npm" else "/tmp/shared npm";
+    const prefix = try config.resolveNpmPrefix(allocator, expected);
     defer allocator.free(prefix.?);
 
-    try testing.expectEqualSlices(u8, "/tmp/shared npm", prefix.?);
+    try testing.expectEqualSlices(u8, expected, prefix.?);
 }
 
 test "npm prefix: rejects relative and PATH-separated values" {
     const allocator = std.testing.allocator;
     try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "relative"));
-    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, "/tmp/one:/tmp/two"));
+    try testing.expectError(error.InvalidNpmPrefix, config.resolveNpmPrefix(allocator, if (@import("builtin").os.tag == .windows) "C:\\one;C:\\two" else "/tmp/one:/tmp/two"));
 }
 
 test "data root: NVM_DIR wins over ZNVM_DIR and the default is ~/.nvm" {
@@ -279,7 +280,9 @@ test "data root: NVM_DIR wins over ZNVM_DIR and the default is ~/.nvm" {
 
     const from_home = try config.resolveDataRoot(allocator, "", null, "/home/user");
     defer allocator.free(from_home);
-    try testing.expectEqualSlices(u8, "/home/user/.nvm", from_home);
+    const expected_home = try std.fs.path.join(allocator, &.{ "/home/user", ".nvm" });
+    defer allocator.free(expected_home);
+    try testing.expectEqualSlices(u8, expected_home, from_home);
 }
 
 test "old node layout: versions before 0.12 live directly in NVM_DIR" {
@@ -477,20 +480,13 @@ test "bundled npm: read version from package.json" {
     const bundled_npm = @import("bundled_npm.zig");
     const host = @import("host.zig");
     const allocator = testing.allocator;
-    const root = "/tmp/znvm-npm-pkg-unit-test";
-    host.deleteTreeAbsolute(root) catch {};
-    defer host.deleteTreeAbsolute(root) catch {};
-
-    const pkg_dir = try std.fs.path.join(allocator, &.{ root, "lib", "node_modules", "npm" });
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const root = try tmp.dir.realPathFileAlloc(host.io(), ".", allocator);
+    defer allocator.free(root);
+    const pkg_dir = try std.fs.path.join(allocator, if (@import("builtin").os.tag == .windows) &.{ root, "node_modules", "npm" } else &.{ root, "lib", "node_modules", "npm" });
     defer allocator.free(pkg_dir);
-    try std.Io.Dir.createDirAbsolute(host.io(), root, .default_dir);
-    const lib_dir = try std.fs.path.join(allocator, &.{ root, "lib" });
-    defer allocator.free(lib_dir);
-    const modules_dir = try std.fs.path.join(allocator, &.{ lib_dir, "node_modules" });
-    defer allocator.free(modules_dir);
-    try std.Io.Dir.createDirAbsolute(host.io(), lib_dir, .default_dir);
-    try std.Io.Dir.createDirAbsolute(host.io(), modules_dir, .default_dir);
-    try std.Io.Dir.createDirAbsolute(host.io(), pkg_dir, .default_dir);
+    try std.Io.Dir.cwd().createDirPath(host.io(), pkg_dir);
     const pkg_json = try std.fs.path.join(allocator, &.{ pkg_dir, "package.json" });
     defer allocator.free(pkg_json);
     const body = "{\"name\":\"npm\",\"version\":\"10.8.2\"}\n";

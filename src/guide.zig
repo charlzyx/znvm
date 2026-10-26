@@ -1,4 +1,5 @@
 const std = @import("std");
+const windows = @import("builtin").os.tag == .windows;
 const host = @import("host.zig");
 const mem = std.mem;
 const fs = std.fs;
@@ -24,6 +25,10 @@ const Pick = union(enum) { quit, back, index: usize };
 const page_size: usize = 15;
 
 pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    if (comptime windows) {
+        try stderr("Interactive menus are not supported on Windows yet; use --help.\n", .{});
+        return;
+    }
     if (!host.isTty(.stdin())) return;
     const zh = preferZh(allocator);
     while (true) {
@@ -35,6 +40,10 @@ pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
 }
 
 pub fn runNrm(allocator: mem.Allocator, config: ZnvmConfig) !void {
+    if (comptime windows) {
+        try stderr("Interactive menus are not supported on Windows yet; use --help.\n", .{});
+        return;
+    }
     const agent = @import("agent.zig");
     if (!agent.menuAllowed(.stdout)) return;
     const zh = preferZh(allocator);
@@ -118,7 +127,7 @@ fn registryTestAll(allocator: mem.Allocator, root: []const u8) !void {
 }
 
 fn binaryTestAll(allocator: mem.Allocator, root: []const u8) !void {
-    try binary.cmd(allocator, root, &.{ "test" });
+    try binary.cmd(allocator, root, &.{"test"});
 }
 
 fn binaryUseChina(allocator: mem.Allocator, root: []const u8) !void {
@@ -208,6 +217,10 @@ fn promptBinarySet(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
 }
 
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
+    if (comptime windows) {
+        try stderr("Interactive menus are not supported on Windows yet; use --help.\n", .{});
+        return;
+    }
     const agent = @import("agent.zig");
     const stream: agent.MenuStream = if (mode == .step) .stderr else .stdout;
     if (!agent.menuAllowed(stream)) {
@@ -300,8 +313,8 @@ const tty = struct {
         term.lflag.ISIG = false;
         term.iflag.ICRNL = false;
         term.iflag.IXON = false;
-        term.cc[@as(usize, @intFromEnum(posix.V.MIN))] = 1;
-        term.cc[@as(usize, @intFromEnum(posix.V.TIME))] = 0;
+        term.cc[@as(usize, @backingInt(posix.V.MIN))] = 1;
+        term.cc[@as(usize, @backingInt(posix.V.TIME))] = 0;
         try posix.tcsetattr(fd, .NOW, term);
         raw_on = true;
         installSignals();

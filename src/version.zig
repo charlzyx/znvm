@@ -1,3 +1,4 @@
+const platform = @import("platform.zig");
 const std = @import("std");
 const host = @import("host.zig");
 const json = std.json;
@@ -34,6 +35,10 @@ fn platformFile(os: []const u8, arch: []const u8) ?[]const u8 {
     } else if (mem.eql(u8, os, "linux")) {
         if (mem.eql(u8, arch, "arm64")) return "linux-arm64";
         if (mem.eql(u8, arch, "x64")) return "linux-x64";
+    }
+    if (mem.eql(u8, os, "win")) {
+        if (mem.eql(u8, arch, "x64")) return "win-x64-zip";
+        if (mem.eql(u8, arch, "arm64")) return "win-arm64-zip";
     }
     return null;
 }
@@ -284,7 +289,7 @@ pub fn loadRemoteIndex(allocator: mem.Allocator, config: ZnvmConfig) !json.Parse
 fn artifactToRemote(allocator: mem.Allocator, artifact: ResolvedEntry, os: []const u8) !ResolvedRemote {
     const entry = artifact.entry;
     const os_name = if (mem.eql(u8, os, "darwin")) "darwin" else os;
-    const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.tar.gz", .{ entry.version, os_name, artifact.arch });
+    const filename = try std.fmt.allocPrint(allocator, "node-{s}-{s}-{s}.{s}", .{ entry.version, os_name, artifact.arch, if (mem.eql(u8, os, "win")) "zip" else "tar.gz" });
     return ResolvedRemote{
         .version = try allocator.dupe(u8, entry.version),
         .filename = filename,
@@ -334,7 +339,7 @@ fn alreadyListed(list: []const []const u8, name: []const u8) bool {
 }
 
 pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]const []const u8 {
-    var list : std.ArrayList([]const u8) = .empty;
+    var list: std.ArrayList([]const u8) = .empty;
 
     for (config.scan_dirs) |dir_path| {
         var dir = std.Io.Dir.openDirAbsolute(host.io(), dir_path, .{ .iterate = true }) catch |err| {
@@ -347,7 +352,9 @@ pub fn getInstalledVersions(allocator: mem.Allocator, config: ZnvmConfig) ![]con
         while (try it.next(host.io())) |entry| {
             if (entry.kind != .directory or !mem.startsWith(u8, entry.name, "v")) continue;
             if (alreadyListed(list.items, entry.name)) continue;
-            const node_path = try fs.path.join(allocator, &.{ dir_path, entry.name, "bin", "node" });
+            const home = try fs.path.join(allocator, &.{ dir_path, entry.name });
+            defer allocator.free(home);
+            const node_path = try platform.nodePath(allocator, home);
             defer allocator.free(node_path);
             std.Io.Dir.accessAbsolute(host.io(), node_path, .{}) catch continue;
             try list.append(allocator, try allocator.dupe(u8, entry.name));
@@ -444,4 +451,16 @@ pub fn resolveLocalVersion(allocator: mem.Allocator, installed: []const []const 
     }
 
     return best;
+}
+
+test "Windows artifacts use native zip metadata and filenames" {
+    const allocator = std.testing.allocator;
+    const entries = [_]NodeEntry{.{ .version = "v22.14.0", .files = &.{"win-x64-zip"} }};
+    const resolved = resolveRemoteArtifact(&entries, "22", "win", "x64").?;
+    const remote = try artifactToRemote(allocator, resolved, "win");
+    defer allocator.free(remote.version);
+    defer allocator.free(remote.filename);
+    try std.testing.expectEqualStrings("node-v22.14.0-win-x64.zip", remote.filename);
+    try std.testing.expect(resolveRemoteArtifact(&entries, "22", "win", "arm64") == null);
+    try std.testing.expect(resolveRemoteArtifact(&entries, "22", "linux", "x64") == null);
 }

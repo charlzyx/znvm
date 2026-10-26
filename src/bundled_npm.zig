@@ -6,7 +6,7 @@ const host = @import("host.zig");
 
 /// Reads the `version` field from `<version_home>/lib/node_modules/npm/package.json`.
 pub fn readVersion(allocator: mem.Allocator, version_home: []const u8) !?[]u8 {
-    const pkg_path = try fs.path.join(allocator, &.{ version_home, "lib", "node_modules", "npm", "package.json" });
+    const pkg_path = try fs.path.join(allocator, if (@import("builtin").os.tag == .windows) &.{ version_home, "node_modules", "npm", "package.json" } else &.{ version_home, "lib", "node_modules", "npm", "package.json" });
     defer allocator.free(pkg_path);
     const content = try readSmallFile(allocator, pkg_path) orelse return null;
     defer allocator.free(content);

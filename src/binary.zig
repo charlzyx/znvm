@@ -930,7 +930,7 @@ const Paths = struct {
 };
 
 fn configPaths(allocator: mem.Allocator, env_map: host.EnvMap, root: []const u8) !Paths {
-    const home = env_map.get("HOME") orelse return error.NoHome;
+    const home = @import("platform.zig").home(&env_map) orelse return error.NoHome;
     if (home.len == 0 or !fs.path.isAbsolute(home)) return error.NoHome;
     const xdg = env_map.get("XDG_CONFIG_HOME");
     const xdg_abs = if (xdg) |value| (if (value.len > 0 and fs.path.isAbsolute(value)) value else null) else null;
@@ -1363,11 +1363,8 @@ fn openHome(allocator: mem.Allocator) !host.EnvMap {
 }
 
 fn ensureDir(path: []const u8) !void {
-    var root = try std.Io.Dir.openDirAbsolute(host.io(), "/", .{});
-    defer root.close(host.io());
-    const rel = if (path.len > 0 and path[0] == '/') path[1..] else path;
-    if (rel.len == 0) return;
-    try root.createDirPath(host.io(), rel);
+    if (path.len == 0) return;
+    try std.Io.Dir.cwd().createDirPath(host.io(), path);
 }
 
 fn ensureParent(path: []const u8) !void {

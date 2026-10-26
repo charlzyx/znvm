@@ -275,3 +275,7 @@ zig build -Doptimize=ReleaseSafe
 ## 📄 开源协议
 
 MIT
+
+## Windows（实验性）
+
+本分支提供 Windows x64 / PowerShell 7 原生支持，当前从源码构建，不要求管理员权限，不修改系统 PATH。参见 [Windows 安装与限制](WINDOWS.md)。

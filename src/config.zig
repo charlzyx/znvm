@@ -1,5 +1,6 @@
 const std = @import("std");
 const host = @import("host.zig");
+const platform = @import("platform.zig");
 const builtin = @import("builtin");
 const process = std.process;
 const fs = std.fs;
@@ -38,7 +39,7 @@ pub const ZnvmConfig = struct {
 pub fn resolveNpmPrefix(allocator: mem.Allocator, configured: ?[]const u8) !?[]u8 {
     const prefix = configured orelse return null;
     if (prefix.len == 0) return null;
-    if (!fs.path.isAbsolute(prefix) or mem.indexOfScalar(u8, prefix, ':') != null) {
+    if (!fs.path.isAbsolute(prefix) or mem.indexOfScalar(u8, prefix, platform.path_delimiter) != null) {
         return error.InvalidNpmPrefix;
     }
     return try allocator.dupe(u8, prefix);
@@ -78,19 +79,19 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     var env_map = try host.envMap(allocator);
     defer env_map.deinit();
 
-    const home = env_map.get("HOME") orelse ".";
+    const home = platform.home(&env_map) orelse ".";
     const root_dir = try resolveDataRoot(allocator, env_map.get("NVM_DIR"), env_map.get("ZNVM_DIR"), home);
     errdefer allocator.free(root_dir);
 
     const versions_dir = try fs.path.join(allocator, &.{ root_dir, "versions", "node" });
     errdefer allocator.free(versions_dir);
 
-    var scan : std.ArrayList([]const u8) = .empty;
+    var scan: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (scan.items) |dir| allocator.free(dir);
         scan.deinit(allocator);
     }
-    var managed : std.ArrayList([]const u8) = .empty;
+    var managed: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (managed.items) |dir| allocator.free(dir);
         managed.deinit(allocator);
@@ -121,6 +122,7 @@ pub fn getConfig(allocator: mem.Allocator) !ZnvmConfig {
     const os = switch (builtin.os.tag) {
         .macos => "darwin",
         .linux => "linux",
+        .windows => "win",
         else => "unknown",
     };
 

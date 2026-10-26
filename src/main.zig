@@ -46,8 +46,8 @@ pub fn main(init: process.Init.Minimal) !void {
     }
 
     const base_name = std.fs.path.basename(args[0]);
-    const invoked_as_nvm = mem.eql(u8, base_name, "nvm");
-    const invoked_as_nrm = mem.eql(u8, base_name, "nrm");
+    const invoked_as_nvm = (mem.eql(u8, base_name, "nvm") or std.ascii.eqlIgnoreCase(base_name, "nvm.exe"));
+    const invoked_as_nrm = (mem.eql(u8, base_name, "nrm") or std.ascii.eqlIgnoreCase(base_name, "nrm.exe"));
     commands.program_name = if (invoked_as_nrm) "nrm" else if (invoked_as_nvm) "nvm" else "znvm";
 
     const config = try config_mod.getConfig(allocator);
