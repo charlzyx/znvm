@@ -58,6 +58,8 @@ remain available. Use explicit commands rather than interactive menus.
 ZIPs are streamed into a fresh sibling staging directory, checked for the exact
 requested distribution root and a regular `node.exe`, then installed with a
 non-replacing atomic rename. Validation rejects traversal, Windows drive/ADS
-syntax, normalized aliases and duplicate paths. Limits are 100,000 entries,
+syntax, reserved device names, normalized aliases and duplicate paths. Every
+regular output file is checked against its declared length and CRC32 before
+publication (CRC32 detects corruption, not publisher authenticity). Limits are 100,000 entries,
 1 GiB total uncompressed data and 16 MiB total filename data. Failure removes
 only the new staging directory, not an existing installation.
