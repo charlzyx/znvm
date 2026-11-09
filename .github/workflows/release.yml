@@ -261,8 +261,9 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
           git add install.sh install-as-nvm.sh website/public/install.sh website/public/install-as-nvm.sh \
-            website/src/components/hero.tsx skills/znvm/SKILL.md website/public/llm.txt website/public/llms.txt
+            website/src/components/hero.tsx skills/znvm/SKILL.md
           if git diff --cached --quiet; then
             echo "promote: no public file changes; refusing silent skip" >&2
             exit 1
