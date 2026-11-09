@@ -551,6 +551,10 @@ pub fn openHome(allocator: mem.Allocator, root: []const u8, raw_name: []const u8
         else => return err,
     };
     defer allocator.free(home);
+    if (!host.isTty(.stdout())) {
+        try stdout("{s}\n", .{home});
+        return;
+    }
     try launchBrowser(browser, home);
 }
 
@@ -930,7 +934,7 @@ fn nrmSuccess(comptime message: i18n.Msg, args: anytype) !void {
     if (agent.nrm_cli) {
         var buf: [512]u8 = undefined;
         const body = mem.trimEnd(u8, i18n.format(message, &buf, args), "\n");
-        try stdout("SUCCESS {s}\n", .{body});
+        try stdout("{s}\n", .{body});
         return;
     }
     try i18n.out(message, args);
