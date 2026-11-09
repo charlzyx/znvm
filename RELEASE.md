@@ -52,7 +52,7 @@
 
 兼容路径沿用“先发布页面，再构建/上传资产”，因此要求 mutable、非 draft、非 prerelease 的 `vX.Y.Z` release。preflight 拒绝 immutable releases；旧 release 的 `immutable=false` 不能证明当前仓库设置。immutable 仓库应使用前述 draft 预上传流程。
 
-兼容流水线构建六目标、保存 build manifests、上传不覆盖、匿名下载六文件逐一核验、上传并回读 `SHA256SUMS`，然后在 Windows 两个原生架构下载已发布 Windows ZIP 校验 hash、解压后核验 nvm/nrm version 并运行 PowerShell/cmd/Git Bash 三 shell smoke。最后只读检查 main 安装器和网站版本为一致的旧 v2.9.4（等待推广）或一致的新 release 版本（已在独立提交推广），拒绝混合版本，不提交修改。同一 tag 的运行串行，不取消正在发布任务。页面出现不代表发布成功，必须等全部 jobs 通过。
+兼容流水线构建六目标、保存 build manifests、上传不覆盖、匿名下载六文件逐一核验、上传并回读 `SHA256SUMS`，然后在 Windows 两个原生架构下载已发布 Windows ZIP 校验 hash、解压后核验 nvm/nrm version 并运行 PowerShell/cmd/Git Bash 三 shell smoke。最后 `promote_public` job 运行 `scripts/promote-public-release.sh`，将两个根安装脚本、网站 mirror、`hero.tsx` 与 skill 的 tool-version 示例一并升到当前 tag，提交并推送 main；若无文件变更或推送失败则 workflow **fail closed**。推送后只读核验公开版本必须全部等于该 tag，拒绝混合版本。同一 tag 的运行串行，不取消正在发布任务。页面出现不代表发布成功，必须等全部 jobs（含推广）通过。
 
 ## 资产与校验
 

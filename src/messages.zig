@@ -286,12 +286,12 @@ pub const no_registry_map = Msg{ .en = "No registry map in {s}\n", .zh = "{s} �
 pub const not_a_registry = Msg{ .en = "error: {s} is not a registry.\n", .zh = "error: {s} 不是已登记的源.\n" };
 pub const not_a_registry_plain = Msg{ .en = "error: {s} is not a registry.", .zh = "error: {s} 不是已登记的源." };
 pub const registry_changed = Msg{ .en = "The registry has been changed to '{s}'.\n", .zh = "源已切换为 '{s}'.\n" };
-pub const auto_reserved = Msg{ .en = "error: auto is reserved.\n", .zh = "error: auto 是保留名.\n" };
-pub const builtin_registry = Msg{ .en = "error: {s} is a built-in registry.\n", .zh = "error: {s} 是内置源.\n" };
+pub const auto_reserved = Msg{ .en = "error: auto is reserved.\n", .zh = "错误: auto 是保留名.\n" };
+pub const builtin_registry = Msg{ .en = "error: {s} is a built-in registry.\n", .zh = "错误: {s} 是内置源.\n" };
 pub const added_name = Msg{ .en = "added {s}\n", .zh = "已添加 {s}\n" };
 pub const deleted_name = Msg{ .en = "deleted {s}\n", .zh = "已删除 {s}\n" };
-pub const nrm_error_missing_arg = Msg{ .en = "error: missing required argument '{s}'", .zh = "error: 缺少必填参数 '{s}'" };
-pub const nrm_error_unknown_command = Msg{ .en = "error: unknown command '{s}'", .zh = "error: 未知命令 '{s}'" };
+pub const nrm_error_missing_arg = Msg{ .en = "error: missing required argument '{s}'", .zh = "错误: 缺少必填参数 '{s}'" };
+pub const nrm_error_unknown_command = Msg{ .en = "error: unknown command '{s}'", .zh = "错误: 未知命令 '{s}'" };
 pub const nrm_error_registry_not_found = Msg{ .en = "The registry '{s}' is not found.", .zh = "找不到源 '{s}'." };
 pub const nrm_error_internal_registry = Msg{ .en = "You cannot {s} the nrm internal registry.", .zh = "不能对内置源执行 {s}." };
 pub const nrm_error_duplicate = Msg{

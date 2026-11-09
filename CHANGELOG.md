@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [v2.10.2] - 2026-11-09
+
+### Fixed
+
+- Release workflow promotes public `install.sh`, site hero, and skill tool-version to the released tag; the job fails instead of silently skipping when promotion does not change files.
+- `nrm home` prints the URL and exits when stdout is not a TTY; opens a browser only on a TTY.
+- nrm help: removed parity banner, aligned scope row, short descriptions for advanced commands.
+- nrm zh output: localized `错误:` prefixes; dropped `SUCCESS` prefix on success lines.
+
 ## [v2.10.1] - 2026-11-09
 
 ### Added

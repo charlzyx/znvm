@@ -101,7 +101,7 @@ pub fn printNvm(program_name: []const u8) !void {
 pub fn printNrm() !void {
     if (zhNow()) {
         try stdout(
-            \\nrm - 源管理 (nrm 2.x 兼容)
+            \\nrm - 源管理
             \\
             \\用法: nrm <命令> [参数]
             \\
@@ -112,14 +112,14 @@ pub fn printNrm() !void {
             \\  add <名字> <url> [home]     添加自定义源
             \\  del [名字]                  删除自定义源
             \\  login <名字> [base64]       设置授权
-            \\  set-hosted-repo <名字> <repo>
-            \\  set-scope <@scope> <url>
-            \\  del-scope <@scope>
-            \\  set <名字> -a <attr> -v <value>
-            \\  rename <名字> <新名字>
-            \\  home <名字> [browser]
+            \\  set-hosted-repo <名字> <repo>  设置发布 repository
+            \\  set-scope <@scope> <url>    绑定 scope 到源
+            \\  del-scope <@scope>          删除 scope 路由
+            \\  set <名字> -a <attr> -v <value>  设置源属性
+            \\  rename <名字> <新名字>      重命名自定义源
+            \\  home <名字> [browser]       打开源主页
             \\  test [名字]                 测量延迟
-            \\  scope ls|add|del              scope 路由 (znvm)
+            \\  scope ls|add|del            管理 @scope 路由
             \\  help [命令]                 显示帮助
             \\  lang                        打印 zh 或 en
             \\  -V, --version               版本
@@ -131,7 +131,7 @@ pub fn printNrm() !void {
         return;
     }
     try stdout(
-        \\nrm - registry manager (nrm 2.x parity)
+        \\nrm - registry manager
         \\
         \\Usage: nrm <command> [args]
         \\
@@ -142,14 +142,14 @@ pub fn printNrm() !void {
         \\  add <name> <url> [home]     add custom registry
         \\  del [name]                  delete custom registry
         \\  login <name> [base64]       set authorization
-        \\  set-hosted-repo <name> <repo>
-        \\  set-scope <@scope> <url>
-        \\  del-scope <@scope>
-        \\  set <name> -a <attr> -v <value>
-        \\  rename <name> <newName>
-        \\  home <name> [browser]
+        \\  set-hosted-repo <name> <repo>  set publish repository
+        \\  set-scope <@scope> <url>    bind scope to registry
+        \\  del-scope <@scope>          remove scope route
+        \\  set <name> -a <attr> -v <value>  set registry attribute
+        \\  rename <name> <newName>     rename custom registry
+        \\  home <name> [browser]       open registry home page
         \\  test [name]                 probe latency
-        \\  scope ls|add|del              scope routes (znvm)
+        \\  scope ls|add|del            manage @scope routes
         \\  help [command]              show help
         \\  lang                        print zh or en
         \\  -V, --version               tool version
