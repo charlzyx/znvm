@@ -1125,7 +1125,7 @@ set -e
 test "$USE_STATUS" -eq 1
 grep -q "No .nvmrc file found" "$NVM_ALIGN_TMP/cmd.err"
 test "$(nvm_pipe version </dev/null 2>/dev/null)" = "none"
-test "$(nvm_pipe --version </dev/null 2>/dev/null)" = "v2.10.3"
+test "$(nvm_pipe --version </dev/null 2>/dev/null)" = "$TEST_BINARY_VERSION"
 nvm_pipe mirror </dev/null 2>/dev/null | grep -q '^profile '
 set +e
 nvm_pipe cache </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
