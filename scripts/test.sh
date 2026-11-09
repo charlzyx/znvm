@@ -965,6 +965,7 @@ if "No versions installed" not in text:
 zh = dict(base)
 zh["LC_ALL"] = "zh_CN.UTF-8"
 zh["LANG"] = "zh_CN.UTF-8"
+zh["NVM_LANG"] = "zh_CN"
 code, text, _ = run_pty([bin_path], zh, ["0\n"], ["安装 Node"])
 if code != 0:
     raise SystemExit(f"chinese menu exit {code}\n{text}")
