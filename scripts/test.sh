@@ -1107,7 +1107,8 @@ echo "  Testing nvm non-TTY classic behavior..."
 NVM_LINK_HOME="$EMPTY_ROOT/nvm-classic-home"
 NVM_LINK_NVM="$EMPTY_ROOT/nvm-classic-nvm"
 mkdir -p "$NVM_LINK_HOME" "$NVM_LINK_NVM" "$EMPTY_ROOT/nvm-bin"
-ln -sfn "$ZNVM_BIN" "$EMPTY_ROOT/nvm-bin/nvm"
+NVM_PIPE_BIN="$(cd "$(dirname "$ZNVM_BIN")" && pwd)/$(basename "$ZNVM_BIN")"
+ln -sfn "$NVM_PIPE_BIN" "$EMPTY_ROOT/nvm-bin/nvm"
 nvm_pipe() {
     env -u NVM_DIR -u ZNVM_NONINTERACTIVE NVM_DIR="$NVM_LINK_NVM" HOME="$NVM_LINK_HOME" NVM_LANG=en LC_ALL=C "$EMPTY_ROOT/nvm-bin/nvm" "$@"
 }
