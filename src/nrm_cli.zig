@@ -34,8 +34,8 @@ fn missingArg(name: []const u8) noreturn {
     failMsg(messages.nrm_error_missing_arg, .{name});
 }
 
-fn unknownCmd() noreturn {
-    failMsg(messages.nrm_error_unknown_command, .{});
+fn unknownCmd(cmd: []const u8) noreturn {
+    failMsg(messages.nrm_error_unknown_command, .{cmd});
 }
 
 fn is(cmd: []const u8, names: []const []const u8) bool {
@@ -59,7 +59,7 @@ pub fn run(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfi
             return;
         }
         if (try help.printNrmCommand(args[2])) return;
-        unknownCmd();
+        unknownCmd(args[2]);
     }
     if (args.len == 2 and is(args[1], &.{ "--version", "-v", "-V" })) return;
     if (args.len == 2 and mem.eql(u8, args[1], "lang")) {
@@ -67,11 +67,11 @@ pub fn run(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfi
         return;
     }
     if (args.len >= 2 and mem.eql(u8, args[1], "ls")) {
-        if (args.len > 2 and !mem.eql(u8, args[2], "--json")) unknownCmd();
+        if (args.len > 2 and !mem.eql(u8, args[2], "--json")) unknownCmd(args[2]);
         return registry.listNames(allocator, root);
     }
     if (mem.eql(u8, args[1], "list")) {
-        if (args.len != 2) unknownCmd();
+        if (args.len != 2) unknownCmd(args[2]);
         return registry.listNames(allocator, root);
     }
     if (mem.eql(u8, args[1], "current")) return tryCmdCurrent(allocator, args, root);
@@ -87,13 +87,13 @@ pub fn run(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfi
     if (mem.eql(u8, args[1], "rename")) return tryCmdRename(allocator, args, root);
     if (mem.eql(u8, args[1], "home")) return tryCmdHome(allocator, args, root);
     if (mem.eql(u8, args[1], "scope")) return tryCmdScope(allocator, args, root);
-    unknownCmd();
+    unknownCmd(args[1]);
 }
 
 fn tryCmdCurrent(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
     if (args.len == 2) return registry.current(allocator, root, false);
     if (args.len == 3 and is(args[2], &.{ "-u", "--show-url" })) return registry.current(allocator, root, true);
-    unknownCmd();
+    unknownCmd(if (args.len >= 3) args[2] else args[1]);
 }
 
 fn tryCmdUse(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
@@ -121,8 +121,8 @@ fn tryCmdUse(allocator: mem.Allocator, args: []const []const u8, root: []const u
         return;
     }
     if (rest.len == 1 and mem.eql(u8, rest[0], "auto")) return registry.useAuto(allocator, root);
-    if (rest.len >= 1) return registry.useName(allocator, root, rest[0]);
-    unknownCmd();
+    if (rest.len == 1) return registry.useName(allocator, root, rest[0]);
+    unknownCmd(if (rest.len >= 1) rest[0] else args[1]);
 }
 
 fn tryCmdAdd(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
@@ -133,13 +133,13 @@ fn tryCmdAdd(allocator: mem.Allocator, args: []const []const u8, root: []const u
         if (args.len == 2) missingArg("name");
         missingArg("url");
     }
-    unknownCmd();
+    unknownCmd(args[2]);
 }
 
 fn tryCmdDel(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
     mutating(allocator);
     if (args.len == 3) return registry.delName(allocator, root, args[2]);
-    if (args.len != 2) unknownCmd();
+    if (args.len != 2) unknownCmd(if (args.len >= 3) args[2] else args[1]);
     if (!host.isTty(.stdin())) missingArg("name");
     const names = try registry.listCustomLabels(allocator, root);
     defer registry.freeLabels(allocator, names);
@@ -153,7 +153,7 @@ fn tryCmdTest(allocator: mem.Allocator, args: []const []const u8, root: []const 
     if (args.len == 2) return registry.testRegistries(allocator, root, null);
     if (args.len == 3 and !mem.eql(u8, args[2], "--json")) return registry.testRegistries(allocator, root, args[2]);
     if (args.len == 3 and mem.eql(u8, args[2], "--json")) return registry.testRegistries(allocator, root, null);
-    unknownCmd();
+    unknownCmd(if (args.len >= 3) args[2] else args[1]);
 }
 
 fn tryCmdLogin(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
@@ -183,7 +183,7 @@ fn tryCmdLogin(allocator: mem.Allocator, args: []const []const u8, root: []const
             email = args[i + 1];
             i += 1;
         } else {
-            unknownCmd();
+            unknownCmd(args[2]);
         }
     }
     try registry.loginRegistry(allocator, root, name, .{
@@ -233,7 +233,7 @@ fn tryCmdSet(allocator: mem.Allocator, args: []const []const u8, root: []const u
             value = args[i + 1];
             i += 1;
         } else {
-            unknownCmd();
+            unknownCmd(args[2]);
         }
     }
     const a = attr orelse missingArg("attr");
@@ -257,7 +257,7 @@ fn tryCmdHome(allocator: mem.Allocator, args: []const []const u8, root: []const 
 }
 
 fn tryCmdScope(allocator: mem.Allocator, args: []const []const u8, root: []const u8) !void {
-    if (args.len < 3) unknownCmd();
+    if (args.len < 3) unknownCmd("scope");
     const sub = args[2];
     if (is(sub, &.{ "ls", "list" }) and args.len == 3) return registry.listScopes(allocator, root);
     if (mem.eql(u8, sub, "add") and args.len == 5) {
@@ -268,5 +268,5 @@ fn tryCmdScope(allocator: mem.Allocator, args: []const []const u8, root: []const
         mutating(allocator);
         return registry.removeScope(allocator, root, args[3]);
     }
-    unknownCmd();
+    unknownCmd(sub);
 }
