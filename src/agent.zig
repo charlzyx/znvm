@@ -6,6 +6,10 @@ const host = @import("host.zig");
 pub var json_mode: bool = false;
 pub var yes_mode: bool = false;
 pub var mirror_quiet: bool = false;
+/// Suppress per-file sync chatter during `nrm use` (still writes npmrc/yarn/pnpm).
+pub var nrm_quiet_sync: bool = false;
+pub var nrm_verbose_sync: bool = false;
+pub var nrm_cli: bool = false;
 
 pub fn truthy(value: ?[]const u8) bool {
     const raw = mem.trim(u8, value orelse return false, " \t");

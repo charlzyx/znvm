@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.10.0 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.10.1 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -41,10 +41,10 @@ ZNVM_BIN="./zig-out/bin/znvm"
 # Test version command
 echo "  Testing version command..."
 VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.10.0" ]]; then
+if [[ "$VERSION_OUTPUT" == "v2.10.1" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.10.0, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected v2.10.1, got $VERSION_OUTPUT"
     exit 1
 fi
 
@@ -221,7 +221,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.10.0" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.10.1" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -317,7 +317,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.10.0" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.10.1" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -398,7 +398,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.10.0" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.10.1" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -526,7 +526,7 @@ while [ \$# -gt 0 ]; do
 done
 case "\$url" in
     *api.github.com*)
-        printf '%s\n' '{"tag_name":"v2.10.0"}'
+        printf '%s\n' '{"tag_name":"v2.10.1"}'
         exit 0
         ;;
     *releases/download*)
@@ -562,7 +562,7 @@ UPGRADE_OUT=$(env -i \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 # install_msg writes progress to stderr; 2>&1 above keeps tests stable.
-printf '%s\n' "$UPGRADE_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.0"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.1"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 test -L "$UPGRADE_HOME/.nvm/nrm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -572,12 +572,12 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.10.0" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.1" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
 NRM_LS=$(env -i HOME="$UPGRADE_HOME" PATH="/usr/bin:/bin" "$UPGRADE_HOME/.nvm/nrm" ls)
-printf '%s\n' "$NRM_LS" | grep -q "taobao https://registry.npmmirror.com/"
+printf '%s\n' "$NRM_LS" | grep -qE "taobao .+ https://registry.npmmirror.com/"
 if printf '%s\n' "$NRM_LS" | grep -q 'v20.11.0'; then
     echo "nrm ls still listed a Node version" >&2
     printf '%s\n' "$NRM_LS" >&2
@@ -641,9 +641,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.0"
+printf '%s\n' "$SRC_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.1"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.10.0" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.1" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -768,16 +768,16 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh "$TEST_BINARY_VERSION" 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.10.0"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.10.1"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 test -L "$PLAIN_UP/.local/bin/nrm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.10.0" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.1" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
-printf '%s\n' "$PLAIN_NRM_LS" | grep -q "taobao https://registry.npmmirror.com/"
+printf '%s\n' "$PLAIN_NRM_LS" | grep -qE "taobao .+ https://registry.npmmirror.com/"
 if printf '%s\n' "$PLAIN_NRM_LS" | grep -q 'v20.11.0'; then
     echo "install.sh nrm ls still listed a Node version" >&2
     printf '%s\n' "$PLAIN_NRM_LS" >&2
@@ -1163,15 +1163,18 @@ if printf '%s\n' "$NRM_OUT" | grep -q "needs a terminal"; then
 fi
 nrm_run help | grep -q "scope add"
 nrm_run ls >"$NVM_ALIGN_TMP/cmd.out"
-grep -q "  npm https://registry.npmjs.org/" "$NVM_ALIGN_TMP/cmd.out"
-grep -q "  taobao https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/cmd.out"
+grep -qE "  npm -+ https://registry.npmjs.org/" "$NVM_ALIGN_TMP/cmd.out"
+grep -qE "  taobao -+ https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/cmd.out"
 if grep -q '^\* ' "$NVM_ALIGN_TMP/cmd.out"; then
     echo "nrm ls starred a registry before use" >&2
     exit 1
 fi
 nrm_run use taobao >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
-grep -q "The registry has been changed to 'taobao'." "$NVM_ALIGN_TMP/cmd.out"
-grep -q "Wrote $NRM_HOME/.npmrc" "$NVM_ALIGN_TMP/cmd.err"
+grep -q "SUCCESS The registry has been changed to 'taobao'." "$NVM_ALIGN_TMP/cmd.out"
+if grep -q "Wrote $NRM_HOME/.npmrc" "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "nrm use should stay quiet on sync" >&2
+    exit 1
+fi
 grep -q 'registry=https://registry.npmmirror.com/' "$NRM_HOME/.npmrc"
 test "$(nrm_run current)" = "taobao"
 test "$(nrm_run current -u)" = "https://registry.npmmirror.com/"
@@ -1180,15 +1183,15 @@ test "$(nrm_run current)" = "taobao"
 grep -q 'registry=https://registry.npmmirror.com' "$NRM_HOME/.npmrc"
 env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" "$ZNVM_BIN" registry official >/dev/null
 test "$(nrm_run current)" = "npm"
-nrm_run add local http://127.0.0.1:1 | grep -q "added local"
-nrm_run ls | grep -q "  local http://127.0.0.1:1"
+nrm_run add local http://127.0.0.1:1 | grep -q "SUCCESS Add registry local"
+nrm_run ls | grep -qE "  local -+ http://127.0.0.1:1/"
 nrm_run test local >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
-grep -q "^local error$" "$NVM_ALIGN_TMP/cmd.out"
+grep -qE "local .+ \\(Fetch error" "$NVM_ALIGN_TMP/cmd.out"
 set +e
 nrm_run del npm >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
 set -e
-if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: npm is a built-in registry." "$NVM_ALIGN_TMP/cmd.err"; then
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "You cannot delete the nrm internal registry." "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL del builtin status=$NRM_STATUS" >&2
     exit 1
 fi
@@ -1196,11 +1199,11 @@ set +e
 nrm_run add npm https://example.com >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
 set -e
-if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: npm is a built-in registry." "$NVM_ALIGN_TMP/cmd.err"; then
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "You cannot add the nrm internal registry." "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL add builtin status=$NRM_STATUS" >&2
     exit 1
 fi
-nrm_run del local | grep -q "deleted local"
+nrm_run del local | grep -q "SUCCESS The registry 'local' has been deleted successfully."
 if nrm_run ls | grep -q "local "; then
     echo "deleted registry still listed" >&2
     exit 1
@@ -1410,14 +1413,14 @@ nrm_auto() {
     env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" LC_ALL=C PATH="$FAKE_CURL_DIR:/usr/bin:/bin" "$EMPTY_ROOT/nrm-bin/nrm" "$@"
 }
 rm -f "$NRM_NVM/mirror-latency.json"
-nrm_auto test npm | grep -q '^npm 0.400s$'
-nrm_auto use auto | grep -q "The registry has been changed to 'taobao'."
+nrm_auto test npm | grep -qE '^(\* |  )npm .+ 400 ms$'
+nrm_auto use auto | grep -q "SUCCESS The registry has been changed to 'taobao'."
 test "$(nrm_auto current)" = "taobao"
 grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
-ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "The registry has been changed to 'taobao'."
+ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "SUCCESS The registry has been changed to 'taobao'."
 test "$(ZNVM_FAKE_CURL=official-fast nrm_auto current)" = "taobao"
 rm -f "$NRM_NVM/mirror-latency.json"
-ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "The registry has been changed to 'npm'."
+ZNVM_FAKE_CURL=official-fast nrm_auto use auto | grep -q "SUCCESS The registry has been changed to 'npm'."
 test "$(nrm_auto current)" = "npm"
 grep -q '@company:registry=https://npm.company.example' "$NRM_HOME/.npmrc"
 rm -f "$NRM_NVM/mirror-latency.json"
@@ -1449,8 +1452,16 @@ set +e
 nrm_run nosuch >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
 set -e
-if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: unknown command" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL unknown nrm status=$NRM_STATUS" >&2
+    exit 1
+fi
+set +e
+nrm_run use >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+NRM_STATUS=$?
+set -e
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: missing required argument 'name'" "$NVM_ALIGN_TMP/cmd.err"; then
+    echo "FAIL bare nrm use status=$NRM_STATUS" >&2
     exit 1
 fi
 python3 - "$EMPTY_ROOT/nrm-bin/nrm" "$NRM_HOME" "$NRM_NVM" <<'PY'
@@ -1534,7 +1545,7 @@ if grep -q "registry.npmjs.org" "$NVM_ALIGN_TMP/nvm-ls.out"; then
     echo "nvm ls printed registries" >&2
     exit 1
 fi
-grep -q "taobao https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/nrm-ls.out"
+grep -qE "taobao .+ https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/nrm-ls.out"
 if grep -q "v22.23.4" "$NVM_ALIGN_TMP/nrm-ls.out"; then
     echo "nrm ls printed Node versions" >&2
     exit 1
@@ -1664,7 +1675,7 @@ bash -c '
         echo "shell nvm ls printed registries" >&2
         exit 1
     fi
-    printf "%s\n" "$nrm_ls" | grep -q "taobao https://registry.npmmirror.com/"
+    printf "%s\n" "$nrm_ls" | grep -qE "taobao .+ https://registry.npmmirror.com/"
     if printf "%s\n" "$nrm_ls" | grep -q "v22.23.4"; then
         echo "shell nrm ls printed Node versions" >&2
         exit 1
@@ -1741,8 +1752,8 @@ json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
 test "$(json_nvm current --json)" = '{"version":"none"}'
 test "$(json_nvm version --json)" = '{"version":"none"}'
-test "$(json_nvm --version --json)" = '{"version":"v2.10.0"}'
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.10.0"}'
+test "$(json_nvm --version --json)" = '{"version":"v2.10.1"}'
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.10.1"}'
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1767,7 +1778,7 @@ set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
 json_nvm help | grep -q 'NVM_LANG'
-nrm_run --version --json | grep -q '"version":"v2.10.0"'
+nrm_run --version --json | grep -q '"version":"v2.10.1"'
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"

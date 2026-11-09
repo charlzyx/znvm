@@ -29,21 +29,36 @@ pub const Scope = struct {
 const Named = struct {
     name: []u8,
     url: []u8,
+    home: ?[]u8 = null,
+    auth: ?[]u8 = null,
+    email: ?[]u8 = null,
+    repository: ?[]u8 = null,
+    always_auth: ?bool = null,
+
+    fn deinit(self: *Named, allocator: mem.Allocator) void {
+        allocator.free(self.name);
+        allocator.free(self.url);
+        if (self.home) |v| allocator.free(v);
+        if (self.auth) |v| allocator.free(v);
+        if (self.email) |v| allocator.free(v);
+        if (self.repository) |v| allocator.free(v);
+    }
 };
 
 const Builtin = struct {
     name: []const u8,
     url: []const u8,
+    home: []const u8,
 };
 
 const builtin_registries = [_]Builtin{
-    .{ .name = "npm", .url = "https://registry.npmjs.org/" },
-    .{ .name = "yarn", .url = "https://registry.yarnpkg.com/" },
-    .{ .name = "tencent", .url = "https://mirrors.tencent.com/npm/" },
-    .{ .name = "cnpm", .url = "https://r.cnpmjs.org/" },
-    .{ .name = "taobao", .url = "https://registry.npmmirror.com/" },
-    .{ .name = "npmMirror", .url = "https://skimdb.npmjs.com/registry/" },
-    .{ .name = "huawei", .url = "https://repo.huaweicloud.com/repository/npm/" },
+    .{ .name = "npm", .url = "https://registry.npmjs.org/", .home = "https://www.npmjs.org" },
+    .{ .name = "yarn", .url = "https://registry.yarnpkg.com/", .home = "https://yarnpkg.com" },
+    .{ .name = "tencent", .url = "https://mirrors.tencent.com/npm/", .home = "https://mirrors.tencent.com/npm/" },
+    .{ .name = "cnpm", .url = "https://r.cnpmjs.org/", .home = "https://cnpmjs.org" },
+    .{ .name = "taobao", .url = "https://registry.npmmirror.com/", .home = "https://npmmirror.com" },
+    .{ .name = "npmMirror", .url = "https://skimdb.npmjs.com/registry/", .home = "https://skimdb.npmjs.com/" },
+    .{ .name = "huawei", .url = "https://repo.huaweicloud.com/repository/npm/", .home = "https://www.huaweicloud.com/special/npm-jingxiang.html" },
 };
 
 pub const Map = struct {
@@ -55,10 +70,7 @@ pub const Map = struct {
     pub fn deinit(self: *Map, allocator: mem.Allocator) void {
         if (self.default_url) |url| allocator.free(url);
         if (self.current_name) |name| allocator.free(name);
-        for (self.names.items) |named| {
-            allocator.free(named.name);
-            allocator.free(named.url);
-        }
+        for (self.names.items) |*named| named.deinit(allocator);
         self.names.deinit(allocator);
         for (self.scopes.items) |scope| {
             allocator.free(scope.name);
@@ -133,11 +145,19 @@ pub const Map = struct {
     }
 
     fn upsertName(self: *Map, allocator: mem.Allocator, name: []const u8, url: []const u8) !void {
+        try self.upsertNameEx(allocator, name, url, null);
+    }
+
+    fn upsertNameEx(self: *Map, allocator: mem.Allocator, name: []const u8, url: []const u8, home: ?[]const u8) !void {
         for (self.names.items) |*named| {
             if (mem.eql(u8, named.name, name)) {
                 const next = try allocator.dupe(u8, url);
                 allocator.free(named.url);
                 named.url = next;
+                if (home) |h| {
+                    if (named.home) |old| allocator.free(old);
+                    named.home = try allocator.dupe(u8, h);
+                }
                 return;
             }
         }
@@ -145,20 +165,33 @@ pub const Map = struct {
         errdefer allocator.free(owned_name);
         const owned_url = try allocator.dupe(u8, url);
         errdefer allocator.free(owned_url);
-        try self.names.append(allocator, .{ .name = owned_name, .url = owned_url });
+        const owned_home: ?[]u8 = if (home) |h| try allocator.dupe(u8, h) else null;
+        errdefer if (owned_home) |h| allocator.free(h);
+        try self.names.append(allocator, .{
+            .name = owned_name,
+            .url = owned_url,
+            .home = owned_home,
+        });
         self.sortNames();
     }
 
     fn removeName(self: *Map, allocator: mem.Allocator, name: []const u8) bool {
-        for (self.names.items, 0..) |named, i| {
+        for (self.names.items, 0..) |*named, i| {
             if (!mem.eql(u8, named.name, name)) continue;
-            allocator.free(named.name);
-            allocator.free(named.url);
+            named.deinit(allocator);
             _ = self.names.orderedRemove(i);
             return true;
         }
         return false;
     }
+
+    fn findNamed(self: *Map, name: []const u8) ?*Named {
+        for (self.names.items) |*named| {
+            if (mem.eql(u8, named.name, name)) return named;
+        }
+        return null;
+    }
+
 
     fn sortNames(self: *Map) void {
         mem.sort(Named, self.names.items, {}, nameLess);
@@ -269,8 +302,9 @@ pub fn listNames(allocator: mem.Allocator, root: []const u8) !void {
         try sink.flush();
         return;
     }
-    for (builtin_registries) |item| try printNameLine(&map, item.name, item.url);
-    for (map.names.items) |item| try printNameLine(&map, item.name, item.url);
+    const width = try listAlignmentWidth(allocator, root);
+    for (builtin_registries) |item| try printNameLine(&map, item.name, item.url, width);
+    for (map.names.items) |item| try printNameLine(&map, item.name, item.url, width);
 }
 
 fn writeRegistry(sink: *agent.Sink, map: *const Map, name: []const u8, url: []const u8) !void {
@@ -315,51 +349,67 @@ pub fn useName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
     const name = try normalizeName(raw_name);
     var map = try loadOrEmpty(allocator, root);
     errdefer map.deinit(allocator);
-    const found = map.urlForName(name) orelse {
-        try i18n.err(messages.not_a_registry, .{name});
-        return error.Explained;
-    };
+    const found = map.urlForName(name) orelse return nrmNotFound(name);
     const url = try allocator.dupe(u8, found);
     defer allocator.free(url);
     try map.setDefault(allocator, url);
     try map.assignCurrent(allocator, name);
     try save(allocator, root, &map);
-    try i18n.out(messages.registry_changed, .{name});
+    try nrmSuccess(messages.nrm_success_use, .{name});
     try syncMap(allocator, root, &map);
     map.deinit(allocator);
 }
 
 pub fn addName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8) !void {
+    try addNameWithHome(allocator, root, raw_name, raw_url, null);
+}
+
+pub fn addNameWithHome(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_url: []const u8, raw_home: ?[]const u8) !void {
     const name = try normalizeName(raw_name);
     if (mem.eql(u8, name, "auto")) {
         try i18n.err(messages.auto_reserved, .{});
         return error.Explained;
     }
-    if (findBuiltin(name) != null) {
-        try i18n.err(messages.builtin_registry, .{name});
-        return error.Explained;
-    }
+    if (findBuiltin(name) != null) return nrmInternal(name, "add");
     const url = try normalizeUrl(raw_url);
+    const url_slash = try ensureTrailingSlash(allocator, url);
+    defer allocator.free(url_slash);
     var map = try loadOrEmpty(allocator, root);
     errdefer map.deinit(allocator);
-    try map.upsertName(allocator, name, url);
+    if (registryUrlTaken(&map, name, url_slash)) {
+        var buf: [512]u8 = undefined;
+        return agent.explain(i18n.format(messages.nrm_error_duplicate, &buf, .{}));
+    }
+    try map.upsertNameEx(allocator, name, url_slash, raw_home);
     try save(allocator, root, &map);
-    try i18n.out(messages.added_name, .{name});
+    try nrmSuccess(messages.nrm_success_add, .{ name, name, name });
     map.deinit(allocator);
+}
+
+fn registryUrlTaken(map: *const Map, name: []const u8, url: []const u8) bool {
+    if (map.urlForName(name) != null) return true;
+    for (builtin_registries) |item| {
+        if (sameUrl(item.url, url)) return true;
+    }
+    for (map.names.items) |item| {
+        if (sameUrl(item.url, url)) return true;
+    }
+    return false;
+}
+
+fn ensureTrailingSlash(allocator: mem.Allocator, url: []const u8) ![]u8 {
+    if (url.len > 0 and url[url.len - 1] == '/') return allocator.dupe(u8, url);
+    return std.fmt.allocPrint(allocator, "{s}/", .{url});
 }
 
 pub fn delName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8) !void {
     const name = try normalizeName(raw_name);
-    if (findBuiltin(name) != null) {
-        try i18n.err(messages.builtin_registry, .{name});
-        return error.Explained;
-    }
+    if (findBuiltin(name) != null) return nrmInternal(name, "delete");
     var map = try load(allocator, root);
     errdefer map.deinit(allocator);
-    if (!map.removeName(allocator, name)) {
-        try i18n.err(messages.not_a_registry, .{name});
-        return error.Explained;
-    }
+    const deleted_url = map.urlForName(name) orelse return nrmNotFound(name);
+    const was_active = if (map.default_url) |u| sameUrl(u, deleted_url) else false;
+    if (!map.removeName(allocator, name)) return nrmNotFound(name);
     if (map.current_name) |active| {
         if (mem.eql(u8, active, name)) {
             const inferred = if (map.default_url) |url| map.lookupName(url) else null;
@@ -367,8 +417,193 @@ pub fn delName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8)
         }
     }
     try save(allocator, root, &map);
-    try i18n.out(messages.deleted_name, .{name});
+    try nrmSuccess(messages.nrm_success_del, .{name});
     map.deinit(allocator);
+    if (was_active) {
+        agent.nrm_quiet_sync = true;
+        return useName(allocator, root, "npm");
+    }
+}
+
+pub fn renameName(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, raw_new: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    const new_name = try normalizeName(raw_new);
+    if (mem.eql(u8, name, new_name)) {
+        var buf: [256]u8 = undefined;
+        return agent.explain(i18n.format(messages.nrm_error_same_name, &buf, .{}));
+    }
+    if (findBuiltin(name) != null) return nrmInternal(name, "rename");
+    var map = try load(allocator, root);
+    errdefer map.deinit(allocator);
+    const entry = map.findNamed(name) orelse return nrmNotFound(name);
+    if (map.urlForName(new_name) != null) {
+        var buf: [256]u8 = undefined;
+        return agent.explain(i18n.format(messages.nrm_error_name_exists, &buf, .{new_name}));
+    }
+    const owned = try allocator.dupe(u8, new_name);
+    allocator.free(entry.name);
+    entry.name = owned;
+    if (map.current_name) |active| {
+        if (mem.eql(u8, active, name)) try map.assignCurrent(allocator, new_name);
+    }
+    try save(allocator, root, &map);
+    try nrmSuccess(messages.nrm_success_rename, .{ name, new_name });
+    map.deinit(allocator);
+}
+
+pub fn loginRegistry(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, opts: LoginOpts) !void {
+    const name = try normalizeName(raw_name);
+    if (findBuiltin(name) != null) return nrmInternal(name, "set authorization information of");
+    var map = try load(allocator, root);
+    errdefer map.deinit(allocator);
+    const entry = map.findNamed(name) orelse return nrmNotFound(name);
+    const auth = if (opts.base64) |b|
+        try allocator.dupe(u8, b)
+    else if (opts.username != null and opts.password != null)
+        try encodeBasicAuth(allocator, opts.username.?, opts.password.?)
+    else {
+        var buf: [256]u8 = undefined;
+        return agent.explain(i18n.format(messages.nrm_error_auth_required, &buf, .{}));
+    };
+    errdefer allocator.free(auth);
+    if (entry.auth) |old| allocator.free(old);
+    entry.auth = auth;
+    if (opts.always_auth) |v| entry.always_auth = v;
+    if (opts.email) |mail| {
+        if (entry.email) |old| allocator.free(old);
+        entry.email = try allocator.dupe(u8, mail);
+    }
+    try save(allocator, root, &map);
+    try nrmSuccess(messages.nrm_success_login, .{name});
+    if (map.default_url) |active| {
+        if (sameUrl(active, entry.url)) try syncMap(allocator, root, &map);
+    }
+    map.deinit(allocator);
+}
+
+pub fn setHostedRepo(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, repo: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    if (findBuiltin(name) != null) return nrmInternal(name, "set repository of");
+    var map = try load(allocator, root);
+    errdefer map.deinit(allocator);
+    const entry = map.findNamed(name) orelse return nrmNotFound(name);
+    if (entry.repository) |old| allocator.free(old);
+    entry.repository = try allocator.dupe(u8, repo);
+    try save(allocator, root, &map);
+    try nrmSuccess(messages.nrm_success_set_repo, .{name});
+    if (map.default_url) |active| {
+        if (sameUrl(active, entry.url)) try syncMap(allocator, root, &map);
+    }
+    map.deinit(allocator);
+}
+
+pub fn setAttr(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, attr: []const u8, value: []const u8) !void {
+    const name = try normalizeName(raw_name);
+    if (mem.eql(u8, attr, "repository")) {
+        var buf: [256]u8 = undefined;
+        return agent.explain(i18n.format(messages.nrm_error_use_set_repo, &buf, .{}));
+    }
+    if (findBuiltin(name) != null) return nrmInternal(name, "set attribute of");
+    var map = try load(allocator, root);
+    errdefer map.deinit(allocator);
+    const entry = map.findNamed(name) orelse return nrmNotFound(name);
+    if (mem.eql(u8, attr, "home")) {
+        if (entry.home) |old| allocator.free(old);
+        entry.home = try allocator.dupe(u8, value);
+    } else if (mem.eql(u8, attr, "_auth") or mem.eql(u8, attr, "auth")) {
+        if (entry.auth) |old| allocator.free(old);
+        entry.auth = try allocator.dupe(u8, value);
+    } else if (mem.eql(u8, attr, "email")) {
+        if (entry.email) |old| allocator.free(old);
+        entry.email = try allocator.dupe(u8, value);
+    } else if (mem.eql(u8, attr, "always-auth")) {
+        entry.always_auth = mem.eql(u8, value, "true");
+    } else {
+        return error.InvalidName;
+    }
+    try save(allocator, root, &map);
+    try nrmSuccess(messages.nrm_success_set_attr, .{ attr, value, name });
+    if (map.default_url) |active| {
+        if (sameUrl(active, entry.url)) try syncMap(allocator, root, &map);
+    }
+    map.deinit(allocator);
+}
+
+pub fn setScopeNrm(allocator: mem.Allocator, root: []const u8, scope: []const u8, url: []const u8) !void {
+    const scope_key = try normalizeScope(scope);
+    try add(allocator, root, scope, url);
+    try nrmSuccess(messages.nrm_success_set_scope, .{ scope_key, url });
+}
+
+pub fn delScopeNrm(allocator: mem.Allocator, root: []const u8, scope: []const u8) !void {
+    const name = try normalizeScope(scope);
+    try removeScope(allocator, root, scope);
+    try nrmSuccess(messages.nrm_success_del_scope, .{name});
+}
+
+pub fn openHome(allocator: mem.Allocator, root: []const u8, raw_name: []const u8, browser: ?[]const u8) !void {
+    const name = try normalizeName(raw_name);
+    const home = homeForName(allocator, root, name) catch |err| switch (err) {
+        error.HomeMissing => {
+            var buf: [256]u8 = undefined;
+            return agent.explain(i18n.format(messages.nrm_error_no_homepage, &buf, .{name}));
+        },
+        else => return err,
+    };
+    defer allocator.free(home);
+    try launchBrowser(browser, home);
+}
+
+fn homeForName(allocator: mem.Allocator, root: []const u8, name: []const u8) ![]u8 {
+    if (findBuiltin(name)) |entry| return allocator.dupe(u8, entry.home);
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    const entry = map.findNamed(name) orelse return error.HomeMissing;
+    return if (entry.home) |h| allocator.dupe(u8, h) else error.HomeMissing;
+}
+
+fn launchBrowser(browser: ?[]const u8, url: []const u8) !void {
+    const os_info = @import("builtin");
+    if (os_info.os.tag == .windows) {
+        const prog = if (browser) |b| b else "cmd";
+        const argv = if (browser) |b|
+            &[_][]const u8{ b, url }
+        else
+            &[_][]const u8{ "cmd", "/c", "start", "", url };
+        _ = prog;
+        try checkSpawn(try host.spawnWait(argv, null, .inherit));
+        return;
+    }
+    if (os_info.os.tag == .macos) {
+        const argv = if (browser) |b|
+            &[_][]const u8{ "open", "-a", b, url }
+        else
+            &[_][]const u8{ "open", url };
+        try checkSpawn(try host.spawnWait(argv, null, .inherit));
+        return;
+    }
+    const argv = if (browser) |b|
+        &[_][]const u8{ b, url }
+    else
+        &[_][]const u8{ "xdg-open", url };
+    const term = try host.spawnWait(argv, null, .inherit);
+    return checkSpawn(term);
+}
+
+fn checkSpawn(term: std.process.Child.Term) !void {
+    switch (term) {
+        .exited => |code| if (code != 0) return error.Explained,
+        else => return error.Explained,
+    }
+}
+
+fn encodeBasicAuth(allocator: mem.Allocator, user: []const u8, pass: []const u8) ![]u8 {
+    const pair = try std.fmt.allocPrint(allocator, "{s}:{s}", .{ user, pass });
+    defer allocator.free(pair);
+    const out_len = std.base64.standard.Encoder.calcSize(pair.len);
+    const out = try allocator.alloc(u8, out_len);
+    _ = std.base64.standard.Encoder.encode(out, pair);
+    return out;
 }
 
 pub fn listScopes(allocator: mem.Allocator, root: []const u8) !void {
@@ -440,9 +675,9 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
             });
         }
     }
-    const samples = try measureEntries(allocator, entries.items);
-    defer allocator.free(samples);
     if (agent.json_mode) {
+        const samples = try measureEntries(allocator, entries.items);
+        defer allocator.free(samples);
         var sink = agent.Sink.init(allocator);
         defer sink.deinit();
         try sink.beginObject();
@@ -462,16 +697,89 @@ pub fn testRegistries(allocator: mem.Allocator, root: []const u8, only: ?[]const
         try sink.endArray();
         try sink.endObject();
         try sink.flush();
-    } else {
-        for (entries.items, 0..) |item, i| try printProbe(item.name, samples[i]);
+        if (only == null) try rememberRegistries(allocator, root, entries.items, samples);
+        return;
     }
-    if (only == null) try rememberRegistries(allocator, root, entries.items, samples);
+    const samples = try measureNrmEntries(allocator, entries.items);
+    defer allocator.free(samples);
+    const width = blk: {
+        var max: usize = 0;
+        for (entries.items) |item| max = @max(max, item.name.len);
+        break :blk max + 3;
+    };
+    var fastest: ?u32 = null;
+    if (only == null) {
+        for (samples) |sample| {
+            if (!sample.ok) continue;
+            const ms = sampleMs(&sample);
+            if (fastest == null or ms < fastest.?) fastest = ms;
+        }
+    }
+    const active_url = map.default_url;
+    for (entries.items, samples) |item, sample| {
+        try printNrmProbe(item.name, item.url, &sample, active_url, width, only == null, fastest);
+    }
+    if (only == null) {
+        const cache = try measureEntries(allocator, entries.items);
+        defer allocator.free(cache);
+        try rememberRegistries(allocator, root, entries.items, cache);
+    }
 }
 
 fn explainMissing(name: []const u8) error{Explained} {
+    if (agent.nrm_cli) return nrmNotFound(name);
     var buf: [256]u8 = undefined;
     const message = i18n.format(messages.not_a_registry_plain, &buf, .{name});
     return agent.explain(message);
+}
+
+fn nrmProbeUrl(allocator: mem.Allocator, registry_url: []const u8) ![]u8 {
+    if (registry_url.len > 0 and registry_url[registry_url.len - 1] == '/')
+        return std.fmt.allocPrint(allocator, "{s}nrm", .{registry_url});
+    return std.fmt.allocPrint(allocator, "{s}/nrm", .{registry_url});
+}
+
+fn measureNrmEntries(allocator: mem.Allocator, entries: []const Named) ![]@import("binary.zig").Sample {
+    const binary = @import("binary.zig");
+    const urls = try allocator.alloc([]const u8, entries.len);
+    defer {
+        for (urls) |url| allocator.free(url);
+        allocator.free(urls);
+    }
+    for (entries, 0..) |item, i| urls[i] = try nrmProbeUrl(allocator, item.url);
+    return binary.probeParallel(allocator, urls);
+}
+
+fn sampleMs(sample: *const @import("binary.zig").Sample) u32 {
+    const secs = std.fmt.parseFloat(f64, sample.seconds()) catch return 0;
+    return @intFromFloat(@round(secs * 1000.0));
+}
+
+fn printNrmProbe(name: []const u8, url: []const u8, sample: *const @import("binary.zig").Sample, active_url: ?[]const u8, width: usize, all: bool, fastest: ?u32) !void {
+    var dashes: [128]u8 = undefined;
+    const count = geneDashLine(name, width);
+    @memset(dashes[0..count], '-');
+    const star = if (active_url) |active| sameUrl(active, url) else false;
+    const marker: []const u8 = if (star) "* " else "  ";
+    const ms = sampleMs(sample);
+    var suffix_buf: [160]u8 = undefined;
+    const suffix: []const u8 = if (sample.ok) blk: {
+        if (all and fastest != null and ms == fastest.?) {
+            break :blk try std.fmt.bufPrint(&suffix_buf, "{d} ms", .{ms});
+        }
+        break :blk try std.fmt.bufPrint(&suffix_buf, "{d} ms", .{ms});
+    } else if (isProbeTimeout(sample)) blk: {
+        break :blk "timeout (Fetch timeout over 5000 ms)";
+    } else blk: {
+        break :blk try std.fmt.bufPrint(&suffix_buf, "{d} ms (Fetch error, if this is your private registry, please ignore)", .{ms});
+    };
+    try stdout("{s}{s} {s} {s}\n", .{ marker, name, dashes[0..count], suffix });
+}
+
+fn isProbeTimeout(sample: *const @import("binary.zig").Sample) bool {
+    if (sample.ok) return false;
+    const secs = std.fmt.parseFloat(f64, sample.seconds()) catch return false;
+    return secs >= 4.9;
 }
 
 pub fn useAuto(allocator: mem.Allocator, root: []const u8) !void {
@@ -596,12 +904,92 @@ fn fastestSample(entries: []const Named, samples: []const @import("binary.zig").
     return null;
 }
 
-fn printNameLine(map: *const Map, name: []const u8, url: []const u8) !void {
-    if (map.isCurrent(name, url)) {
-        try stdout("* {s} {s}\n", .{ name, url });
-    } else {
-        try stdout("  {s} {s}\n", .{ name, url });
+pub fn listAlignmentWidth(allocator: mem.Allocator, root: []const u8) !usize {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    var max: usize = 0;
+    for (builtin_registries) |item| max = @max(max, item.name.len);
+    for (map.names.items) |item| max = @max(max, item.name.len);
+    return max + 3;
+}
+
+pub fn geneDashLine(name: []const u8, width: usize) usize {
+    const want = if (width > name.len + 1) width - name.len + 1 else 2;
+    return @max(want, 2);
+}
+
+fn printNameLine(map: *const Map, name: []const u8, url: []const u8, width: usize) !void {
+    var dashes: [128]u8 = undefined;
+    const count = geneDashLine(name, width);
+    @memset(dashes[0..count], '-');
+    const marker: []const u8 = if (map.isCurrent(name, url)) "* " else "  ";
+    try stdout("{s}{s} {s} {s}\n", .{ marker, name, dashes[0..count], url });
+}
+
+fn nrmSuccess(comptime message: i18n.Msg, args: anytype) !void {
+    if (agent.nrm_cli) {
+        var buf: [512]u8 = undefined;
+        const body = mem.trimEnd(u8, i18n.format(message, &buf, args), "\n");
+        try stdout("SUCCESS {s}\n", .{body});
+        return;
     }
+    try i18n.out(message, args);
+}
+
+fn nrmNotFound(name: []const u8) error{Explained} {
+    var buf: [256]u8 = undefined;
+    const message = i18n.format(messages.nrm_error_registry_not_found, &buf, .{name});
+    return agent.explain(message);
+}
+
+fn nrmInternal(name: []const u8, action: []const u8) error{Explained} {
+    var buf: [256]u8 = undefined;
+    _ = name;
+    const message = i18n.format(messages.nrm_error_internal_registry, &buf, .{action});
+    return agent.explain(message);
+}
+
+pub const LoginOpts = struct {
+    base64: ?[]const u8 = null,
+    username: ?[]const u8 = null,
+    password: ?[]const u8 = null,
+    email: ?[]const u8 = null,
+    always_auth: ?bool = null,
+};
+
+pub fn listRegistryLabels(allocator: mem.Allocator, root: []const u8) ![]const []const u8 {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    const count = builtin_registries.len + map.names.items.len;
+    const out = try allocator.alloc([]const u8, count);
+    errdefer allocator.free(out);
+    var n: usize = 0;
+    for (builtin_registries) |item| {
+        out[n] = try allocator.dupe(u8, item.name);
+        n += 1;
+    }
+    for (map.names.items) |item| {
+        out[n] = try allocator.dupe(u8, item.name);
+        n += 1;
+    }
+    return out;
+}
+
+pub fn listCustomLabels(allocator: mem.Allocator, root: []const u8) ![]const []const u8 {
+    var map = try loadOrEmpty(allocator, root);
+    defer map.deinit(allocator);
+    const out = try allocator.alloc([]const u8, map.names.items.len);
+    errdefer {
+        for (out[0..map.names.items.len]) |label| allocator.free(label);
+        allocator.free(out);
+    }
+    for (map.names.items, 0..) |item, i| out[i] = try allocator.dupe(u8, item.name);
+    return out;
+}
+
+pub fn freeLabels(allocator: mem.Allocator, labels: []const []const u8) void {
+    for (labels) |label| allocator.free(label);
+    allocator.free(labels);
 }
 
 pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
@@ -609,10 +997,24 @@ pub fn renderNpmrc(allocator: mem.Allocator, existing: []const u8, map: *const M
     errdefer out.deinit(allocator);
     try appendKept(allocator, &out, existing, map, managedNpm);
     if (map.default_url) |url| try appendLine(allocator, &out, "registry={s}", .{url});
+    if (authSource(map)) |entry| {
+        if (entry.auth) |a| try appendLine(allocator, &out, "_auth={s}", .{a});
+        if (entry.always_auth) |v| try appendLine(allocator, &out, "always-auth={s}", .{if (v) "true" else "false"});
+        if (entry.email) |e| try appendLine(allocator, &out, "email={s}", .{e});
+        if (entry.repository) |r| try appendLine(allocator, &out, "repository={s}", .{r});
+    }
     for (map.scopes.items) |scope| {
         try appendLine(allocator, &out, "{s}:registry={s}", .{ scope.name, scope.url });
     }
     return out.toOwnedSlice(allocator);
+}
+
+fn authSource(map: *const Map) ?*const Named {
+    const url = map.default_url orelse return null;
+    for (map.names.items) |*named| {
+        if (sameUrl(named.url, url)) return named;
+    }
+    return null;
 }
 
 pub fn renderYarnrc(allocator: mem.Allocator, existing: []const u8, map: *const Map) ![]u8 {
@@ -769,7 +1171,7 @@ fn syncMap(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
     try rewrite(allocator, files.yarnrc_yml, map, renderYarnYml);
     try rewrite(allocator, files.pnpmrc, map, renderNpmrc);
     try rewrite(allocator, files.bunfig, map, renderBunfig);
-    if (!agent.mirror_quiet) {
+    if (agent.nrm_verbose_sync or (!agent.mirror_quiet and !agent.nrm_quiet_sync)) {
         try printMap(map);
         try i18n.err(messages.wrote_path, .{files.npmrc});
         try i18n.err(messages.wrote_path, .{files.yarnrc});
@@ -880,7 +1282,15 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
     defer allocator.free(body);
     if (body.len == 0) return error.NoMap;
     const StoredScope = struct { name: []const u8, registry: []const u8 };
-    const StoredName = struct { name: []const u8, registry: []const u8 };
+    const StoredName = struct {
+        name: []const u8,
+        registry: []const u8,
+        home: ?[]const u8 = null,
+        auth: ?[]const u8 = null,
+        email: ?[]const u8 = null,
+        repository: ?[]const u8 = null,
+        @"always-auth": ?bool = null,
+    };
     const Stored = struct {
         default: ?[]const u8 = null,
         current: ?[]const u8 = null,
@@ -902,7 +1312,19 @@ fn load(allocator: mem.Allocator, root: []const u8) !Map {
         const name = normalizeName(named.name) catch continue;
         if (findBuiltin(name) != null) continue;
         const url = try normalizeUrl(named.registry);
-        try map.upsertName(allocator, name, url);
+        try map.upsertNameEx(allocator, name, url, named.home);
+        if (map.findNamed(name)) |entry| {
+            if (named.auth) |a| {
+                entry.auth = try allocator.dupe(u8, a);
+            }
+            if (named.email) |e| {
+                entry.email = try allocator.dupe(u8, e);
+            }
+            if (named.repository) |r| {
+                entry.repository = try allocator.dupe(u8, r);
+            }
+            if (named.@"always-auth") |v| entry.always_auth = v;
+        }
     }
     for (parsed.value.scopes) |scope| {
         const name = try normalizeScope(scope.name);
@@ -949,9 +1371,39 @@ fn save(allocator: mem.Allocator, root: []const u8, map: *Map) !void {
         const url = try quote(allocator, named.url);
         defer allocator.free(url);
         const comma: []const u8 = if (i + 1 == map.names.items.len) "" else ",";
-        const line = try std.fmt.allocPrint(allocator, "    {{\"name\": {s}, \"registry\": {s}}}{s}\n", .{ name, url, comma });
+        const line = try std.fmt.allocPrint(allocator, "    {{\"name\": {s}, \"registry\": {s}", .{ name, url });
         defer allocator.free(line);
         try body.appendSlice(allocator, line);
+        if (named.home) |h| {
+            const qh = try quote(allocator, h);
+            defer allocator.free(qh);
+            try body.appendSlice(allocator, ", \"home\": ");
+            try body.appendSlice(allocator, qh);
+        }
+        if (named.auth) |a| {
+            const qa = try quote(allocator, a);
+            defer allocator.free(qa);
+            try body.appendSlice(allocator, ", \"auth\": ");
+            try body.appendSlice(allocator, qa);
+        }
+        if (named.email) |e| {
+            const qe = try quote(allocator, e);
+            defer allocator.free(qe);
+            try body.appendSlice(allocator, ", \"email\": ");
+            try body.appendSlice(allocator, qe);
+        }
+        if (named.repository) |r| {
+            const qr = try quote(allocator, r);
+            defer allocator.free(qr);
+            try body.appendSlice(allocator, ", \"repository\": ");
+            try body.appendSlice(allocator, qr);
+        }
+        if (named.always_auth) |v| {
+            try body.appendSlice(allocator, if (v) ", \"always-auth\": true" else ", \"always-auth\": false");
+        }
+        try body.appendSlice(allocator, "}");
+        try body.appendSlice(allocator, comma);
+        try body.append(allocator, '\n');
     }
     try body.appendSlice(allocator, "  ],\n  \"scopes\": [\n");
     for (map.scopes.items, 0..) |scope, i| {
@@ -1019,6 +1471,7 @@ fn appendKept(
 fn managedNpm(line: []const u8, map: *const Map) bool {
     const key = npmKey(line) orelse return false;
     if (mem.eql(u8, key, "registry")) return map.default_url != null;
+    if (authSource(map) != null and (mem.eql(u8, key, "_auth") or mem.eql(u8, key, "always-auth") or mem.eql(u8, key, "email") or mem.eql(u8, key, "repository"))) return true;
     return mem.startsWith(u8, key, "@") and mem.endsWith(u8, key, ":registry");
 }
 

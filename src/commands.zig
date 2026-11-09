@@ -872,49 +872,9 @@ pub fn printNrmHelp() !void {
 }
 
 pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
+    const nrm_cli = @import("nrm_cli.zig");
     const reg = @import("registry.zig");
-    if (args.len < 2) {
-        try printNrmHelp();
-        return;
-    }
-    const sub = args[1];
-    const failed = blk: {
-        if (mem.eql(u8, sub, "lang") and args.len == 2) {
-            try stdout("{s}\n", .{@import("i18n.zig").code()});
-            return;
-        } else if ((mem.eql(u8, sub, "help") or mem.eql(u8, sub, "--help") or mem.eql(u8, sub, "-h")) and args.len == 2) {
-            try printNrmHelp();
-            return;
-        } else if ((mem.eql(u8, sub, "ls") or mem.eql(u8, sub, "list")) and args.len == 2) {
-            break :blk reg.listNames(allocator, config.root_dir);
-        } else if (mem.eql(u8, sub, "use") and args.len == 3 and mem.eql(u8, args[2], "auto")) {
-            break :blk reg.useAuto(allocator, config.root_dir);
-        } else if (mem.eql(u8, sub, "use") and args.len == 3) {
-            break :blk reg.useName(allocator, config.root_dir, args[2]);
-        } else if (mem.eql(u8, sub, "current") and args.len == 2) {
-            break :blk reg.current(allocator, config.root_dir, false);
-        } else if (mem.eql(u8, sub, "current") and args.len == 3 and (mem.eql(u8, args[2], "-u") or mem.eql(u8, args[2], "--show-url"))) {
-            break :blk reg.current(allocator, config.root_dir, true);
-        } else if (mem.eql(u8, sub, "add") and (args.len == 4 or args.len == 5)) {
-            break :blk reg.addName(allocator, config.root_dir, args[2], args[3]);
-        } else if ((mem.eql(u8, sub, "del") or mem.eql(u8, sub, "rm")) and args.len == 3) {
-            break :blk reg.delName(allocator, config.root_dir, args[2]);
-        } else if (mem.eql(u8, sub, "test") and args.len == 2) {
-            break :blk reg.testRegistries(allocator, config.root_dir, null);
-        } else if (mem.eql(u8, sub, "test") and args.len == 3) {
-            break :blk reg.testRegistries(allocator, config.root_dir, args[2]);
-        } else if (mem.eql(u8, sub, "scope") and args.len >= 3 and (mem.eql(u8, args[2], "ls") or mem.eql(u8, args[2], "list")) and args.len == 3) {
-            break :blk reg.listScopes(allocator, config.root_dir);
-        } else if (mem.eql(u8, sub, "scope") and args.len == 5 and mem.eql(u8, args[2], "add")) {
-            break :blk reg.add(allocator, config.root_dir, args[3], args[4]);
-        } else if (mem.eql(u8, sub, "scope") and args.len == 4 and (mem.eql(u8, args[2], "del") or mem.eql(u8, args[2], "rm"))) {
-            break :blk reg.removeScope(allocator, config.root_dir, args[3]);
-        } else {
-            try printNrmHelp();
-            process.exit(1);
-        }
-    };
-    failed catch |err| {
+    nrm_cli.run(allocator, args, config) catch |err| {
         try reg.printError(err);
         process.exit(1);
     };
@@ -2106,7 +2066,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try i18n.err(messages.debug_version, .{"v2.10.0"});
+    try i18n.err(messages.debug_version, .{"v2.10.1"});
     try i18n.err(messages.debug_dir, .{config.root_dir});
     try i18n.err(messages.debug_versions, .{config.versions_dir});
     try i18n.err(messages.debug_mirror, .{config.mirror});

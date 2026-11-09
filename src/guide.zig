@@ -439,6 +439,15 @@ fn paintMenu(title: []const u8, labels: []const []const u8, back_label: []const 
     return lines;
 }
 
+pub fn pickOne(allocator: mem.Allocator, title_en: []const u8, title_zh: []const u8, labels: []const []const u8) !?usize {
+    if (comptime windows) return null;
+    const zh = preferZh(allocator);
+    switch (try choose(zh, text(zh, title_en, title_zh), labels, text(zh, "Cancel", "取消"))) {
+        .index => |i| return i,
+        .back, .quit => return null,
+    }
+}
+
 fn choose(zh: bool, title: []const u8, labels: []const []const u8, back_label: []const u8) !Pick {
     try tty.enter();
     defer tty.leave();

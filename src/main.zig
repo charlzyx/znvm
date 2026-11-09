@@ -12,7 +12,7 @@ const i18n = @import("i18n.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.10.0";
+const ZNVM_VERSION = "v2.10.1";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -54,6 +54,7 @@ pub fn main(init: process.Init.Minimal) !void {
     defer config.deinit();
 
     if (invoked_as_nrm) {
+        agent.nrm_cli = true;
         if (args.len < 2) {
             if (agent.json_mode) agent.fail(1, "error: --json needs a command.");
             if (agent.menuAllowed(.stdout)) {
@@ -67,7 +68,7 @@ pub fn main(init: process.Init.Minimal) !void {
             agent.fail(1, "error: --json is not supported for this command.");
         }
         const nrm_cmd = args[1];
-        if ((mem.eql(u8, nrm_cmd, "--version") or mem.eql(u8, nrm_cmd, "-v")) and args.len == 2) {
+        if ((mem.eql(u8, nrm_cmd, "--version") or mem.eql(u8, nrm_cmd, "-v") or mem.eql(u8, nrm_cmd, "-V")) and args.len == 2) {
             try writeToolVersion(allocator);
             return;
         }

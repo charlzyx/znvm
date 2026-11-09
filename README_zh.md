@@ -115,7 +115,7 @@ nrm scope ls
 nrm scope del @company
 ```
 
-内置名字是 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror` 和 `huawei`。`nrm use` 以及 `nvm registry china` / `official` 会在地址匹配时选中内置名字，末尾一个斜杠忽略。`nrm del` 不能删除内置名字。`nrm use auto` 测量各个源，并写入最快且可用的那个。它不改 `@scope`。`nrm test` 每次都会重新测量。结果在 `$NVM_DIR/mirror-latency.json` 里保留 6 小时。在终端里不带参数运行 `nrm` 会打开菜单，里面有源、scope 和测速。没有终端时打印帮助。`nrm add` 可以多带一个 home 参数，会被忽略。`nrm` 不接受 `binary` 或 `mirror`。
+`nrm` 与 **nrm 2.1.0** 日常使用对齐：`ls`/`test` 用虚线对齐、变异命令打印 `SUCCESS`、默认安静同步 `.npmrc`，并支持 `login`、`set-hosted-repo`、`set-scope`、`del-scope`、`set`、`rename`、`home`。内置源为 `npm`、`yarn`、`tencent`、`cnpm`、`taobao`、`npmMirror`、`huawei`，各有 `home` 地址。`nrm add <name> <url> [home]` 可保存 home 与授权字段。内置源不能删除。`nrm test` 探测 `{url}nrm` 并以毫秒输出。未知命令只打印一行错误。终端下裸 `nrm use`/`del` 为交互选择，非 TTY 必须带名字。`nrm scope *` 仍是 znvm 扩展。`nrm` 不接受 `binary` 或 `mirror`。
 
 `nvm mirror` 把 Node 发行包地址和工具真正读取的下载地址写出去。交互引导里对应的一项是「下载镜像」。
 
