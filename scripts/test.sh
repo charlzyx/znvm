@@ -1842,7 +1842,7 @@ set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
 json_nvm help | grep -q 'NVM_LANG'
-nrm_run --version --json | grep -q '"version":"v2.10.3"'
+nrm_run --version --json | grep -q "\"version\":\"$TEST_BINARY_VERSION\""
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"
