@@ -20,6 +20,18 @@ fn failFmt(code: u8, comptime message: i18n.Msg, args: anytype) noreturn {
     agent.fail(code, i18n.format(message, &buf, args));
 }
 
+fn failNoVersionFile() noreturn {
+    var hint_buf: [128]u8 = undefined;
+    const hint = i18n.format(messages.no_version_file_hint, &hint_buf, .{program_name});
+    var out: [512]u8 = undefined;
+    const body = std.fmt.bufPrint(
+        &out,
+        "{s}\n{s}",
+        .{ i18n.t(messages.no_version_file), hint },
+    ) catch i18n.t(messages.no_version_file);
+    agent.fail(1, body);
+}
+
 fn na() !noreturn {
     if (agent.json_mode) agent.fail(3, "N/A");
     try stdout("N/A\n", .{});
@@ -912,7 +924,8 @@ pub fn cmdRegistry(allocator: mem.Allocator, args: []const []const u8, config: Z
 
 pub fn cmdMirror(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     const mirror = @import("binary.zig");
-    mirror.cmd(allocator, config.root_dir, if (args.len < 2) args[0..0] else args[2..]) catch |err| {
+    const sub = if (args.len <= 2) @as([]const []const u8, &[_][]const u8{"ls"}) else args[2..];
+    mirror.cmd(allocator, config.root_dir, sub) catch |err| {
         try mirror.printError(err);
         process.exit(1);
     };
@@ -1065,10 +1078,7 @@ fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, comptime usa
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
     const found = try readNvmrcSpec(allocator, silent);
     if (found) |spec| return spec;
-    var use_buf: [256]u8 = undefined;
-    const rendered = i18n.format(usage, &use_buf, .{program_name});
-    var buf: [512]u8 = undefined;
-    agent.fail(127, i18n.format(messages.no_version_file, &buf, .{rendered}));
+    failNoVersionFile();
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -1909,7 +1919,7 @@ fn runInHit(allocator: mem.Allocator, config: ZnvmConfig, hit: LocalHit, argv: [
     exitWith(term);
 }
 
-fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *const ParsedArgs, command_name: []const u8) !struct { spec: []u8, args: []const []const u8 } {
+fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *const ParsedArgs, _: []const u8) !struct { spec: []u8, args: []const []const u8 } {
     const items = parsed.positionals.items;
     const first_is_version = parsed.lts == null and items.len > 0 and try isVersionSelector(allocator, config, items[0]);
     const spec = if (parsed.lts) |name|
@@ -1917,10 +1927,7 @@ fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *con
     else if (first_is_version)
         try allocator.dupe(u8, items[0])
     else
-        try readNvmrcSpec(allocator, parsed.silent) orelse {
-            try i18n.err(messages.usage_run_missing, .{ program_name, command_name });
-            process.exit(127);
-        };
+        try readNvmrcSpec(allocator, parsed.silent) orelse failNoVersionFile();
     const cmd_args = if (first_is_version) items[1..] else items;
     return .{ .spec = spec, .args = cmd_args };
 }
@@ -2045,7 +2052,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
         "";
     if (action.len == 0) {
         try i18n.err(messages.usage_cache, .{program_name});
-        process.exit(127);
+        process.exit(1);
     }
     const cache_dir = try fs.path.join(allocator, &.{ config.root_dir, ".cache" });
     defer allocator.free(cache_dir);
@@ -2066,7 +2073,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try i18n.err(messages.debug_version, .{"v2.10.2"});
+    try i18n.err(messages.debug_version, .{"v2.10.3"});
     try i18n.err(messages.debug_dir, .{config.root_dir});
     try i18n.err(messages.debug_versions, .{config.versions_dir});
     try i18n.err(messages.debug_mirror, .{config.mirror});

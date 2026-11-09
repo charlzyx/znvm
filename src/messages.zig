@@ -32,7 +32,8 @@ pub const unsupported_option = Msg{ .en = "Unsupported option \"{s}\".", .zh = "
 pub const usage_use = Msg{ .en = "Usage: {s} use [version]", .zh = "用法: {s} use [version]" };
 pub const usage_install = Msg{ .en = "Usage: {s} install [version]", .zh = "用法: {s} install [version]" };
 pub const usage_which = Msg{ .en = "Usage: {s} which [version]", .zh = "用法: {s} which [version]" };
-pub const no_version_file = Msg{ .en = "{s}\nNo .nvmrc or .node-version file found.", .zh = "{s}\n没有找到 .nvmrc 或 .node-version." };
+pub const no_version_file = Msg{ .en = "No .nvmrc file found", .zh = "没有找到 .nvmrc 或 .node-version 文件" };
+pub const no_version_file_hint = Msg{ .en = "Please see \"{s} --help\"", .zh = "请运行 \"{s} --help\" 查看帮助" };
 pub const system_nvmrc = Msg{ .en = "The system Node.js cannot be written to .nvmrc.\n", .zh = "系统 Node.js 不能写入 .nvmrc.\n" };
 pub const system_install = Msg{ .en = "The system Node.js cannot be installed with {s}.\n", .zh = "不能用 {s} 安装系统 Node.js.\n" };
 pub const no_active = Msg{ .en = "No active Node.js version.\n", .zh = "没有正在使用的 Node.js 版本.\n" };
@@ -79,7 +80,7 @@ pub const usage_version = Msg{ .en = "Usage: {s} version [version]", .zh = "用�
 pub const usage_version_remote = Msg{ .en = "Usage: {s} version-remote [version]\n", .zh = "用法: {s} version-remote [version]\n" };
 pub const running_system = Msg{ .en = "Running system node\n", .zh = "正在运行系统 node\n" };
 pub const running_node = Msg{ .en = "Running node {s}\n", .zh = "正在运行 node {s}\n" };
-pub const usage_run_missing = Msg{ .en = "Usage: {s} {s} [version] [args...]\nNo .nvmrc or .node-version file found.\n", .zh = "用法: {s} {s} [version] [args...]\n没有找到 .nvmrc 或 .node-version.\n" };
+pub const usage_run_missing = Msg{ .en = "Usage: {s} {s} [version] [args...]\n", .zh = "用法: {s} {s} [version] [args...]\n" };
 pub const usage_exec = Msg{ .en = "Usage: {s} exec [version] <command> [args...]\n", .zh = "用法: {s} exec [version] <command> [args...]\n" };
 pub const usage_reinstall = Msg{ .en = "Usage: {s} reinstall-packages <version>\n", .zh = "用法: {s} reinstall-packages <version>\n" };
 pub const no_active_use_first = Msg{ .en = "No active Node.js version. Run `{s} use <version>` first.\n", .zh = "没有正在使用的 Node.js 版本. 请先运行 `{s} use <version>`.\n" };

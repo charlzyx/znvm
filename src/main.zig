@@ -12,7 +12,7 @@ const i18n = @import("i18n.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.10.2";
+const ZNVM_VERSION = "v2.10.3";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -80,7 +80,11 @@ pub fn main(init: process.Init.Minimal) !void {
 
     if (args.len < 2) {
         if (agent.json_mode) agent.fail(1, "error: --json needs a command.");
-        try guide.run(allocator, config, .session);
+        if (agent.menuAllowed(.stdout)) {
+            try guide.run(allocator, config, .session);
+        } else {
+            try commands.printHelp();
+        }
         return;
     }
 
@@ -99,9 +103,7 @@ pub fn main(init: process.Init.Minimal) !void {
         try stdout("{s}\n", .{i18n.code()});
     } else if (mem.eql(u8, cmd, "help") or mem.eql(u8, cmd, "--help") or mem.eql(u8, cmd, "-h")) {
         try commands.cmdHelp(args);
-    } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v")) {
-        try writeToolVersion(allocator);
-    } else if (mem.eql(u8, cmd, "version") and args.len == 2 and !invoked_as_nvm) {
+    } else if (mem.eql(u8, cmd, "--version") or mem.eql(u8, cmd, "-v") or mem.eql(u8, cmd, "-V")) {
         try writeToolVersion(allocator);
     } else if (mem.eql(u8, cmd, "env")) {
         try commands.cmdEnv(allocator, args, config);

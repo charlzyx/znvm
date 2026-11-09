@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [v2.10.3] - 2026-11-09
+
+### Fixed
+
+- Non-TTY `nvm`/`znvm`: bare invocation prints terse help and exits 0; interactive guide only when stdin and stdout are TTYs (`nvm guide` still requires a TTY).
+- Missing version with no `.nvmrc`/`.node-version` for `use`/`install`/`exec`/`run`/`which`: one-line localized error, exit 1 (no usage wall).
+- `nvm version` with no args reports the active Node version (`current`); tool version is `--version` / `-V` only (including `znvm`).
+- Bare `nvm mirror` lists mirrors (`mirror ls`); bare `nvm cache` prints usage and exits 1.
+
 ## [v2.10.2] - 2026-11-09
 
 ### Fixed

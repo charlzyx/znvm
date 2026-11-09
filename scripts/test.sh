@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=== Testing znvm v2.10.2 ===${NC}"
+echo -e "${YELLOW}=== Testing znvm v2.10.3 ===${NC}"
 echo ""
 
 # Run unit tests
@@ -40,18 +40,25 @@ ZNVM_BIN="./zig-out/bin/znvm"
 
 # Test version command
 echo "  Testing version command..."
-VERSION_OUTPUT=$("$ZNVM_BIN" version)
-if [[ "$VERSION_OUTPUT" == "v2.10.2" ]]; then
+TOOL_VERSION=$("$ZNVM_BIN" --version)
+if [[ "$TOOL_VERSION" == "v2.10.3" ]]; then
     echo -e "    ${GREEN}✓${NC} version command OK"
 else
-    echo -e "    ${RED}✗${NC} Expected v2.10.2, got $VERSION_OUTPUT"
+    echo -e "    ${RED}✗${NC} Expected tool v2.10.3, got $TOOL_VERSION"
+    exit 1
+fi
+NODE_VERSION=$("$ZNVM_BIN" version)
+if [[ "$NODE_VERSION" == "none" || "$NODE_VERSION" == "system" ]]; then
+    echo -e "    ${GREEN}✓${NC} active node version line OK"
+else
+    echo -e "    ${RED}✗${NC} Expected none or system, got $NODE_VERSION"
     exit 1
 fi
 
 # Installer defaults intentionally remain at the last published release until
 # release verification succeeds. Fixture installs must explicitly request the
 # binary under test, rather than accidentally downgrade to that baked default.
-TEST_BINARY_VERSION="$VERSION_OUTPUT"
+TEST_BINARY_VERSION="$TOOL_VERSION"
 
 # Test env command
 echo "  Testing env command..."
@@ -221,7 +228,7 @@ st=$?
 set -e
 out=$(cat "$NVM_ALIGN_TMP/cmd.out" || true)
 err=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$st" -ne 0 || "$out" != "v2.10.2" ]]; then
+if [[ "$st" -ne 0 || "$out" != "v2.10.3" ]]; then
     echo "FAIL status=$st stdout=$(printf %q "$out") stderr=$(printf %q "$err")" >&2
     exit 1
 fi
@@ -317,7 +324,7 @@ bash -c '
         *) echo "shell use produced: $out" >&2; exit 1 ;;
     esac
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.10.2" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.10.3" ]; then echo "shell nvm --version produced: $ver" >&2; exit 1; fi
 ' _ "$ALIGN_ROOT" "$ALIGN_BIN"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="/usr/bin:/bin" "$ALIGN_BIN" uninstall 18 >/dev/null
 test ! -d "$ALIGN_ROOT/versions/v18.0.0"
@@ -398,7 +405,7 @@ bash -c '
     # shellcheck disable=SC1091
     . "$1/.nvm/nvm.sh"
     ver=$(nvm --version || true)
-    if [ "$ver" != "v2.10.2" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
+    if [ "$ver" != "v2.10.3" ]; then echo "nvm --version produced: $ver" >&2; exit 1; fi
     ver=$(nvm version || true)
     if [ "$ver" != "none" ]; then echo "nvm version produced: $ver" >&2; exit 1; fi
     ver=$(nvm current || true)
@@ -526,7 +533,7 @@ while [ \$# -gt 0 ]; do
 done
 case "\$url" in
     *api.github.com*)
-        printf '%s\n' '{"tag_name":"v2.10.2"}'
+        printf '%s\n' '{"tag_name":"v2.10.3"}'
         exit 0
         ;;
     *releases/download*)
@@ -562,7 +569,7 @@ UPGRADE_OUT=$(env -i \
     SHELL="/bin/bash" \
     bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
 # install_msg writes progress to stderr; 2>&1 above keeps tests stable.
-printf '%s\n' "$UPGRADE_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.2"
+printf '%s\n' "$UPGRADE_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.3"
 printf '%s\n' "$UPGRADE_OUT" | grep -q "Saved $UPGRADE_HOME/.nvm/nvm as $UPGRADE_HOME/.nvm/nvm.bak"
 test -L "$UPGRADE_HOME/.nvm/nrm"
 if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
@@ -572,7 +579,7 @@ if printf '%s\n' "$UPGRADE_OUT" | grep -q 'znvm\|completion'; then
 fi
 test "$(readlink "$UPGRADE_HOME/.nvm/nrm")" = "nvm"
 ver=$("$UPGRADE_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.10.2" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.3" ]; then echo "upgraded nvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$UPGRADE_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "nvm.bak --version produced: $ver" >&2; exit 1; fi
 test "$("$UPGRADE_HOME/.nvm/nvm.bak" ls)" = "v20.11.0"
@@ -641,9 +648,9 @@ SRC_OUT=$(env -i \
     SHELL="/bin/bash" \
     ZNVM_BIN_SRC="$REAL_BIN" \
     bash ./install-as-nvm.sh "$TEST_BINARY_VERSION" 2>&1)
-printf '%s\n' "$SRC_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.2"
+printf '%s\n' "$SRC_OUT" | grep -q "Upgraded nvm v2.3.0 -> v2.10.3"
 ver=$("$SRC_HOME/.nvm/nvm" --version)
-if [ "$ver" != "v2.10.2" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.3" ]; then echo "ZNVM_BIN_SRC upgrade produced: $ver" >&2; exit 1; fi
 ver=$("$SRC_HOME/.nvm/nvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "ZNVM_BIN_SRC bak produced: $ver" >&2; exit 1; fi
 if printf '%s\n' "$SRC_OUT" | grep -q 'znvm\|completion'; then
@@ -768,12 +775,12 @@ PLAIN_UP_OUT=$(env -i \
     PATH="$PLAIN_CURL:$PLAIN_UP/.local/bin:/usr/bin:/bin" \
     SHELL="/bin/bash" \
     bash ./install.sh "$TEST_BINARY_VERSION" 2>&1)
-printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.10.2"
+printf '%s\n' "$PLAIN_UP_OUT" | grep -q "ok Upgraded znvm v2.3.0 -> v2.10.3"
 printf '%s\n' "$PLAIN_UP_OUT" | grep -q "Saved the previous $PLAIN_UP/.local/bin/znvm as $PLAIN_UP/.local/bin/znvm.bak"
 test -L "$PLAIN_UP/.local/bin/nrm"
 test "$(readlink "$PLAIN_UP/.local/bin/nrm")" = "znvm"
 ver=$("$PLAIN_UP/.local/bin/znvm" --version)
-if [ "$ver" != "v2.10.2" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
+if [ "$ver" != "v2.10.3" ]; then echo "upgraded znvm --version produced: $ver" >&2; exit 1; fi
 ver=$("$PLAIN_UP/.local/bin/znvm.bak" --version)
 if [ "$ver" != "v2.3.0" ]; then echo "znvm.bak --version produced: $ver" >&2; exit 1; fi
 PLAIN_NRM_LS=$(env -i HOME="$PLAIN_UP" PATH="/usr/bin:/bin" "$PLAIN_UP/.local/bin/nrm" ls)
@@ -826,12 +833,11 @@ echo -e "    ${GREEN}✓${NC} install.sh upgrade OK"
 echo "  Testing interactive guide..."
 GUIDE_BIN="$ZNVM_BIN"
 set +e
-env -u NVM_DIR -u ZNVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+env -u NVM_DIR -u ZNVM_DIR NVM_LANG=en HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 GUIDE_STATUS=$?
 set -e
-GUIDE_OUT=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "interactive guide needs a terminal"; then
-    echo "FAIL bare-guide status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
+if [[ "$GUIDE_STATUS" -ne 0 ]] || ! grep -q "Usage: znvm <command>" "$NVM_ALIGN_TMP/cmd.out"; then
+    echo "FAIL bare non-tty status=$GUIDE_STATUS out=$(cat "$NVM_ALIGN_TMP/cmd.out" "$NVM_ALIGN_TMP/cmd.err")" >&2
     exit 1
 fi
 set +e
@@ -852,7 +858,7 @@ if [[ "$GUIDE_STATUS" -ne 1 ]] || ! printf '%s\n' "$GUIDE_OUT" | grep -q "intera
     echo "FAIL interactive status=$GUIDE_STATUS out=$(printf %q "$GUIDE_OUT")" >&2
     exit 1
 fi
-HELP_OUT=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" help)
+HELP_OUT=$(env -u NVM_DIR NVM_LANG=en HOME="$EMPTY_ROOT/home" LC_ALL=C "$GUIDE_BIN" help)
 printf '%s\n' "$HELP_OUT" | grep -q "Usage: znvm <command>"
 printf '%s\n' "$HELP_OUT" | grep -q "NVM_DIR"
 printf '%s\n' "$HELP_OUT" | grep -q "NVM_NODEJS_ORG_MIRROR"
@@ -938,6 +944,7 @@ base = os.environ.copy()
 base.update({
     "LC_ALL": "C",
     "LANG": "C",
+    "NVM_LANG": "en",
     "HOME": root + "/home",
     "PATH": "/usr/bin:/bin",
 })
@@ -1049,27 +1056,27 @@ code, text, _ = run_pty([bin_path], colored, ["q"], ["\x1b[1;7m>  1  Install Nod
 if code != 0:
     raise SystemExit(f"color menu exit {code}\n{text}")
 
-def expect_closed(args, env, label):
-    code, text, _ = run_pty(args, env, [], ["interactive guide needs a terminal"], timeout=3)
-    if code != 1 or "Install Node" in text:
+def expect_help(args, env, label):
+    code, text, _ = run_pty(args, env, [], ["Usage: znvm <command>"], timeout=3)
+    if code != 0 or "Install Node" in text:
         raise SystemExit(f"{label} exit {code}\n{text}")
 
 ci = dict(base)
 ci["CI"] = "1"
-expect_closed([bin_path], ci, "CI")
+expect_help([bin_path], ci, "CI")
 nonint = dict(base)
 nonint["NVM_NONINTERACTIVE"] = "Yes"
-expect_closed([bin_path], nonint, "NVM_NONINTERACTIVE")
-expect_closed([bin_path, "--yes"], base, "--yes")
+expect_help([bin_path], nonint, "NVM_NONINTERACTIVE")
+expect_help([bin_path, "--yes"], base, "--yes")
 code, screen, captured = run_pty(
     [bin_path],
     base,
     [],
-    ["interactive guide needs a terminal"],
+    ["Usage: znvm <command>"],
     stdout_pipe=True,
     timeout=3,
 )
-if code != 1 or "Install Node" in captured or "Install Node" in screen:
+if code != 0 or "Install Node" in captured or "Install Node" in screen:
     raise SystemExit(f"stdout pipe exit {code}\n{screen}\nSTDOUT:\n{captured}")
 off = dict(base)
 off["NVM_NONINTERACTIVE"] = "0"
@@ -1079,6 +1086,36 @@ if code != 0:
 print("pty guide ok")
 PY
 echo -e "    ${GREEN}✓${NC} interactive guide OK"
+
+echo "  Testing nvm non-TTY classic behavior..."
+NVM_LINK_HOME="$EMPTY_ROOT/nvm-classic-home"
+NVM_LINK_NVM="$EMPTY_ROOT/nvm-classic-nvm"
+mkdir -p "$NVM_LINK_HOME" "$NVM_LINK_NVM" "$EMPTY_ROOT/nvm-bin"
+ln -sfn "$ZNVM_BIN" "$EMPTY_ROOT/nvm-bin/nvm"
+nvm_pipe() {
+    env -u NVM_DIR -u ZNVM_NONINTERACTIVE NVM_DIR="$NVM_LINK_NVM" HOME="$NVM_LINK_HOME" LC_ALL=C "$EMPTY_ROOT/nvm-bin/nvm" "$@"
+}
+set +e
+nvm_pipe </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+BARE_STATUS=$?
+set -e
+test "$BARE_STATUS" -eq 0
+grep -q "Usage: nvm <command>" "$NVM_ALIGN_TMP/cmd.out"
+set +e
+nvm_pipe use </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+USE_STATUS=$?
+set -e
+test "$USE_STATUS" -eq 1
+grep -q "No .nvmrc file found" "$NVM_ALIGN_TMP/cmd.err"
+test "$(nvm_pipe version </dev/null 2>/dev/null)" = "none"
+test "$(nvm_pipe --version </dev/null 2>/dev/null)" = "v2.10.3"
+nvm_pipe mirror </dev/null 2>/dev/null | grep -q '^profile '
+set +e
+nvm_pipe cache </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
+CACHE_STATUS=$?
+set -e
+test "$CACHE_STATUS" -eq 1
+echo -e "    ${GREEN}✓${NC} nvm non-TTY classic OK"
 
 echo "  Testing registry scopes..."
 REG_HOME="$EMPTY_ROOT/registry-home"
@@ -1760,8 +1797,8 @@ json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
 test "$(json_nvm current --json)" = '{"version":"none"}'
 test "$(json_nvm version --json)" = '{"version":"none"}'
-test "$(json_nvm --version --json)" = '{"version":"v2.10.2"}'
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"v2.10.2"}'
+test "$(json_nvm --version --json)" = '{"version":"v2.10.3"}'
+test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"none"}'
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
@@ -1786,7 +1823,7 @@ set -e
 test "$JSON_STATUS" -eq 1
 grep -q 'needs a command' "$NVM_ALIGN_TMP/cmd.err"
 json_nvm help | grep -q 'NVM_LANG'
-nrm_run --version --json | grep -q '"version":"v2.10.2"'
+nrm_run --version --json | grep -q '"version":"v2.10.3"'
 nrm_run ls --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); npm=[x for x in d["registries"] if x["name"]=="npm"][0]; tao=[x for x in d["registries"] if x["name"]=="taobao"][0]; assert npm["current"] is True and tao["current"] is False and tao["url"].startswith("https://registry.npmmirror.com")' "$NVM_ALIGN_TMP/cmd.out"
 nrm_run current --json >"$NVM_ALIGN_TMP/cmd.out"

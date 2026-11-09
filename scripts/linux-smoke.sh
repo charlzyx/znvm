@@ -42,6 +42,10 @@ nvm exec "$NODE_VERSION" node -e 'process.stdout.write("exec-ok\n")' | grep -q e
 nrm ls | head -1
 nrm current -u | grep -q '^https://'
 nvm mirror ls | grep -q '^profile '
+nvm </dev/null 2>/dev/null | grep -q 'Usage:'
+TOOL_VER="$(nvm --version </dev/null)"
+test "$(nvm --version --json </dev/null | jq -r .version)" = "$TOOL_VER"
+nvm mirror </dev/null 2>/dev/null | grep -q '^profile '
 test "$(nvm --version --json | jq -r .version)" = "$(nvm --version)"
 test "$(nvm current --json | jq -r .version)" != "null"
 
