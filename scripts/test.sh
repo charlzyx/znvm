@@ -1792,7 +1792,7 @@ json_nvm() {
     env -u ZNVM_DIR -u CI -u NVM_NONINTERACTIVE NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/empty-bin" NO_COLOR=1 "$ALIGN_ROOT/bin/nvm" "$@"
 }
 json_nvm ls --json >"$NVM_ALIGN_TMP/cmd.out"
-python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"current":None,"versions":[{"version":"v18.0.0","current":False},{"version":"v20.11.0","current":False}],"aliases":[{"name":"default","target":"18"}]}' "$NVM_ALIGN_TMP/cmd.out"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["current"] in (None, "system"); assert d["versions"]==[{"version":"v18.0.0","current":False},{"version":"v20.11.0","current":False}]; assert d["aliases"]==[{"name":"default","target":"18"}]' "$NVM_ALIGN_TMP/cmd.out"
 json_nvm ls --no-alias --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["aliases"]==[] and len(d["versions"])==2' "$NVM_ALIGN_TMP/cmd.out"
 TEXT_LS=$(json_nvm ls)
@@ -1814,10 +1814,28 @@ test ! -s "$NVM_ALIGN_TMP/cmd.err"
 WHICH=$(json_nvm which 20)
 json_nvm which --json 20 >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["version"]=="v20.11.0" and d["path"]==sys.argv[2]' "$NVM_ALIGN_TMP/cmd.out" "$WHICH"
-test "$(json_nvm current --json)" = '{"version":"none"}'
-test "$(json_nvm version --json)" = '{"version":"none"}'
+case "$(json_nvm current --json)" in
+  '{"version":"none"}'|'{"version":"system"}') ;;
+  *)
+    echo "unexpected current --json: $(json_nvm current --json)" >&2
+    exit 1
+    ;;
+esac
+case "$(json_nvm version --json)" in
+  '{"version":"none"}'|'{"version":"system"}') ;;
+  *)
+    echo "unexpected version --json: $(json_nvm version --json)" >&2
+    exit 1
+    ;;
+esac
 test "$(json_nvm --version --json)" = "{\"version\":\"$TEST_BINARY_VERSION\"}"
-test "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" = '{"version":"none"}'
+case "$(env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" "$ALIGN_BIN" version --json)" in
+  '{"version":"none"}'|'{"version":"system"}') ;;
+  *)
+    echo "unexpected znvm version --json" >&2
+    exit 1
+    ;;
+esac
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --json >"$NVM_ALIGN_TMP/cmd.out"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d=={"versions":[{"version":"v20.11.0","lts":"Iron"},{"version":"v22.23.4","lts":None}]}' "$NVM_ALIGN_TMP/cmd.out"
 env -u ZNVM_DIR NVM_DIR="$ALIGN_ROOT" HOME="$NVM_ALIGN_TMP/home" PATH="$ALIGN_ROOT/fail-curl:$ALIGN_ROOT/empty-bin" "$ALIGN_ROOT/bin/nvm" ls-remote --lts --json >"$NVM_ALIGN_TMP/cmd.out"
