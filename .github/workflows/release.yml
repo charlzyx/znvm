@@ -249,6 +249,9 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Sync with main before promotion
+        run: git pull --rebase origin main
+
       - name: Bump public installers and site to release version
         env:
           VERSION: ${{ env.VERSION }}
@@ -261,7 +264,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main
           git add install.sh install-as-nvm.sh website/public/install.sh website/public/install-as-nvm.sh \
             website/src/components/hero.tsx skills/znvm/SKILL.md
           if git diff --cached --quiet; then
