@@ -896,9 +896,27 @@ import os, pty, select, subprocess, sys, time
 bin_path, root = sys.argv[1], sys.argv[2]
 
 def run_pty(args, env, sends, needles, timeout=5, stdout_pipe=False):
+    if stdout_pipe:
+        proc = subprocess.Popen(
+            args,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+            close_fds=True,
+        )
+        captured = proc.stdout.read()
+        proc.wait(timeout=timeout)
+        text = captured.decode("utf-8", "replace")
+        for needle in needles:
+            if needle not in text:
+                raise SystemExit(
+                    f"missing {needle!r} status={proc.returncode}\nSTDOUT:\n{text}"
+                )
+        return proc.returncode, text, text
+
     master, slave = pty.openpty()
-    stdout = subprocess.PIPE if stdout_pipe else slave
-    proc = subprocess.Popen(args, stdin=slave, stdout=stdout, stderr=slave, env=env, close_fds=True)
+    proc = subprocess.Popen(args, stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
     os.close(slave)
     data = b""
     pos = 0
@@ -930,15 +948,12 @@ def run_pty(args, env, sends, needles, timeout=5, stdout_pipe=False):
         proc.kill()
         text = data.decode("utf-8", "replace")
         raise SystemExit(f"timeout args={args[1:]} waiting={waiting!r}\n{text}")
-    captured = b""
-    if stdout_pipe:
-        captured = proc.stdout.read()
     proc.wait(timeout=2)
     os.close(master)
     text = data.decode("utf-8", "replace")
     if waiting:
         raise SystemExit(f"missing {waiting!r} status={proc.returncode}\n{text}")
-    return proc.returncode, text, captured.decode("utf-8", "replace")
+    return proc.returncode, text, ""
 
 base = os.environ.copy()
 base.update({
