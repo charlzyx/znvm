@@ -26,7 +26,7 @@ pub fn printNvm(program_name: []const u8) !void {
             \\  ls-remote [版本]        列出远程版本
             \\  current                 当前版本
             \\  which [版本]            node 路径
-            \\  version [版本]          解析版本
+            \\  version [版本]          当前或解析版本
             \\  version-remote [版本]   解析远程版本
             \\  alias [名字 [目标]]     查看或设置别名
             \\  unalias <名字>          删除别名
@@ -68,7 +68,7 @@ pub fn printNvm(program_name: []const u8) !void {
         \\  ls-remote [version]     list remote
         \\  current                 active version
         \\  which [version]         path to node
-        \\  version [version]       resolve a version
+        \\  version [version]       active or resolve a version
         \\  version-remote [version]  resolve a remote version
         \\  alias [name [target]]   list or set an alias
         \\  unalias <name>          delete an alias
