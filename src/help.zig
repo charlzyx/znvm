@@ -101,57 +101,111 @@ pub fn printNvm(program_name: []const u8) !void {
 pub fn printNrm() !void {
     if (zhNow()) {
         try stdout(
-            \\nrm - 源管理
+            \\nrm - 源管理 (nrm 2.x 兼容)
             \\
             \\用法: nrm <命令> [参数]
             \\
             \\命令:
-            \\  ls                      列出源
-            \\  use <名字|auto>         切换源
-            \\  current [-u]            当前名字或地址
-            \\  add <名字> <url>        添加名字
-            \\  del <名字>              删除名字
-            \\  test [名字]             测量延迟
-            \\  scope ls                列出 scope
-            \\  scope add <@scope> <url>
-            \\  scope del <@scope>
-            \\  help                    显示帮助
-            \\  lang                    打印 zh 或 en
+            \\  ls                          列出源
+            \\  current [-u|--show-url]     当前名字或地址
+            \\  use [名字|auto]             切换源
+            \\  add <名字> <url> [home]     添加自定义源
+            \\  del [名字]                  删除自定义源
+            \\  login <名字> [base64]       设置授权
+            \\  set-hosted-repo <名字> <repo>
+            \\  set-scope <@scope> <url>
+            \\  del-scope <@scope>
+            \\  set <名字> -a <attr> -v <value>
+            \\  rename <名字> <新名字>
+            \\  home <名字> [browser]
+            \\  test [名字]                 测量延迟
+            \\  scope ls|add|del              scope 路由 (znvm)
+            \\  help [命令]                 显示帮助
+            \\  lang                        打印 zh 或 en
+            \\  -V, --version               版本
             \\
-            \\环境变量:
-            \\  NVM_DIR                 数据目录
-            \\  NVM_LANG                语言, zh 或 en
-            \\
+            \\环境变量: NVM_DIR  NVM_LANG=zh|en
             \\下载镜像: nvm mirror
             \\
         , .{});
         return;
     }
     try stdout(
-        \\nrm - registry manager
+        \\nrm - registry manager (nrm 2.x parity)
         \\
         \\Usage: nrm <command> [args]
         \\
         \\Commands:
-        \\  ls                      list registries
-        \\  use <name|auto>         switch registry
-        \\  current [-u]            current name or URL
-        \\  add <name> <url>        add a name
-        \\  del <name>              delete a name
-        \\  test [name]             measure latency
-        \\  scope ls                list scopes
-        \\  scope add <@scope> <url>
-        \\  scope del <@scope>
-        \\  help                    show help
-        \\  lang                    print zh or en
+        \\  ls                          list registries
+        \\  current [-u|--show-url]     current name or URL
+        \\  use [name|auto]             switch registry
+        \\  add <name> <url> [home]     add custom registry
+        \\  del [name]                  delete custom registry
+        \\  login <name> [base64]       set authorization
+        \\  set-hosted-repo <name> <repo>
+        \\  set-scope <@scope> <url>
+        \\  del-scope <@scope>
+        \\  set <name> -a <attr> -v <value>
+        \\  rename <name> <newName>
+        \\  home <name> [browser]
+        \\  test [name]                 probe latency
+        \\  scope ls|add|del              scope routes (znvm)
+        \\  help [command]              show help
+        \\  lang                        print zh or en
+        \\  -V, --version               tool version
         \\
-        \\Environment:
-        \\  NVM_DIR                 data directory
-        \\  NVM_LANG                language, zh or en
-        \\
+        \\Environment: NVM_DIR  NVM_LANG=zh|en
         \\Download hosts: nvm mirror
         \\
     , .{});
+}
+
+const NrmTopic = struct {
+    name: []const u8,
+    aliases: []const []const u8 = &.{},
+    usage: []const u8,
+    en: []const u8,
+    zh: []const u8,
+};
+
+const nrm_topics = [_]NrmTopic{
+    .{ .name = "ls", .aliases = &.{ "list" }, .usage = "ls", .en = "List all registries.", .zh = "列出全部源." },
+    .{ .name = "current", .usage = "current [-u|--show-url]", .en = "Show current registry name or URL.", .zh = "显示当前源名字或地址." },
+    .{ .name = "use", .usage = "use [name|auto]", .en = "Change current registry.", .zh = "切换当前源." },
+    .{ .name = "add", .usage = "add <name> <url> [home]", .en = "Add a custom registry.", .zh = "添加自定义源." },
+    .{ .name = "del", .aliases = &.{ "rm" }, .usage = "del [name]", .en = "Delete custom registries.", .zh = "删除自定义源." },
+    .{ .name = "login", .usage = "login <name> [base64]", .en = "Set authorization for a registry.", .zh = "设置源授权." },
+    .{ .name = "set-hosted-repo", .usage = "set-hosted-repo <name> <repo>", .en = "Set publish repository.", .zh = "设置发布 repository." },
+    .{ .name = "set-scope", .usage = "set-scope <@scope> <url>", .en = "Associate a scope with a registry.", .zh = "为 scope 绑定源." },
+    .{ .name = "del-scope", .usage = "del-scope <@scope>", .en = "Remove a scope route.", .zh = "删除 scope 路由." },
+    .{ .name = "set", .usage = "set <name> -a <attr> -v <value>", .en = "Set a custom registry attribute.", .zh = "设置自定义源属性." },
+    .{ .name = "rename", .usage = "rename <name> <newName>", .en = "Rename a custom registry.", .zh = "重命名自定义源." },
+    .{ .name = "home", .usage = "home <name> [browser]", .en = "Open registry home page.", .zh = "打开源主页." },
+    .{ .name = "test", .usage = "test [registry]", .en = "Show response time.", .zh = "显示响应时间." },
+    .{ .name = "scope", .usage = "scope ls|add|del", .en = "Manage @scope routes (znvm).", .zh = "管理 @scope 路由 (znvm)." },
+    .{ .name = "help", .aliases = &.{ "--help", "-h" }, .usage = "help [command]", .en = "Show help.", .zh = "显示帮助." },
+    .{ .name = "lang", .usage = "lang", .en = "Print zh or en.", .zh = "打印 zh 或 en." },
+};
+
+fn nrmTopicMatches(topic: NrmTopic, raw: []const u8) bool {
+    if (mem.eql(u8, topic.name, raw)) return true;
+    for (topic.aliases) |alias| {
+        if (mem.eql(u8, alias, raw)) return true;
+    }
+    return false;
+}
+
+pub fn printNrmCommand(raw: []const u8) !bool {
+    const name = mem.trim(u8, raw, " \t");
+    for (nrm_topics) |topic| {
+        if (!nrmTopicMatches(topic, name)) continue;
+        const chinese = zhNow();
+        const label = if (chinese) "用法" else "Usage";
+        const note = if (chinese) topic.zh else topic.en;
+        try stdout("{s}: nrm {s}\n{s}\n", .{ label, topic.usage, note });
+        return true;
+    }
+    return false;
 }
 
 pub fn printMirror(program_name: []const u8) !void {

@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+## [v2.10.1] - 2026-11-09
+
+### Added
+
+- Drop-in `nrm` 2.1.0 CLI parity: dedicated `nrm_cli` router, dash-aligned `ls`/`test` output, `SUCCESS` lines on mutating commands, quiet npmrc sync by default, and commands `login`, `set-hosted-repo`, `set-scope`, `del-scope`, `set`, `rename`, and `home`.
+
+### Changed
+
+- Built-in registry records carry optional `home` URLs; custom registries persist `home`, `_auth`, `email`, `repository`, and `always-auth` in `registries.json` and sync them into `.npmrc` when active.
+
 ## [v2.10.0] - 2026-10-26
 
 ### Added

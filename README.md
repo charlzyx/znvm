@@ -130,7 +130,7 @@ nrm scope ls
 nrm scope del @company
 ```
 
-Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`. `nrm use` and `nvm registry china` / `official` pick the built-in name when the URL matches, ignoring one trailing slash. `nrm del` does not remove a built-in name. `nrm use auto` measures the registries and writes the fastest one that answers. It does not change `@scope` routes. `nrm test` always measures again. A result is reused for 6 hours from `$NVM_DIR/mirror-latency.json`. In a terminal, `nrm` with no arguments opens a menu for registries, scopes, and tests. Without a terminal it prints help. `nrm add` accepts an optional home argument and ignores it. `nrm` does not accept `binary` or `mirror`.
+`nrm` matches **nrm 2.1.0** for everyday use: dash-aligned `ls`, millisecond `test`, `SUCCESS` feedback, quiet `.npmrc` sync, and `login` / `set-hosted-repo` / `set-scope` / `del-scope` / `set` / `rename` / `home`. Built-in names are `npm`, `yarn`, `tencent`, `cnpm`, `taobao`, `npmMirror`, and `huawei`, each with a `home` URL. `nrm add <name> <url> [home]` stores optional home and auth metadata. `nrm use` and `nvm registry china` / `official` pick the built-in name when the URL matches. Built-in names cannot be deleted. `nrm use auto` measures registries and writes the fastest responder. `nrm test` probes `{url}nrm` and reports plain ASCII timings. Unknown commands print one error line, not full help. In a terminal, bare `nrm use` or `nrm del` opens a picker; without a TTY they require a name. `nrm scope *` remains a znvm extension. `nrm` does not accept `binary` or `mirror`.
 
 `nvm mirror` writes the Node dist host and the download hosts tools actually read. The same guide lists it as Mirrors.
 

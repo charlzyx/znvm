@@ -290,6 +290,38 @@ pub const auto_reserved = Msg{ .en = "error: auto is reserved.\n", .zh = "error:
 pub const builtin_registry = Msg{ .en = "error: {s} is a built-in registry.\n", .zh = "error: {s} 是内置源.\n" };
 pub const added_name = Msg{ .en = "added {s}\n", .zh = "已添加 {s}\n" };
 pub const deleted_name = Msg{ .en = "deleted {s}\n", .zh = "已删除 {s}\n" };
+pub const nrm_error_missing_arg = Msg{ .en = "error: missing required argument '{s}'", .zh = "error: 缺少必填参数 '{s}'" };
+pub const nrm_error_unknown_command = Msg{ .en = "error: unknown command '{s}'", .zh = "error: 未知命令 '{s}'" };
+pub const nrm_error_registry_not_found = Msg{ .en = "The registry '{s}' is not found.", .zh = "找不到源 '{s}'." };
+pub const nrm_error_internal_registry = Msg{ .en = "You cannot {s} the nrm internal registry.", .zh = "不能对内置源执行 {s}." };
+pub const nrm_error_duplicate = Msg{
+    .en = "The registry name or url is already included in the nrm registries. Please make sure that the name and url are unique.",
+    .zh = "源名字或地址已在 nrm 列表中. 请确保名字和地址唯一.",
+};
+pub const nrm_error_same_name = Msg{ .en = "The names cannot be the same.", .zh = "新旧名字不能相同." };
+pub const nrm_error_name_exists = Msg{ .en = "The new registry name '{s}' is already exist.", .zh = "新源名 '{s}' 已存在." };
+pub const nrm_error_auth_required = Msg{
+    .en = "Authorization information in base64 format or username & password is required",
+    .zh = "需要 base64 授权信息或用户名和密码",
+};
+pub const nrm_error_use_set_repo = Msg{
+    .en = "Use the nrm set-hosted-repo <name> <repo> command to set repository.",
+    .zh = "请使用 nrm set-hosted-repo <name> <repo> 设置 repository.",
+};
+pub const nrm_error_no_homepage = Msg{ .en = "The homepage of registry '{s}' is not found.", .zh = "找不到源 '{s}' 的主页." };
+pub const nrm_no_custom_del = Msg{ .en = "No any custom registries can be deleted.", .zh = "没有可删除的自定义源." };
+pub const nrm_success_use = Msg{ .en = "The registry has been changed to '{s}'.", .zh = "源已切换为 '{s}'." };
+pub const nrm_success_add = Msg{
+    .en = "Add registry {s} success, run nrm use {s} command to use {s} registry.",
+    .zh = "已添加源 {s}. 运行 nrm use {s} 使用该源 {s}.",
+};
+pub const nrm_success_del = Msg{ .en = "The registry '{s}' has been deleted successfully.", .zh = "已删除源 '{s}'." };
+pub const nrm_success_login = Msg{ .en = "Set the authorization information of the registry '{s}' success.", .zh = "已设置源 '{s}' 的授权信息." };
+pub const nrm_success_set_repo = Msg{ .en = "Set the repository of registry '{s}' successfully.", .zh = "已设置源 '{s}' 的 repository." };
+pub const nrm_success_set_attr = Msg{ .en = "Set attribute '{s}={s}' of the registry '{s}' successfully.", .zh = "已设置源 '{s}' 的属性 '{s}={s}'." };
+pub const nrm_success_set_scope = Msg{ .en = "Set scope '{s}:registry={s}' success.", .zh = "已设置 scope '{s}:registry={s}'." };
+pub const nrm_success_del_scope = Msg{ .en = "Delete scope '{s}:registry' success.", .zh = "已删除 scope '{s}:registry'." };
+pub const nrm_success_rename = Msg{ .en = "The registry '{s}' has been renamed to '{s}'.", .zh = "源 '{s}' 已重命名为 '{s}'." };
 pub const no_scopes = Msg{ .en = "No scopes.\n", .zh = "没有 scope.\n" };
 pub const no_registry_responded = Msg{ .en = "error: no registry responded.\n", .zh = "error: 没有源响应.\n" };
 pub const wrote_path = Msg{ .en = "Wrote {s}\n", .zh = "已写入 {s}\n" };
