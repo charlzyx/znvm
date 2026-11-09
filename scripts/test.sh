@@ -1109,7 +1109,7 @@ NVM_LINK_NVM="$EMPTY_ROOT/nvm-classic-nvm"
 mkdir -p "$NVM_LINK_HOME" "$NVM_LINK_NVM" "$EMPTY_ROOT/nvm-bin"
 ln -sfn "$ZNVM_BIN" "$EMPTY_ROOT/nvm-bin/nvm"
 nvm_pipe() {
-    env -u NVM_DIR -u ZNVM_NONINTERACTIVE NVM_DIR="$NVM_LINK_NVM" HOME="$NVM_LINK_HOME" LC_ALL=C "$EMPTY_ROOT/nvm-bin/nvm" "$@"
+    env -u NVM_DIR -u ZNVM_NONINTERACTIVE NVM_DIR="$NVM_LINK_NVM" HOME="$NVM_LINK_HOME" NVM_LANG=en LC_ALL=C "$EMPTY_ROOT/nvm-bin/nvm" "$@"
 }
 set +e
 nvm_pipe </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
