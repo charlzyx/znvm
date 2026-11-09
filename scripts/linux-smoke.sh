@@ -44,10 +44,7 @@ nvm exec "$NODE_VERSION" node -e 'process.stdout.write("exec-ok\n")' | grep -q e
 nrm ls | head -1
 nrm current -u | grep -q '^https://'
 nvm mirror ls | grep -q '^profile '
-nvm </dev/null 2>&1 | grep -qE 'Usage:|用法:'
-test "$(nvm version </dev/null 2>&1)" != "$(nvm --version </dev/null 2>&1)"
-nvm mirror </dev/null 2>&1 | grep -q '^profile '
-test "$(nvm --version --json | jq -r .version)" = "$(nvm --version)"
+# non-TTY classic checks live in scripts/test.sh (broader coverage)
 test "$(nvm current --json | jq -r .version)" != "null"
 
 # bash: new shell picks up nvm on PATH
