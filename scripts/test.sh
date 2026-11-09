@@ -1161,7 +1161,7 @@ if printf '%s\n' "$NRM_OUT" | grep -q "needs a terminal"; then
     echo "bare nrm asked for a terminal" >&2
     exit 1
 fi
-nrm_run help | grep -q "scope add"
+nrm_run help | grep -q "scope ls|add"
 nrm_run ls >"$NVM_ALIGN_TMP/cmd.out"
 grep -qE "  npm -+ https://registry.npmjs.org/" "$NVM_ALIGN_TMP/cmd.out"
 grep -qE "  taobao -+ https://registry.npmmirror.com/" "$NVM_ALIGN_TMP/cmd.out"
@@ -1235,7 +1235,7 @@ set +e
 nrm_run binary ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
 set -e
-if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: unknown command 'binary'" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL nrm binary status=$NRM_STATUS" >&2
     exit 1
 fi
@@ -1243,7 +1243,7 @@ set +e
 nrm_run mirror ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
 set -e
-if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "error: unknown command 'mirror'" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL nrm mirror status=$NRM_STATUS" >&2
     exit 1
 fi
@@ -1583,7 +1583,7 @@ env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH=
     "$SPLIT_HOME/bin/nrm" mirror ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 SPLIT_STATUS=$?
 set -e
-if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "error: unknown command 'mirror'" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL nrm mirror status=$SPLIT_STATUS" >&2
     exit 1
 fi
@@ -1592,7 +1592,7 @@ env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH=
     "$SPLIT_HOME/bin/nrm" binary ls >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 SPLIT_STATUS=$?
 set -e
-if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "nrm - registry manager" "$NVM_ALIGN_TMP/cmd.out"; then
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! grep -q "error: unknown command 'binary'" "$NVM_ALIGN_TMP/cmd.err"; then
     echo "FAIL nrm binary status=$SPLIT_STATUS" >&2
     exit 1
 fi
@@ -1612,7 +1612,7 @@ env -u XDG_CONFIG_HOME -u ZNVM_DIR HOME="$SPLIT_HOME" NVM_DIR="$SPLIT_NVM" PATH=
 SPLIT_STATUS=$?
 set -e
 SPLIT_ERR=$(cat "$NVM_ALIGN_TMP/cmd.err" || true)
-if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "22 is not a registry"; then
+if [[ "$SPLIT_STATUS" -eq 0 ]] || ! printf '%s\n' "$SPLIT_ERR" | grep -q "The registry '22' is not found."; then
     echo "FAIL nrm use 22 status=$SPLIT_STATUS stderr=$(printf %q "$SPLIT_ERR")" >&2
     exit 1
 fi
