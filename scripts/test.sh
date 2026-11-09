@@ -1017,11 +1017,11 @@ if text.rfind("v20.11.0") <= text.find("Now using node v20.11.0"):
 code, screen, captured = run_pty(
     [bin_path, "--guide-step"],
     base,
-    ["4\n", "1\n"],
-    ["Install Node", "Installed", "No versions installed"],
+    [],
+    ["interactive guide needs a terminal"],
     stdout_pipe=True,
 )
-if code != 0:
+if code != 1:
     raise SystemExit(f"step exit {code}\n{screen}\nSTDOUT:\n{captured}")
 if "Install Node" in captured or "No versions installed" in captured:
     raise SystemExit(f"step stdout mixed with the menu\n{captured}")

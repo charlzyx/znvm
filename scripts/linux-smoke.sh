@@ -23,6 +23,8 @@ trap 'rm -rf "$SMOKE_HOME"' EXIT
 export HOME="$SMOKE_HOME"
 export PATH="/usr/bin:/bin"
 export SHELL="/bin/bash"
+export NVM_LANG=en
+export LC_ALL=C
 
 "${INSTALL_CMD[@]}" >/dev/null
 
