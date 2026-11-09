@@ -1124,8 +1124,10 @@ USE_STATUS=$?
 set -e
 test "$USE_STATUS" -eq 1
 grep -q "No .nvmrc file found" "$NVM_ALIGN_TMP/cmd.err"
-test "$(nvm_pipe version </dev/null 2>/dev/null)" = "none"
+NODE_VER="$(nvm_pipe version </dev/null 2>/dev/null)"
+case "$NODE_VER" in none|system|v*) ;; *) echo "unexpected nvm version: $NODE_VER" >&2; exit 1 ;; esac
 test "$(nvm_pipe --version </dev/null 2>/dev/null)" = "$TEST_BINARY_VERSION"
+test "$NODE_VER" != "$(nvm_pipe --version </dev/null 2>/dev/null)"
 nvm_pipe mirror </dev/null 2>/dev/null | grep -q '^profile '
 set +e
 nvm_pipe cache </dev/null >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
