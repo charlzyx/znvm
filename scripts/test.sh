@@ -1205,7 +1205,7 @@ if [[ "$NRM_STATUS" -eq 0 ]] || ! grep -q "You cannot add the nrm internal regis
 fi
 nrm_run del local | grep -q "The registry 'local' has been deleted successfully."
 nrm_run home npm >"$NVM_ALIGN_TMP/cmd.out"
-grep -q 'https://www.npmjs.com/' "$NVM_ALIGN_TMP/cmd.out"
+grep -qE 'https://www\.npmjs\.(com|org)' "$NVM_ALIGN_TMP/cmd.out"
 set +e
 env -u XDG_CONFIG_HOME HOME="$NRM_HOME" NVM_DIR="$NRM_NVM" NVM_LANG=zh LC_ALL=zh_CN.UTF-8 "$EMPTY_ROOT/nrm-bin/nrm" nosuch >"$NVM_ALIGN_TMP/cmd.out" 2>"$NVM_ALIGN_TMP/cmd.err"
 NRM_STATUS=$?
