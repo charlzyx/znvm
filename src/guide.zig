@@ -23,6 +23,8 @@ const stderr = util.stderr;
 
 pub const Mode = enum { session, step };
 
+var menu_frame_lines: usize = 0;
+
 const Outcome = enum { quit, acted, back };
 const Pick = union(enum) { quit, back, index: usize };
 const Flow = enum { stay, back, leave_success, leave_quit };
@@ -302,6 +304,13 @@ pub fn runStep(allocator: mem.Allocator, config: ZnvmConfig, at_raw: []const u8)
         .item = at.item,
         .sub_cursor = at.cursor,
     };
+    if (at.menu != 0) {
+        switch (try resumeSubmenu(allocator, config, &ctx)) {
+            .quit => process.exit(2),
+            .acted => process.exit(3),
+            .back => {},
+        }
+    }
     while (true) {
         switch (try rootMenu(allocator, config, &ctx)) {
             .quit => process.exit(2),
@@ -309,6 +318,33 @@ pub fn runStep(allocator: mem.Allocator, config: ZnvmConfig, at_raw: []const u8)
             .back => {},
         }
     }
+}
+
+fn resumeSubmenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Outcome {
+    ctx.last_index = ctx.item;
+    return switch (ctx.menu) {
+        1 => itemMenu(allocator, config, ctx, 1, "Switch version", "切换版本", &.{
+            .{ "Choose installed version", "选择已安装版本" },
+            .{ "Use .nvmrc / .node-version here", "使用当前目录 .nvmrc" },
+            .{ "Enter version or alias", "输入版本或 alias" },
+        }, .leave_success),
+        2 => installRootMenu(allocator, config, ctx),
+        3 => itemMenu(allocator, config, ctx, 3, "Set default", "设置默认版本", &.{
+            .{ "Choose installed version", "选择已安装版本" },
+        }, .leave_success),
+        4 => itemMenu(allocator, config, ctx, 4, "Manage versions", "管理版本", &.{
+            .{ "List installed (ls)", "已安装列表" },
+            .{ "Uninstall a version", "卸载版本" },
+            .{ "Aliases", "别名" },
+            .{ "Write .nvmrc (current)", "写入 .nvmrc" },
+        }, .stay),
+        5 => itemMenu(allocator, config, ctx, 5, "Settings", "设置", &.{
+            .{ "Node download mirrors", "Node 下载镜像" },
+            .{ "npm registry & scopes", "npm 源与 scope" },
+            .{ "Shell setup", "Shell 配置" },
+        }, .stay),
+        else => .back,
+    };
 }
 
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
@@ -405,7 +441,10 @@ fn withGuide(allocator: mem.Allocator, comptime func: anytype, args: anytype) !v
     _ = allocator;
     agent.guide_mode = true;
     defer agent.guide_mode = false;
-    return @call(.auto, func, args);
+    return @call(.auto, func, args) catch |err| {
+        if (err == error.Explained) return error.GuideFailed;
+        return err;
+    };
 }
 
 fn confirmYn(zh: bool, question: []const u8) !bool {
@@ -577,7 +616,35 @@ fn paintMenu(title: []const u8, labels: []const []const u8, back_label: []const 
         .up = up,
     });
     try stderr("{s}", .{storage[0..writer.end]});
+    menu_frame_lines = lines;
     return lines;
+}
+
+fn eraseMenuFrame() !void {
+    if (menu_frame_lines > 0) {
+        try stderr("\x1b[{d}A\x1b[J", .{menu_frame_lines});
+        menu_frame_lines = 0;
+    }
+}
+
+fn emitGuideAt(ctx: *const MenuCtx) !void {
+    if (ctx.mode != .step) return;
+    var buf: [64]u8 = undefined;
+    const at = guide_state.formatAt(&buf, .{
+        .root_cursor = ctx.root_cursor,
+        .menu = ctx.menu,
+        .item = ctx.item,
+        .cursor = ctx.sub_cursor,
+    });
+    try util.stdout("{s}'{s}'\n", .{ guide_state.GUIDE_AT_PREFIX, at });
+}
+
+fn printBreadcrumb(ctx: *MenuCtx, tail: []const u8) !void {
+    _ = ctx;
+    try eraseMenuFrame();
+    var buf: [192]u8 = undefined;
+    const line = std.fmt.bufPrint(&buf, "nvm > {s}", .{tail}) catch tail;
+    try stderr("{s}\n", .{line});
 }
 
 pub fn pickOne(allocator: mem.Allocator, title_en: []const u8, title_zh: []const u8, labels: []const []const u8) !?usize {
@@ -670,6 +737,7 @@ fn rootMenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Outcom
             .quit, .back => return .quit,
             .index => |pick| {
                 ctx.last_index = pick;
+                ctx.root_cursor = pick;
                 const which = if (pick < base_offset) 0 else pick - base_offset + 1;
                 switch (try submenu(allocator, config, ctx, which, nvmrc)) {
                     .back => continue,
@@ -707,12 +775,7 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: u
             .{ "Use .nvmrc / .node-version here", "使用当前目录 .nvmrc" },
             .{ "Enter version or alias", "输入版本或 alias" },
         }, .leave_success),
-        2 => itemMenu(allocator, config, ctx, which, "Install Node", "安装 Node", &.{
-            .{ "Latest LTS", "最新 LTS" },
-            .{ "Latest release", "最新版本" },
-            .{ "Pick from short list / remote", "从列表中选择" },
-            .{ "Enter a version", "输入版本号" },
-        }, .leave_success),
+        2 => installRootMenu(allocator, config, ctx),
         3 => itemMenu(allocator, config, ctx, which, "Set default", "设置默认版本", &.{
             .{ "Choose installed version", "选择已安装版本" },
         }, .leave_success),
@@ -736,18 +799,105 @@ fn itemMenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: 
     while (true) {
         switch (try menuPairs(ctx.zh, en_title, zh_title, items, "Back", "返回", ctx.last_index)) {
             .quit => return .quit,
-            .back => return .back,
+            .back => {
+                try emitGuideAt(ctx);
+                return .back;
+            },
             .index => |n| {
                 ctx.last_index = n;
                 ctx.item = n;
                 ctx.sub_cursor = 0;
                 const flow = dispatch(allocator, config, ctx, which, n + 1) catch |err| switch (err) {
-                    error.GuideFailed => continue,
+                    error.GuideFailed => {
+                        try eraseMenuFrame();
+                        continue;
+                    },
                     else => return err,
                 };
                 switch (flow) {
-                    .stay, .back => continue,
-                    .leave_success => if (after == .leave_success) return .acted else continue,
+                    .stay, .back => {
+                        try emitGuideAt(ctx);
+                        continue;
+                    },
+                    .leave_success => {
+                        try printBreadcrumb(ctx, en_title);
+                        if (after == .leave_success) return .acted;
+                        try emitGuideAt(ctx);
+                        continue;
+                    },
+                    .leave_quit => return .quit,
+                }
+            },
+        }
+    }
+}
+
+fn lts_buf_fallback(zh: bool) []const u8 {
+    return if (zh) "最新 LTS" else "Latest LTS";
+}
+
+fn installMenuLabel(allocator: mem.Allocator, config: ZnvmConfig, zh: bool, lts: bool, buf: []u8) []const u8 {
+    const query = if (lts) version.parseVersionQuery("lts", "*") else version.parseVersionQuery("node", null);
+    const hit = version.resolveRemoteQuery(allocator, query, config) catch null;
+    if (hit) |resolved| {
+        defer allocator.free(resolved.version);
+        defer allocator.free(resolved.filename);
+        if (lts) {
+            return if (zh)
+                std.fmt.bufPrint(buf, "最新 LTS  {s}", .{resolved.version}) catch lts_buf_fallback(zh)
+            else
+                std.fmt.bufPrint(buf, "Latest LTS  {s}", .{resolved.version}) catch lts_buf_fallback(zh);
+        }
+        return if (zh)
+            std.fmt.bufPrint(buf, "最新版本  {s}", .{resolved.version}) catch lts_buf_fallback(zh)
+        else
+            std.fmt.bufPrint(buf, "Latest  {s}", .{resolved.version}) catch lts_buf_fallback(zh);
+    }
+    return if (lts) text(zh, "Latest LTS", "最新 LTS") else text(zh, "Latest release", "最新版本");
+}
+
+fn installRootMenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Outcome {
+    const zh = ctx.zh;
+    ctx.menu = 2;
+    while (true) {
+        var lts_buf: [96]u8 = undefined;
+        var latest_buf: [96]u8 = undefined;
+        const lts_label = installMenuLabel(allocator, config, zh, true, &lts_buf);
+        const latest_label = installMenuLabel(allocator, config, zh, false, &latest_buf);
+        const rows = [_][2][]const u8{
+            .{ lts_label, lts_label },
+            .{ latest_label, latest_label },
+            .{ "Pick from short list / remote", "从列表中选择" },
+            .{ "Enter a version", "输入版本号" },
+        };
+        var labels: [8][]const u8 = undefined;
+        for (rows, 0..) |row, i| labels[i] = text(zh, row[0], row[1]);
+        switch (try choose(zh, text(zh, "Install Node", "安装 Node"), labels[0..rows.len], text(zh, "Back", "返回"), ctx.last_index)) {
+            .quit => return .quit,
+            .back => {
+                try emitGuideAt(ctx);
+                return .back;
+            },
+            .index => |n| {
+                ctx.last_index = n;
+                ctx.item = n;
+                ctx.sub_cursor = 0;
+                const flow = dispatch(allocator, config, ctx, 2, n + 1) catch |err| switch (err) {
+                    error.GuideFailed => {
+                        try eraseMenuFrame();
+                        continue;
+                    },
+                    else => return err,
+                };
+                switch (flow) {
+                    .stay, .back => {
+                        try emitGuideAt(ctx);
+                        continue;
+                    },
+                    .leave_success => {
+                        try printBreadcrumb(ctx, if (zh) "安装 Node" else "Install Node");
+                        return .acted;
+                    },
                     .leave_quit => return .quit,
                 }
             },
@@ -950,6 +1100,15 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx)
     }
     const cur = try commands.activeVersion(allocator, config);
     defer if (cur) |c| allocator.free(c);
+    const default_ver = commands.aliasTarget(allocator, config, "default") catch null;
+    defer if (default_ver) |d| allocator.free(d);
+    var labeled: [64][]const u8 = undefined;
+    var owners: [64][]u8 = undefined;
+    for (installed, 0..) |ver, i| {
+        owners[i] = try labelVersion(allocator, ctx.zh, ver, cur, default_ver);
+        labeled[i] = owners[i][0..];
+    }
+    defer for (owners[0..installed.len]) |buf| allocator.free(buf);
     var start: usize = 0;
     for (installed, 0..) |ver, i| {
         if (cur) |active| {
@@ -957,7 +1116,7 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx)
         }
     }
     ctx.sub_cursor = start;
-    switch (try pickViewport(ctx.zh, text(ctx.zh, "Switch version", "切换版本"), installed, start, false)) {
+    switch (try pickViewport(ctx.zh, text(ctx.zh, "Switch version", "切换版本"), labeled[0..installed.len], start, false)) {
         .quit => return .leave_quit,
         .back => return .back,
         .index => |index| {
@@ -1365,7 +1524,7 @@ fn promptAlias(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
     if (target.len == 0) return;
     try running(zh, "nvm alias <name> <target>");
     const argv = [_][]const u8{ commands.program_name, "alias", name_copy, target };
-    try commands.cmdAlias(allocator, &argv, config);
+    try withGuide(allocator, commands.cmdAlias, .{ allocator, &argv, config });
 }
 
 fn promptUnalias(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
@@ -1376,7 +1535,7 @@ fn promptUnalias(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
     if (name.len == 0) return;
     try running(zh, "nvm unalias <name>");
     const argv = [_][]const u8{ commands.program_name, "unalias", name };
-    try commands.cmdUnalias(allocator, &argv, config);
+    try withGuide(allocator, commands.cmdUnalias, .{ allocator, &argv, config });
 }
 
 fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {

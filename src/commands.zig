@@ -621,8 +621,7 @@ fn printAliases(allocator: mem.Allocator, config: ZnvmConfig, pattern: ?[]const 
 
 fn rejectUnsupportedSpec(spec: []const u8) !void {
     if (mem.eql(u8, spec, "iojs") or mem.eql(u8, spec, "unstable") or mem.startsWith(u8, spec, "iojs-") or mem.startsWith(u8, spec, "iojs/")) {
-        try i18n.err(messages.no_iojs, .{program_name});
-        process.exit(1);
+        try cmdAbort(messages.no_iojs, .{program_name}, 1);
     }
 }
 
@@ -1355,23 +1354,16 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
     try rejectUnsupportedSpec(spec);
 
     const resolved = resolveInstallSpec(allocator, config, spec, null, 0) catch |err| switch (err) {
-        error.AliasCycle => {
-            try i18n.err(messages.alias_cycle_nl, .{spec});
-            process.exit(8);
-        },
+        error.AliasCycle => try cmdAbort(messages.alias_cycle_nl, .{spec}, 8),
         else => return err,
-    } orelse {
-        try i18n.err(messages.could_not_resolve, .{spec});
-        process.exit(1);
-    };
+    } orelse try cmdAbort(messages.could_not_resolve, .{spec}, 1);
     defer allocator.free(resolved.version);
     defer allocator.free(resolved.filename);
     const ver = resolved.version;
 
     if (parsed.reinstall_from) |source| {
         const source_dir = try locateVersionDir(allocator, config, source) orelse {
-            try i18n.err(messages.reinstall_from_installed, .{});
-            process.exit(1);
+            try cmdAbort(messages.reinstall_from_installed, .{}, 1);
         };
         allocator.free(source_dir);
     }
@@ -1391,8 +1383,7 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try ensureTree(allocator, fs.path.dirname(tar_path) orelse config.root_dir);
         if (!fileNonEmpty(tar_path)) {
             if (parsed.offline) {
-                try i18n.err(messages.no_cached_tarball, .{ver});
-                process.exit(1);
+                try cmdAbort(messages.no_cached_tarball, .{ver}, 1);
             }
             try version.downloadFile(allocator, download_url, tar_path);
         } else if (!parsed.silent) {
@@ -1417,9 +1408,8 @@ pub fn cmdInstall(allocator: mem.Allocator, args: []const []const u8, config: Zn
             };
         };
         if (!extracted) {
-            try i18n.err(messages.extraction_failed, .{});
+            try cmdAbort(messages.extraction_failed, .{}, 1);
             if (!platform.windows) host.deleteTreeAbsolute(install_path) catch {};
-            process.exit(1);
         }
         try i18n.err(messages.installed, .{ver});
     }
@@ -1646,8 +1636,7 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 1 and parsed.lts == null) {
-        try i18n.err(messages.usage_uninstall, .{program_name});
-        process.exit(1);
+        try cmdAbort(messages.usage_uninstall, .{program_name}, 1);
     }
     const spec = if (parsed.lts) |name| try ltsSpec(allocator, name) else try allocator.dupe(u8, parsed.positionals.items[0]);
     defer allocator.free(spec);
@@ -1655,10 +1644,7 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
     const hit = try resolveLocalOrExit(allocator, config, spec, null);
     defer hit.deinit(allocator);
     switch (hit) {
-        .system => {
-            try i18n.err(messages.system_uninstall, .{program_name});
-            process.exit(1);
-        },
+        .system => try cmdAbort(messages.system_uninstall, .{program_name}, 1),
         .version => |ver| {
             const active = try getCurrentVersionFromPath(allocator, config);
             defer if (active) |value| allocator.free(value);
@@ -1668,8 +1654,7 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
                 }
             }
             const path = try locateVersionDir(allocator, config, ver) orelse {
-                try i18n.err(messages.version_not_installed, .{ver});
-                process.exit(1);
+                try cmdAbort(messages.version_not_installed, .{ver}, 1);
             };
             defer allocator.free(path);
             try host.deleteTreeAbsolute(path);
@@ -1685,8 +1670,7 @@ pub fn cmdAlias(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len > 2) {
-        try i18n.err(messages.usage_alias, .{program_name});
-        process.exit(1);
+        try cmdAbort(messages.usage_alias, .{program_name}, 1);
     }
     if (parsed.positionals.items.len == 2) {
         const name = parsed.positionals.items[0];
@@ -1700,8 +1684,7 @@ pub fn cmdAlias(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     const pattern = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else null;
     if (!try printAliases(allocator, config, pattern)) {
         if (pattern) |_| {
-            try i18n.err(messages.no_alias, .{});
-            process.exit(1);
+            try cmdAbort(messages.no_alias, .{}, 1);
         }
     }
 }
@@ -1710,13 +1693,11 @@ pub fn cmdUnalias(allocator: mem.Allocator, args: []const []const u8, config: Zn
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len != 1) {
-        try i18n.err(messages.usage_unalias, .{program_name});
-        process.exit(1);
+        try cmdAbort(messages.usage_unalias, .{program_name}, 1);
     }
     const name = parsed.positionals.items[0];
     if (!try deleteAlias(allocator, config, name)) {
-        try i18n.err(messages.alias_missing, .{name});
-        process.exit(1);
+        try cmdAbort(messages.alias_missing, .{name}, 1);
     }
     try i18n.err(messages.deleted_alias, .{name});
 }
