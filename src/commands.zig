@@ -1637,11 +1637,6 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
         .version => |ver| {
             const active = try getCurrentVersionFromPath(allocator, config);
             defer if (active) |value| allocator.free(value);
-            if (active) |value| {
-                if (mem.eql(u8, value, ver)) {
-                    try agent.failGuide(1, i18n.t(messages.cannot_uninstall_active));
-                }
-            }
             const path = try locateVersionDir(allocator, config, ver) orelse {
                 try cmdAbort(messages.version_not_installed, .{ver}, 1);
             };

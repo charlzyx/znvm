@@ -1058,8 +1058,8 @@ if code != 0 or "Install Node" not in text or ("> 2  Install Node" not in text a
 code, text, _ = run_pty(
     [bin_path],
     base,
-    ["j\r", "k\r", "q"],
-    ["Switch version", "Choose installed version", "znvm — current"],
+    ["j", "k", "q"],
+    ["Switch version", "Install Node", "Switch version"],
 )
 if code != 0:
     raise SystemExit(f"vim keys exit {code}\n{text}")
