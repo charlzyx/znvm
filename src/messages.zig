@@ -7,6 +7,20 @@ pub const guide_needs_terminal = Msg{
     .en = "{s}: interactive guide needs a terminal.\nRun `{s} help` for commands.\n",
     .zh = "{s}: 交互向导需要终端.\n运行 `{s} help` 查看命令.\n",
 };
+pub const guide_cancelled = Msg{ .en = "Cancelled.", .zh = "已取消." };
+pub const cannot_uninstall_active = Msg{
+    .en = "nvm: Cannot uninstall currently-active version.",
+    .zh = "nvm: 不能卸载当前正在使用的版本.",
+};
+pub const guide_run_in_shell = Msg{
+    .en = "To apply PATH in your shell, run: {s} use {s}",
+    .zh = "要在当前 shell 生效, 请运行: {s} use {s}",
+};
+pub const guide_input_esc = Msg{
+    .en = "Type text, Enter to submit, Esc to cancel",
+    .zh = "输入后回车确认, Esc 取消",
+};
+pub const confirm_default_no = Msg{ .en = "y/N", .zh = "y/N" };
 pub const using_with_npm = Msg{ .en = "Now using node {s} (npm v{s})\n", .zh = "已切换到 node {s} (npm v{s})\n" };
 pub const using_node_only = Msg{ .en = "Now using node {s}\n", .zh = "已切换到 node {s}\n" };
 pub const using_system = Msg{ .en = "Using system Node.js", .zh = "正在使用系统 Node.js" };

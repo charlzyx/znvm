@@ -9,6 +9,7 @@ pub const Key = union(enum) {
     enter,
     back,
     interrupt,
+    eof,
     digit: u8,
 
 };
@@ -47,7 +48,7 @@ pub const Select = struct {
                 self.clearDigits();
                 return .back;
             },
-            .interrupt => return .quit,
+            .interrupt, .eof => return .quit,
             .enter => return self.commit(),
             .digit => |d| return self.pushDigit(d),
         }
@@ -82,8 +83,15 @@ pub const Select = struct {
             self.clearDigits();
             return .invalid;
         };
-        if (n == 0) self.cursor = self.count;
-        if (n >= 1 and n <= self.count) self.cursor = n - 1;
+        if (n == 0) {
+            if (self.count < 10) return .back;
+            self.cursor = self.count;
+            return .redraw;
+        }
+        if (n >= 1 and n <= self.count) {
+            self.cursor = n - 1;
+            if (self.count < 10 and self.digit_len == 1) return .{ .pick = n - 1 };
+        }
         return .redraw;
     }
 
@@ -137,7 +145,9 @@ pub const Parser = struct {
             0x03 => out.push(.interrupt),
             0x1b => self.mode = .esc,
             '\r', '\n' => out.push(.enter),
-            'q', 'Q' => out.push(.back),
+            0x04 => out.push(.eof),
+            0x7f, 0x08 => out.push(.back),
+            'q', 'Q' => out.push(.eof),
             'k', 'K' => out.push(.up),
             'j', 'J' => out.push(.down),
             '0'...'9' => out.push(.{ .digit = byte - '0' }),
@@ -280,10 +290,12 @@ test "arrow bytes, vim keys, esc, and ctrl-c" {
     try expectKeys("\x1bOD", false, &.{.left});
     try expectKeys("\x1b[1;5A", false, &.{.up});
     try expectKeys("kj", false, &.{ .up, .down });
-    try expectKeys("qQ", false, &.{ .back, .back });
+    try expectKeys("qQ", false, &.{ .eof, .eof });
+    try expectKeys("\x04", false, &.{.eof});
+    try expectKeys("\x7f", false, &.{.back});
     try expectKeys("\x1b", true, &.{.back});
     try expectKeys("\x1b", false, &.{});
-    try expectKeys("\x1bq", false, &.{ .back, .back });
+    try expectKeys("\x1bq", false, &.{ .back, .eof });
     try expectKeys("\r\n", false, &.{ .enter, .enter });
     try expectKeys("\x03", false, &.{.interrupt});
     try expectKeys("4", false, &.{.{ .digit = 4 }});
@@ -336,13 +348,20 @@ test "esc, q, left, and ctrl-c" {
     var sel = Select.init(4);
     try testing.expect(apply(&sel, "\x1b") == .back);
     sel = Select.init(4);
-    try testing.expect(apply(&sel, "q") == .back);
+    try testing.expect(apply(&sel, "q") == .quit); // Result.quit
     sel = Select.init(4);
     try testing.expect(apply(&sel, "\x1b[D") == .back);
     sel = Select.init(4);
     try testing.expect(apply(&sel, "\x03") == .quit);
     _ = apply(&sel, "j");
-    try testing.expect(apply(&sel, "Q") == .back);
+    try testing.expect(apply(&sel, "Q") == .quit);
+}
+
+test "single-digit menus pick immediately" {
+    var sel = Select.init(3);
+    try testing.expectEqual(@as(usize, 1), apply(&sel, "2").pick);
+    sel = Select.init(3);
+    try testing.expect(apply(&sel, "0") == .back);
 }
 
 test "plain marker, and reverse only when color is allowed" {

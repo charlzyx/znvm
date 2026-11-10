@@ -20,7 +20,7 @@ fn failFmt(code: u8, comptime message: i18n.Msg, args: anytype) noreturn {
     agent.fail(code, i18n.format(message, &buf, args));
 }
 
-fn failNoVersionFile() noreturn {
+fn failNoVersionFile() !noreturn {
     var hint_buf: [128]u8 = undefined;
     const hint = i18n.format(messages.no_version_file_hint, &hint_buf, .{program_name});
     var out: [512]u8 = undefined;
@@ -29,7 +29,7 @@ fn failNoVersionFile() noreturn {
         "{s}\n{s}",
         .{ i18n.t(messages.no_version_file), hint },
     ) catch i18n.t(messages.no_version_file);
-    agent.fail(1, body);
+    try agent.failGuide(1, body);
 }
 
 fn na() !noreturn {
@@ -190,6 +190,10 @@ fn pathEntries(allocator: mem.Allocator) !?[]const u8 {
     defer env_map.deinit();
     const path_env = env_map.get("PATH") orelse return null;
     return try allocator.dupe(u8, path_env);
+}
+
+pub fn peekCwdVersionSpec(allocator: mem.Allocator) !?[]u8 {
+    return readNvmrcSpec(allocator, true);
 }
 
 pub fn activeVersion(allocator: mem.Allocator, config: ZnvmConfig) !?[]u8 {
@@ -455,6 +459,10 @@ fn readSmallFile(allocator: mem.Allocator, path: []const u8) !?[]u8 {
     const owned = try allocator.dupe(u8, trimmed);
     allocator.free(content);
     return owned;
+}
+
+pub fn aliasTarget(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8) !?[]u8 {
+    return readAlias(allocator, config, name);
 }
 
 fn readAlias(allocator: mem.Allocator, config: ZnvmConfig, name: []const u8) !?[]u8 {
@@ -1078,7 +1086,7 @@ fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, comptime usa
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
     const found = try readNvmrcSpec(allocator, silent);
     if (found) |spec| return spec;
-    failNoVersionFile();
+    try failNoVersionFile();
 }
 
 pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
@@ -1630,6 +1638,11 @@ pub fn cmdUninstall(allocator: mem.Allocator, args: []const []const u8, config: 
         .version => |ver| {
             const active = try getCurrentVersionFromPath(allocator, config);
             defer if (active) |value| allocator.free(value);
+            if (active) |value| {
+                if (mem.eql(u8, value, ver)) {
+                    try agent.failGuide(1, i18n.t(messages.cannot_uninstall_active));
+                }
+            }
             const path = try locateVersionDir(allocator, config, ver) orelse {
                 try i18n.err(messages.version_not_installed, .{ver});
                 process.exit(1);
@@ -1927,7 +1940,9 @@ fn commandSpecAndArgs(allocator: mem.Allocator, config: ZnvmConfig, parsed: *con
     else if (first_is_version)
         try allocator.dupe(u8, items[0])
     else
-        try readNvmrcSpec(allocator, parsed.silent) orelse failNoVersionFile();
+        try readNvmrcSpec(allocator, parsed.silent) orelse {
+            try failNoVersionFile();
+        };
     const cmd_args = if (first_is_version) items[1..] else items;
     return .{ .spec = spec, .args = cmd_args };
 }
@@ -2073,7 +2088,7 @@ pub fn cmdCache(allocator: mem.Allocator, args: []const []const u8, config: Znvm
 pub fn cmdDebug(allocator: mem.Allocator, config: ZnvmConfig) !void {
     const installed = try version.getInstalledVersions(allocator, config);
     defer freeInstalled(allocator, installed);
-    try i18n.err(messages.debug_version, .{"v2.10.3"});
+    try i18n.err(messages.debug_version, .{"v2.11.0"});
     try i18n.err(messages.debug_dir, .{config.root_dir});
     try i18n.err(messages.debug_versions, .{config.versions_dir});
     try i18n.err(messages.debug_mirror, .{config.mirror});
