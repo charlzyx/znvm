@@ -1068,13 +1068,13 @@ if code != 130:
     raise SystemExit(f"ctrl-c exit {code}\n{text}")
 plain = dict(base)
 plain["NO_COLOR"] = "1"
-code, text, _ = run_pty([bin_path], plain, ["0"], [">  1  Install Node"])
+code, text, _ = run_pty([bin_path], plain, ["0"], ["> 1  Switch version"])
 if code != 0 or "\x1b[1;7m" in text or "\x1b[7m" in text:
     raise SystemExit(f"NO_COLOR menu exit {code}\n{text}")
 colored = dict(base)
 colored.pop("NO_COLOR", None)
 colored["TERM"] = "xterm-256color"
-code, text, _ = run_pty([bin_path], colored, ["q"], ["\x1b[1;7m>  1  Install Node"])
+code, text, _ = run_pty([bin_path], colored, ["q"], ["\x1b[1;7m> 1  Switch version"])
 if code != 0:
     raise SystemExit(f"color menu exit {code}\n{text}")
 
