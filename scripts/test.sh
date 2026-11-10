@@ -996,7 +996,7 @@ use_env["NVM_DIR"] = nvm_dir
 code, text, _ = run_pty(
     [bin_path],
     use_env,
-    ["1\n", "1\n", "0\n"],
+    ["0\n", "0\n", "\r", "0\n"],
     [
         "Switch version",
         "Choose installed",
@@ -1053,7 +1053,7 @@ code, text, _ = run_pty(
 )
 if code != 0:
     raise SystemExit(f"vim keys exit {code}\n{text}")
-code, text, _ = run_pty([bin_path], base, ["\x03"], ["(interactive guide)"])
+code, text, _ = run_pty([bin_path], base, ["\x03"], ["(interactive guide)", "Cancelled"])
 if code != 130:
     raise SystemExit(f"ctrl-c exit {code}\n{text}")
 plain = dict(base)
