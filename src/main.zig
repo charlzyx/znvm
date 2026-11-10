@@ -97,7 +97,11 @@ pub fn main(init: process.Init.Minimal) !void {
         try guide.run(allocator, config, .session);
         return;
     } else if (mem.eql(u8, cmd, "--guide-step")) {
-        try guide.run(allocator, config, .step);
+        if (args.len >= 3) {
+            try guide.runStep(allocator, config, args[2]);
+        } else {
+            try guide.run(allocator, config, .step);
+        }
         return;
     } else if (mem.eql(u8, cmd, "lang") and args.len == 2) {
         try stdout("{s}\n", .{i18n.code()});

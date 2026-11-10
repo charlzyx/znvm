@@ -961,6 +961,16 @@ pub const LoginOpts = struct {
     always_auth: ?bool = null,
 };
 
+pub fn guideCurrentRegistryIndex(allocator: mem.Allocator, names: []const []const u8, root: []const u8) usize {
+    var map = loadOrEmpty(allocator, root) catch return 0;
+    defer map.deinit(allocator);
+    const active = map.current_name orelse return 0;
+    for (names, 0..) |label, i| {
+        if (mem.eql(u8, label, active)) return i;
+    }
+    return 0;
+}
+
 pub fn listRegistryLabels(allocator: mem.Allocator, root: []const u8) ![]const []const u8 {
     var map = try loadOrEmpty(allocator, root);
     defer map.deinit(allocator);

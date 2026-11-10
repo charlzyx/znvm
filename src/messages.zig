@@ -20,6 +20,24 @@ pub const guide_input_esc = Msg{
     .en = "Type text, Enter to submit, Esc to cancel",
     .zh = "输入后回车确认, Esc 取消",
 };
+pub const guide_prompt_hint = Msg{
+    .en = "(Enter to confirm, Esc to cancel)",
+    .zh = "(回车确认, Esc 取消)",
+};
+pub const guide_no_match = Msg{ .en = "No match.", .zh = "无匹配." };
+pub const uninstall_confirm = Msg{ .en = "Uninstall {s}? (y/N)", .zh = "卸载 {s}? (y/N)" };
+pub const uninstall_is_current = Msg{
+    .en = "{s} is the current version. Switch first.",
+    .zh = "{s} 为当前版本, 请先切换.",
+};
+pub const uninstall_default_points = Msg{
+    .en = "The default alias points to {s}.",
+    .zh = "default 别名指向 {s}.",
+};
+pub const guide_shell_setup = Msg{
+    .en = "Shell function not loaded; run: {s} use {s}  (setup: eval \"$({s} env)\")",
+    .zh = "未加载 shell 函数, 请执行: {s} use {s} (配置: eval \"$({s} env)\")",
+};
 pub const confirm_default_no = Msg{ .en = "y/N", .zh = "y/N" };
 pub const using_with_npm = Msg{ .en = "Now using node {s} (npm v{s})\n", .zh = "已切换到 node {s} (npm v{s})\n" };
 pub const using_node_only = Msg{ .en = "Now using node {s}\n", .zh = "已切换到 node {s}\n" };

@@ -15,6 +15,9 @@ const version = @import("version.zig");
 const util = @import("util.zig");
 const ZnvmConfig = @import("config.zig").ZnvmConfig;
 const agent = @import("agent.zig");
+const guide_picker = @import("guide_picker.zig");
+const guide_input = @import("guide_input.zig");
+const guide_state = @import("guide_state.zig");
 
 const stderr = util.stderr;
 
@@ -29,9 +32,11 @@ const MenuCtx = struct {
     zh: bool,
     shell_exports: bool,
     last_index: usize = 0,
+    root_cursor: usize = 0,
+    menu: usize = 0,
+    item: usize = 0,
+    sub_cursor: usize = 0,
 };
-
-const page_size: usize = 15;
 
 pub fn runRegistry(allocator: mem.Allocator, config: ZnvmConfig) !void {
     if (comptime windows) {
@@ -101,15 +106,13 @@ fn nrmDeleteCustom(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
         try stderr("{s}\n", .{text(zh, "No custom registries.", "没有自定义源.")});
         return;
     }
-    switch (try pickIndex(allocator, zh, names, 0)) {
+    switch (try pickViewport(zh, text(zh, "Delete registry", "删除源"), names, 0, false)) {
         .quit, .back => return,
         .index => |i| {
-            const choices = [_][]const u8{ text(zh, "No", "否"), text(zh, "Yes, delete", "确认删除") };
-            switch (try choose(zh, names[i], &choices, text(zh, "Back", "返回"), 0)) {
-                .index => |n| if (n == 1) {
-                    try withGuide(allocator, registry.delName, .{ allocator, config.root_dir, names[i] });
-                },
-                else => {},
+            var qbuf: [128]u8 = undefined;
+            const q = std.fmt.bufPrint(&qbuf, "Delete {s}? (y/N)", .{names[i]}) catch names[i];
+            if (try confirmYn(zh, q)) {
+                try withGuide(allocator, registry.delName, .{ allocator, config.root_dir, names[i] });
             }
         },
     }
@@ -119,7 +122,8 @@ fn nrmSwitchPicker(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
     const names = try registry.listRegistryLabels(allocator, config.root_dir);
     defer registry.freeLabels(allocator, names);
     if (names.len == 0) return;
-  switch (try pickIndex(allocator, zh, names, 0)) {
+    const start: usize = registry.guideCurrentRegistryIndex(allocator, names, config.root_dir);
+    switch (try pickViewport(zh, text(zh, "Use registry", "切换源"), names, start, false)) {
         .quit, .back => return,
         .index => |i| try withGuide(allocator, registry.useName, .{ allocator, config.root_dir, names[i] }),
     }
@@ -277,6 +281,36 @@ fn promptBinarySet(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void
     binary.cmd(allocator, config.root_dir, &.{ "set", name, url }) catch |err| try binary.printError(err);
 }
 
+pub fn runStep(allocator: mem.Allocator, config: ZnvmConfig, at_raw: []const u8) !void {
+    const at = guide_state.parseAt(at_raw);
+    if (comptime windows) {
+        try stderr("Interactive menus are not supported on Windows yet; use --help.\n", .{});
+        return;
+    }
+    if (!agent.menuAllowed(.stderr)) {
+        try i18n.err(messages.guide_needs_terminal, .{ commands.program_name, commands.program_name });
+        process.exit(1);
+    }
+    const zh = preferZh(allocator);
+    var ctx = MenuCtx{
+        .mode = .step,
+        .zh = zh,
+        .shell_exports = true,
+        .last_index = at.item,
+        .root_cursor = at.root_cursor,
+        .menu = at.menu,
+        .item = at.item,
+        .sub_cursor = at.cursor,
+    };
+    while (true) {
+        switch (try rootMenu(allocator, config, &ctx)) {
+            .quit => process.exit(2),
+            .acted => process.exit(3),
+            .back => {},
+        }
+    }
+}
+
 pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
     if (comptime windows) {
         try stderr("Interactive menus are not supported on Windows yet; use --help.\n", .{});
@@ -301,7 +335,8 @@ pub fn run(allocator: mem.Allocator, config: ZnvmConfig, mode: Mode) !void {
                 return;
             },
             .acted => {
-                if (mode == .step) return;
+                if (mode == .step) process.exit(3);
+                return;
             },
             .back => {},
         }
@@ -346,24 +381,37 @@ fn prompt(allocator: mem.Allocator) !?[]u8 {
 fn promptLine(allocator: mem.Allocator) !?[]u8 {
     try tty.enter();
     defer tty.leave();
-    try stderr("> ", .{});
-    var list: std.ArrayList(u8) = .empty;
-    errdefer list.deinit(allocator);
-    while (true) {
-        const byte = try readByte() orelse break;
-        if (byte == '\n' or byte == '\r') break;
-        if (byte == 0x1b) return null;
-        if (byte >= 32 and byte < 127) try list.append(allocator, byte);
-    }
-    if (list.items.len == 0) return null;
-    return try list.toOwnedSlice(allocator);
+    const line = guide_input.readLine(allocator, readByte, pollReady, true) catch |err| switch (err) {
+        error.GuideInterrupt => {
+            try stderr("{s}\n", .{i18n.t(messages.guide_cancelled)});
+            return null;
+        },
+        else => return err,
+    };
+    if (line == null) try stderr("{s}\n", .{i18n.t(messages.guide_cancelled)});
+    return line;
 }
 
 fn withGuide(allocator: mem.Allocator, comptime func: anytype, args: anytype) !void {
     _ = allocator;
     agent.guide_mode = true;
     defer agent.guide_mode = false;
-    @call(.auto, func, args) catch return;
+    return @call(.auto, func, args);
+}
+
+fn confirmYn(zh: bool, question: []const u8) !bool {
+    _ = zh;
+    try tty.enter();
+    defer tty.leave();
+    try stderr("{s} {s}\n", .{ question, i18n.t(messages.confirm_default_no) });
+    while (true) {
+        const key = try readMenuKey() orelse return false;
+        switch (key) {
+            .enter, .back, .eof, .left => return false,
+            .printable => |b| return b == 'y' or b == 'Y',
+            else => {},
+        }
+    }
 }
 
 const posix = std.posix;
@@ -542,6 +590,10 @@ fn choose(zh: bool, title: []const u8, labels: []const []const u8, back_label: [
     while (true) {
         painted = try paintMenu(title, labels, back_label, state.cursor, status, painted);
         const key = try readMenuKey() orelse return .quit;
+        switch (key) {
+            .printable => continue,
+            else => {},
+        }
         switch (state.handle(key)) {
             .redraw => status = "",
             .invalid => status = text(zh, "Enter a number from the menu.", "请输入菜单中的编号."),
@@ -634,9 +686,12 @@ fn statusLine(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) ![]u8 {
 fn submenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: usize, nvmrc: ?[]const u8) !Outcome {
     _ = nvmrc;
     return switch (which) {
-        0 => {
-            try withGuide(allocator, commands.cmdUse, .{ allocator, &[_][]const u8{ commands.program_name, "use" }, config });
-            return .acted;
+        0 => blk: {
+            withGuide(allocator, commands.cmdUse, .{ allocator, &[_][]const u8{ commands.program_name, "use" }, config }) catch |err| switch (err) {
+                error.GuideFailed => break :blk .back,
+                else => return err,
+            };
+            break :blk .acted;
         },
         1 => itemMenu(allocator, config, ctx, which, "Switch version", "切换版本", &.{
             .{ "Choose installed version", "选择已安装版本" },
@@ -668,66 +723,96 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: u
 }
 
 fn itemMenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: usize, en_title: []const u8, zh_title: []const u8, items: []const [2][]const u8, after: Flow) !Outcome {
+    ctx.menu = which;
     while (true) {
         switch (try menuPairs(ctx.zh, en_title, zh_title, items, "Back", "返回", ctx.last_index)) {
             .quit => return .quit,
             .back => return .back,
             .index => |n| {
                 ctx.last_index = n;
-                const flow = try dispatch(allocator, config, ctx, which, n + 1);
-                switch (after) {
-                    .stay => continue,
-                    .leave_success => return .acted,
-                    .back => return .back,
+                ctx.item = n;
+                ctx.sub_cursor = 0;
+                const flow = dispatch(allocator, config, ctx, which, n + 1) catch |err| switch (err) {
+                    error.GuideFailed => continue,
+                    else => return err,
+                };
+                switch (flow) {
+                    .stay, .back => continue,
+                    .leave_success => if (after == .leave_success) return .acted else continue,
                     .leave_quit => return .quit,
                 }
-                _ = flow;
             },
         }
     }
 }
 
 fn dispatch(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, menu: usize, item: usize) !Flow {
-    switch (menu) {
+    return switch (menu) {
         1 => switch (item) {
             1 => try pickInstalledUse(allocator, config, ctx),
-            2 => try withGuide(allocator, commands.cmdUse, .{ allocator, &[_][]const u8{ commands.program_name, "use" }, config }),
-            3 => try promptUse(allocator, config, ctx),
-            else => {},
+            2 => blk: {
+                try withGuide(allocator, commands.cmdUse, .{ allocator, &[_][]const u8{ commands.program_name, "use" }, config });
+                break :blk .leave_success;
+            },
+            3 => blk: {
+                try promptUse(allocator, config, ctx);
+                break :blk .leave_success;
+            },
+            else => .back,
         },
         2 => switch (item) {
-            1 => try runInstall(allocator, config, ctx, &.{"--lts"}, true),
-            2 => try runInstall(allocator, config, ctx, &.{"node"}, true),
+            1 => blk: {
+                try runInstall(allocator, config, ctx, &.{"--lts"}, true);
+                break :blk .leave_success;
+            },
+            2 => blk: {
+                try runInstall(allocator, config, ctx, &.{"node"}, true);
+                break :blk .leave_success;
+            },
             3 => try installShortlist(allocator, config, ctx),
-            4 => try promptInstall(allocator, config, ctx),
-            else => {},
+            4 => blk: {
+                try promptInstall(allocator, config, ctx);
+                break :blk .leave_success;
+            },
+            else => .back,
         },
         3 => switch (item) {
             1 => try pickInstalledDefault(allocator, config, ctx),
-            else => {},
+            else => .back,
         },
         4 => switch (item) {
-            1 => {
+            1 => blk: {
                 try runShow(allocator, config, ctx.zh, "nvm ls", commands.cmdList, &.{"ls"});
-                return .stay;
+                break :blk .stay;
             },
             2 => try uninstallWizard(allocator, config, ctx),
-            3 => try aliasSubmenu(allocator, config, ctx),
-            4 => try createNvmrc(allocator, config, ctx),
-            else => {},
+            3 => blk: {
+                try aliasSubmenu(allocator, config, ctx);
+                break :blk .stay;
+            },
+            4 => blk: {
+                try createNvmrc(allocator, config, ctx);
+                break :blk .stay;
+            },
+            else => .back,
         },
         5 => switch (item) {
-            1 => try mirrorSubmenu(allocator, config, ctx),
-            2 => try registrySubmenu(allocator, config, ctx),
-            3 => {
-                try explainHooks(ctx.zh);
-                return .stay;
+            1 => blk: {
+                try mirrorSubmenu(allocator, config, ctx);
+                break :blk .stay;
             },
-            else => {},
+            2 => blk: {
+                try registrySubmenu(allocator, config, ctx);
+                break :blk .stay;
+            },
+            3 => blk: {
+                try explainHooks(ctx.zh);
+                break :blk .stay;
+            },
+            else => .back,
         },
-        else => {},
-    }
-    return .back;
+        else => .back,
+    };
 }
 
 fn registryAction(
@@ -842,7 +927,7 @@ fn promptUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void 
     try runUseArgv(allocator, config, ctx, &.{spec});
 }
 
-fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
+fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
     const installed = try version.getInstalledVersions(allocator, config);
     defer {
         for (installed) |item| allocator.free(item);
@@ -850,7 +935,7 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx)
     }
     if (installed.len == 0) {
         try stderr("{s}\n", .{text(ctx.zh, "No versions installed.", "没有已安装的版本.")});
-        return;
+        return .stay;
     }
     const cur = try commands.activeVersion(allocator, config);
     defer if (cur) |c| allocator.free(c);
@@ -860,13 +945,19 @@ fn pickInstalledUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx)
             if (mem.eql(u8, active, ver)) start = i;
         }
     }
-    switch (try pickIndex(allocator, ctx.zh, installed, start)) {
-        .quit, .back => return,
-        .index => |index| try runUseArgv(allocator, config, ctx, &.{installed[index]}),
+    ctx.sub_cursor = start;
+    switch (try pickViewport(ctx.zh, text(ctx.zh, "Switch version", "切换版本"), installed, start, false)) {
+        .quit => return .leave_quit,
+        .back => return .back,
+        .index => |index| {
+            ctx.sub_cursor = index;
+            try runUseArgv(allocator, config, ctx, &.{installed[index]});
+            return .leave_success;
+        },
     }
 }
 
-fn pickInstalledDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
+fn pickInstalledDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
     const installed = try version.getInstalledVersions(allocator, config);
     defer {
         for (installed) |item| allocator.free(item);
@@ -874,7 +965,7 @@ fn pickInstalledDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *Menu
     }
     if (installed.len == 0) {
         try stderr("{s}\n", .{text(ctx.zh, "No versions installed.", "没有已安装的版本.")});
-        return;
+        return .stay;
     }
     const default_ver = commands.aliasTarget(allocator, config, "default") catch null;
     defer if (default_ver) |d| allocator.free(d);
@@ -887,11 +978,24 @@ fn pickInstalledDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *Menu
         labeled[i] = owners[i][0..];
     }
     defer for (owners[0..installed.len]) |buf| allocator.free(buf);
-    switch (try pickIndex(allocator, ctx.zh, labeled[0..installed.len], 0)) {
-        .quit, .back => return,
+    var start: usize = 0;
+    if (default_ver) |def| {
+        for (installed, 0..) |ver, i| {
+            if (mem.eql(u8, def, ver) or mem.eql(u8, def, ver[1..])) {
+                start = i;
+                break;
+            }
+        }
+    }
+    ctx.sub_cursor = start;
+    switch (try pickViewport(ctx.zh, text(ctx.zh, "Set default", "设置默认版本"), labeled[0..installed.len], start, false)) {
+        .quit => return .leave_quit,
+        .back => return .back,
         .index => |index| {
+            ctx.sub_cursor = index;
             const argv = [_][]const u8{ commands.program_name, "alias", "default", installed[index] };
             try withGuide(allocator, commands.cmdAlias, .{ allocator, &argv, config });
+            return .leave_success;
         },
     }
 }
@@ -920,8 +1024,24 @@ fn labelVersion(allocator: mem.Allocator, zh: bool, ver: []const u8, current: ?[
     return try allocator.dupe(u8, buf[0..writer.end]);
 }
 
-fn installShortlist(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
-    try pickRemoteInstall(allocator, config, ctx);
+fn installShortlist(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
+    const zh = ctx.zh;
+    const rows = [_][]const u8{
+        text(zh, "Search all versions...", "搜索全部版本..."),
+        text(zh, "Enter a version...", "输入版本号..."),
+    };
+    switch (try choose(zh, text(zh, "Install", "安装"), &rows, text(zh, "Back", "返回"), 0)) {
+        .quit => return .leave_quit,
+        .back => return .back,
+        .index => |n| switch (n) {
+            0 => return pickRemoteInstall(allocator, config, ctx),
+            1 => {
+                try promptInstall(allocator, config, ctx);
+                return .leave_success;
+            },
+            else => return .back,
+        },
+    }
 }
 
 fn maybeOfferDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, offer: bool) !void {
@@ -932,21 +1052,14 @@ fn maybeOfferDefault(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx
     const active = try commands.activeVersion(allocator, config);
     defer if (active) |a| allocator.free(a);
     const ver = active orelse return;
-    const choices = [_][]const u8{
-        text(ctx.zh, "No", "否"),
-        text(ctx.zh, "Yes, set default", "设为默认"),
-    };
-    var title: [96]u8 = undefined;
-    const head = if (ctx.zh)
-        std.fmt.bufPrint(&title, "设置 default -> {s}?", .{ver}) catch ver
+    var qbuf: [96]u8 = undefined;
+    const q = if (ctx.zh)
+        std.fmt.bufPrint(&qbuf, "设置 default -> {s}?", .{ver}) catch ver
     else
-        std.fmt.bufPrint(&title, "Set default -> {s}?", .{ver}) catch ver;
-    switch (try choose(ctx.zh, head, &choices, text(ctx.zh, "Skip", "跳过"), 0)) {
-        .index => |n| if (n == 1) {
-            const argv = [_][]const u8{ commands.program_name, "alias", "default", ver };
-            try withGuide(allocator, commands.cmdAlias, .{ allocator, &argv, config });
-        },
-        else => {},
+        std.fmt.bufPrint(&qbuf, "Set default -> {s}?", .{ver}) catch ver;
+    if (try confirmYn(ctx.zh, q)) {
+        const argv = [_][]const u8{ commands.program_name, "alias", "default", ver };
+        try withGuide(allocator, commands.cmdAlias, .{ allocator, &argv, config });
     }
     try runUseArgv(allocator, config, ctx, &.{ver});
 }
@@ -1038,24 +1151,28 @@ fn registryScopeSubmenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *Menu
     }
 }
 
-fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
+fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
     const zh = ctx.zh;
     try stderr("{s}\n", .{text(zh, "Fetching the remote list...", "正在获取远程列表...")});
     const labels = remoteLabels(allocator, config) catch |err| {
         try i18n.err(messages.fetch_index_nl, .{@errorName(err)});
-        return;
+        return .stay;
     };
     defer {
         for (labels) |item| allocator.free(item);
         allocator.free(labels);
     }
     if (labels.len == 0) {
-        try stderr("{s}\n", .{text(zh, "No remote versions found.\n", "远程列表是空的.\n")});
-        return;
+        try stderr("{s}\n", .{text(zh, "No remote versions found.", "远程列表是空的.")});
+        return .stay;
     }
-    switch (try pickIndex(allocator, zh, labels, 0)) {
-        .quit, .back => return,
-        .index => |index| try runInstall(allocator, config, ctx, &.{labels[index]}, true),
+    switch (try pickViewport(zh, text(zh, "Remote versions", "远程版本"), labels, 0, true)) {
+        .quit => return .leave_quit,
+        .back => return .back,
+        .index => |index| {
+            try runInstall(allocator, config, ctx, &.{labels[index]}, true);
+            return .leave_success;
+        },
     }
 }
 
@@ -1084,43 +1201,22 @@ fn remoteLabels(allocator: mem.Allocator, config: ZnvmConfig) ![][]u8 {
     return list.toOwnedSlice(allocator);
 }
 
-fn pickIndex(allocator: mem.Allocator, zh: bool, labels: anytype, initial_cursor: usize) !Pick {
-    _ = allocator;
-    var page: usize = 0;
-    while (true) {
-        const start = page * page_size;
-        const end = @min(start + page_size, labels.len);
-        const shown = end - start;
-        var rows: [17][]const u8 = undefined;
-        const Row = enum { item, next, prev };
-        var kind: [17]Row = undefined;
-        var n: usize = 0;
-        var row: usize = 0;
-        while (row < shown) : (row += 1) {
-            rows[n] = labels[start + row];
-            kind[n] = .item;
-            n += 1;
-        }
-        if (end < labels.len) {
-            rows[n] = text(zh, "Next page", "下一页");
-            kind[n] = .next;
-            n += 1;
-        }
-        if (page > 0) {
-            rows[n] = text(zh, "Previous page", "上一页");
-            kind[n] = .prev;
-            n += 1;
-        }
-        switch (try choose(zh, text(zh, "Choose", "选择"), rows[0..n], text(zh, "Back", "返回"), initial_cursor)) {
-            .quit => return .quit,
-            .back => return .back,
-            .index => |index| switch (kind[index]) {
-                .item => return .{ .index = start + index },
-                .next => page += 1,
-                .prev => page -= 1,
-            },
-        }
-    }
+fn pickViewport(zh: bool, title: []const u8, labels: []const []const u8, initial_cursor: usize, searchable: bool) !Pick {
+    const hooks = guide_picker.Hooks{
+        .read_key = readMenuKey,
+        .paint = paintMenu,
+    };
+    const start = @min(initial_cursor, if (labels.len > 0) labels.len - 1 else 0);
+    return switch (try guide_picker.pick(labels, hooks, .{
+        .zh = zh,
+        .title = title,
+        .initial = start,
+        .searchable = searchable,
+    })) {
+        .quit => .quit,
+        .back => .back,
+        .index => |i| .{ .index = i },
+    };
 }
 
 fn createNvmrc(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
@@ -1174,7 +1270,7 @@ fn promptUnalias(allocator: mem.Allocator, config: ZnvmConfig, zh: bool) !void {
     try commands.cmdUnalias(allocator, &argv, config);
 }
 
-fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void {
+fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
     const zh = ctx.zh;
     const installed = try version.getInstalledVersions(allocator, config);
     defer {
@@ -1182,26 +1278,61 @@ fn uninstallWizard(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) 
         allocator.free(installed);
     }
     if (installed.len == 0) {
-        try stderr("{s}\n", .{text(zh, "No versions installed.\n", "没有已安装的版本.\n")});
-        return;
+        try stderr("{s}\n", .{text(zh, "No versions installed.", "没有已安装的版本.")});
+        return .stay;
     }
-    const picked = switch (try pickIndex(allocator, zh, installed, 0)) {
-        .quit, .back => return,
-        .index => |index| installed[index],
-    };
-    var title_buf: [160]u8 = undefined;
-    const title = std.fmt.bufPrint(&title_buf, "{s} {s}", .{ text(zh, "Delete", "删除"), picked }) catch picked;
-    const choices = [_][]const u8{
-        text(zh, "No", "否"),
-        text(zh, "Yes, uninstall", "确认删除"),
-    };
-    switch (try choose(zh, title, &choices, text(zh, "Back", "返回"), 1)) {
-        .index => |n| if (n == 1) {
-            const argv = [_][]const u8{ commands.program_name, "uninstall", picked };
-            try withGuide(allocator, commands.cmdUninstall, .{ allocator, &argv, config });
+    const current = try commands.activeVersion(allocator, config);
+    defer if (current) |c| allocator.free(c);
+    const default_ver = commands.aliasTarget(allocator, config, "default") catch null;
+    defer if (default_ver) |d| allocator.free(d);
+    var labeled: [64][]const u8 = undefined;
+    var owners: [64][]u8 = undefined;
+    for (installed, 0..) |ver, i| {
+        owners[i] = try labelVersion(allocator, zh, ver, current, default_ver);
+        labeled[i] = owners[i][0..];
+    }
+    defer for (owners[0..installed.len]) |buf| allocator.free(buf);
+    var start: usize = 0;
+    for (installed, 0..) |ver, i| {
+        if (current) |active| {
+            if (!mem.eql(u8, active, ver)) {
+                start = i;
+                break;
+            }
+        }
+    }
+    ctx.sub_cursor = start;
+    const picked = switch (try pickViewport(zh, text(zh, "Uninstall", "卸载版本"), labeled[0..installed.len], start, false)) {
+        .quit => return .leave_quit,
+        .back => return .back,
+        .index => |index| blk: {
+            ctx.sub_cursor = index;
+            break :blk installed[index];
         },
-        else => {},
+    };
+    if (current) |active| {
+        if (mem.eql(u8, active, picked)) {
+            try stderr("{s}\n", .{i18n.t(messages.cannot_uninstall_active)});
+            return .stay;
+        }
     }
+    if (default_ver) |def| {
+        if (mem.eql(u8, def, picked) or mem.eql(u8, def, picked[1..])) {
+            var warn: [128]u8 = undefined;
+            try stderr("{s}\n", .{i18n.format(messages.uninstall_default_points, &warn, .{picked})});
+        }
+    }
+    var qbuf: [128]u8 = undefined;
+    const q = i18n.format(messages.uninstall_confirm, &qbuf, .{picked});
+    if (!try confirmYn(zh, q)) return .back;
+    const argv = [_][]const u8{ commands.program_name, "uninstall", picked };
+    try withGuide(allocator, commands.cmdUninstall, .{ allocator, &argv, config });
+    const def_after = commands.aliasTarget(allocator, config, "default") catch null;
+    defer if (def_after) |d| allocator.free(d);
+    if (default_ver != null and def_after == null) {
+        _ = try pickInstalledDefault(allocator, config, ctx);
+    }
+    return .stay;
 }
 
 fn explainCurl(zh: bool) !void {

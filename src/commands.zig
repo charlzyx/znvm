@@ -15,20 +15,32 @@ const messages = @import("messages.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-fn failFmt(code: u8, comptime message: i18n.Msg, args: anytype) noreturn {
+fn failFmt(code: u8, comptime message: i18n.Msg, args: anytype) !noreturn {
     var buf: [512]u8 = undefined;
-    agent.fail(code, i18n.format(message, &buf, args));
+    try agent.failGuide(code, i18n.format(message, &buf, args));
+}
+
+fn cmdAbort(comptime message: i18n.Msg, args: anytype, code: u8) !noreturn {
+    if (agent.guide_mode) {
+        var buf: [512]u8 = undefined;
+        try stderr("{s}", .{i18n.format(message, &buf, args)});
+        return error.GuideFailed;
+    }
+    try i18n.err(message, args);
+    process.exit(code);
 }
 
 fn failNoVersionFile() !noreturn {
-    var hint_buf: [128]u8 = undefined;
-    const hint = i18n.format(messages.no_version_file_hint, &hint_buf, .{program_name});
-    var out: [512]u8 = undefined;
-    const body = std.fmt.bufPrint(
-        &out,
-        "{s}\n{s}",
-        .{ i18n.t(messages.no_version_file), hint },
-    ) catch i18n.t(messages.no_version_file);
+  const body = if (agent.guide_mode) i18n.t(messages.no_version_file) else blk: {
+        var hint_buf: [128]u8 = undefined;
+        const hint = i18n.format(messages.no_version_file_hint, &hint_buf, .{program_name});
+        var out: [512]u8 = undefined;
+        break :blk std.fmt.bufPrint(
+            &out,
+            "{s}\n{s}",
+            .{ i18n.t(messages.no_version_file), hint },
+        ) catch i18n.t(messages.no_version_file);
+    };
     try agent.failGuide(1, body);
 }
 
@@ -671,10 +683,10 @@ fn resolveLocalSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []const 
 
 fn resolveLocalOrExit(allocator: mem.Allocator, config: ZnvmConfig, spec: []const u8, lts_flag: ?[]const u8) !LocalHit {
     const hit = resolveLocalSpec(allocator, config, spec, lts_flag, 0) catch |err| switch (err) {
-        error.AliasCycle => failFmt(8, messages.alias_cycle, .{spec}),
+        error.AliasCycle => try failFmt(8, messages.alias_cycle, .{spec}),
         else => return err,
     };
-    return hit orelse failFmt(1, messages.not_installed_run, .{ spec, program_name, spec });
+    return hit orelse try failFmt(1, messages.not_installed_run, .{ spec, program_name, spec });
 }
 
 fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
@@ -754,7 +766,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--lts=")) {
         const name = arg["--lts=".len..];
-        if (name.len == 0) failFmt(55, messages.lts_needs_name, .{});
+        if (name.len == 0) try failFmt(55, messages.lts_needs_name, .{});
         parsed.lts = name;
         return true;
     }
@@ -764,7 +776,7 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
     }
     if (mem.startsWith(u8, arg, "--alias=")) {
         const name = arg["--alias=".len..];
-        if (name.len == 0) failFmt(55, messages.alias_needs_name, .{});
+        if (name.len == 0) try failFmt(55, messages.alias_needs_name, .{});
         parsed.alias_to = name;
         return true;
     }
@@ -806,12 +818,12 @@ fn consumeFlag(parsed: *ParsedArgs, arg: []const u8) !bool {
         null;
     if (reinstall_flag) |prefix| {
         const name = arg[prefix.len..];
-        if (name.len == 0) failFmt(55, messages.option_needs_version, .{prefix});
+        if (name.len == 0) try failFmt(55, messages.option_needs_version, .{prefix});
         parsed.reinstall_from = name;
         return true;
     }
     if (mem.eql(u8, arg, "--reinstall-packages-from") or mem.eql(u8, arg, "--copy-packages-from")) {
-        failFmt(55, messages.option_needs_eq_version, .{arg});
+        try failFmt(55, messages.option_needs_eq_version, .{arg});
     }
     return false;
 }
@@ -833,7 +845,7 @@ fn parseArgs(allocator: mem.Allocator, args: []const []const u8, mode: FlagMode)
                 while (index < args.len) : (index += 1) try parsed.positionals.append(allocator, args[index]);
                 break;
             }
-            failFmt(55, messages.unsupported_option, .{arg});
+            try failFmt(55, messages.unsupported_option, .{arg});
         }
         try parsed.positionals.append(allocator, arg);
         if (mode == .command) {
@@ -1010,9 +1022,20 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\  local result
         \\  local exit_code
         \\  while true; do
-        \\    result="$("$__nvm_exe" --guide-step)"
+        \\    if [ -n "${{__nvm_guide_at-}}" ]; then
+        \\      result="$("$__nvm_exe" --guide-step "$__nvm_guide_at")"
+        \\    else
+        \\      result="$("$__nvm_exe" --guide-step)"
+        \\    fi
         \\    exit_code=$?
+        \\  __nvm_guide_at=
         \\    if [ "$exit_code" -eq 2 ]; then
+        \\      return 0
+        \\    fi
+        \\    if [ "$exit_code" -eq 3 ]; then
+        \\      if [ -n "$result" ]; then
+        \\        eval "$result"
+        \\      fi
         \\      return 0
         \\    fi
         \\    if [ "$exit_code" -ne 0 ]; then
@@ -1022,7 +1045,20 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
         \\      return "$exit_code"
         \\    fi
         \\    if [ -n "$result" ]; then
-        \\      eval "$result"
+        \\      while IFS= read -r line; do
+        \\        case "$line" in
+        \\          __nvm_guide_at=*)
+        \\            __nvm_guide_at="${{line#__nvm_guide_at=}}"
+        \\            __nvm_guide_at="${{__nvm_guide_at#\\'}}"
+        \\            __nvm_guide_at="${{__nvm_guide_at%\\'}}"
+        \\            ;;
+        \\          *)
+        \\            eval "$line"
+        \\            ;;
+        \\        esac
+        \\      done <<EOF
+        \\$result
+        \\EOF
         \\    fi
         \\  done
         \\}}
@@ -1081,7 +1117,7 @@ pub fn cmdEnv(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
 }
 
 fn requireSpec(allocator: mem.Allocator, parsed: *const ParsedArgs, comptime usage: i18n.Msg, silent: bool) ![]u8 {
-    if (parsed.positionals.items.len > 1) failFmt(1, usage, .{program_name});
+    if (parsed.positionals.items.len > 1) try failFmt(1, usage, .{program_name});
     if (parsed.lts) |name| return ltsSpec(allocator, name);
     if (parsed.positionals.items.len == 1) return allocator.dupe(u8, parsed.positionals.items[0]);
     const found = try readNvmrcSpec(allocator, silent);
@@ -1100,10 +1136,7 @@ pub fn cmdUse(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     try applyHit(allocator, config, hit, parsed.silent, i18n.t(messages.using_system));
     if (parsed.save) {
         switch (hit) {
-            .system => {
-                try i18n.err(messages.system_nvmrc, .{});
-                process.exit(1);
-            },
+            .system => try cmdAbort(messages.system_nvmrc, .{}, 1),
             .version => |ver| try writeCwdNvmrc(allocator, ver, parsed.silent),
         }
     }
@@ -1499,9 +1532,9 @@ fn listJson(allocator: mem.Allocator, config: ZnvmConfig, parsed: *const ParsedA
 pub fn cmdList(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_ls, .{program_name});
+    if (parsed.positionals.items.len > 1) try failFmt(1, messages.usage_ls, .{program_name});
     if (parsed.no_alias and parsed.positionals.items.len > 0) {
-        failFmt(55, messages.no_alias_flag, .{});
+        try failFmt(55, messages.no_alias_flag, .{});
     }
 
     const installed = try version.getInstalledVersions(allocator, config);
@@ -1558,7 +1591,7 @@ fn printVersionLine(ver: []const u8, current: ?[]const u8) !void {
 pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config: ZnvmConfig) !void {
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
-    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_ls_remote, .{program_name});
+    if (parsed.positionals.items.len > 1) try failFmt(1, messages.usage_ls_remote, .{program_name});
     const raw = if (parsed.positionals.items.len == 1) parsed.positionals.items[0] else "";
     var query = version.parseVersionQuery(raw, parsed.lts);
     if (query.special == .current or query.special == .system or query.special == .default) try na();
@@ -1566,7 +1599,7 @@ pub fn cmdListRemote(allocator: mem.Allocator, args: []const []const u8, config:
     const list_all = query.special == .none and query.lts == null and query.prefix.len == 0;
 
     const index = version.loadRemoteIndex(allocator, config) catch |err| {
-        failFmt(1, messages.fetch_index, .{@errorName(err)});
+        try failFmt(1, messages.fetch_index, .{@errorName(err)});
     };
     defer index.deinit();
 
@@ -1771,7 +1804,7 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
     defer hit.deinit(allocator);
     switch (hit) {
         .system => {
-            const node = try findSystemNode(allocator, config) orelse failFmt(127, messages.system_node_missing, .{});
+            const node = try findSystemNode(allocator, config) orelse try failFmt(127, messages.system_node_missing, .{});
             defer allocator.free(node);
             try emitWhich(allocator, "system", node);
         },
@@ -1780,7 +1813,7 @@ pub fn cmdWhich(allocator: mem.Allocator, args: []const []const u8, config: Znvm
             defer allocator.free(home);
             const node = try platform.nodePath(allocator, home);
             defer allocator.free(node);
-            std.Io.Dir.accessAbsolute(host.io(), node, .{}) catch failFmt(1, messages.bin_missing_plain, .{ver});
+            std.Io.Dir.accessAbsolute(host.io(), node, .{}) catch try failFmt(1, messages.bin_missing_plain, .{ver});
             try emitWhich(allocator, ver, node);
         },
     }
@@ -1793,11 +1826,11 @@ pub fn cmdVersion(allocator: mem.Allocator, args: []const []const u8, config: Zn
         try cmdCurrent(allocator, args, config);
         return;
     }
-    if (parsed.positionals.items.len > 1) failFmt(1, messages.usage_version, .{program_name});
+    if (parsed.positionals.items.len > 1) try failFmt(1, messages.usage_version, .{program_name});
     const spec = if (parsed.lts) |name| try ltsSpec(allocator, name) else try allocator.dupe(u8, parsed.positionals.items[0]);
     defer allocator.free(spec);
     const hit = resolveLocalSpec(allocator, config, spec, null, 0) catch |err| switch (err) {
-        error.AliasCycle => failFmt(8, messages.alias_cycle, .{spec}),
+        error.AliasCycle => try failFmt(8, messages.alias_cycle, .{spec}),
         else => return err,
     };
     if (hit) |resolved| {

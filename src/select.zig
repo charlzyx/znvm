@@ -11,6 +11,7 @@ pub const Key = union(enum) {
     interrupt,
     eof,
     digit: u8,
+  printable: u8,
 
 };
 
@@ -51,6 +52,7 @@ pub const Select = struct {
             .interrupt, .eof => return .quit,
             .enter => return self.commit(),
             .digit => |d| return self.pushDigit(d),
+            .printable => return .redraw,
         }
     }
 
@@ -151,6 +153,9 @@ pub const Parser = struct {
             'k', 'K' => out.push(.up),
             'j', 'J' => out.push(.down),
             '0'...'9' => out.push(.{ .digit = byte - '0' }),
+            '.', '-', '/' => out.push(.{ .printable = byte }),
+            'a'...'i', 'l'...'p', 'r'...'z' => out.push(.{ .printable = byte }),
+            'A'...'I', 'L'...'P', 'R'...'Z' => out.push(.{ .printable = byte }),
             else => {},
         }
     }
@@ -300,7 +305,7 @@ test "arrow bytes, vim keys, esc, and ctrl-c" {
     try expectKeys("\x03", false, &.{.interrupt});
     try expectKeys("4", false, &.{.{ .digit = 4 }});
     try expectKeys("10", false, &.{ .{ .digit = 1 }, .{ .digit = 0 } });
-    try expectKeys("x", false, &.{});
+    try expectKeys("x", false, &.{.{ .printable = 'x' }});
 }
 
 test "highlight moves, wraps, and enter confirms the row" {
