@@ -1146,22 +1146,17 @@ fn resolveInstallSpec(allocator: mem.Allocator, config: ZnvmConfig, spec: []cons
     if (depth > 8) return error.AliasCycle;
     const query = version.parseVersionQuery(spec, lts_flag);
     switch (query.special) {
-        .system => {
-            try i18n.err(messages.system_install, .{program_name});
-            process.exit(1);
-        },
+        .system => try cmdAbort(messages.system_install, .{program_name}, 1),
         .current => {
             const current = try getCurrentVersionFromPath(allocator, config) orelse {
-                try i18n.err(messages.no_active, .{});
-                process.exit(1);
+                try cmdAbort(messages.no_active, .{}, 1);
             };
             defer allocator.free(current);
             return version.resolveRemoteQuery(allocator, version.parseVersionQuery(current, null), config);
         },
         .default => {
             const target = try readAlias(allocator, config, "default") orelse {
-                try i18n.err(messages.no_default, .{});
-                process.exit(1);
+                try cmdAbort(messages.no_default, .{}, 1);
             };
             defer allocator.free(target);
             return resolveInstallSpec(allocator, config, target, null, depth + 1);
@@ -1182,18 +1177,14 @@ fn aliasTargetIsUsable(allocator: mem.Allocator, config: ZnvmConfig, target: []c
     const query = version.parseVersionQuery(target, null);
     if (query.special == .latest or query.special == .system or query.special == .current or query.lts != null) return;
     const hit = resolveLocalSpec(allocator, config, target, null, 0) catch |err| switch (err) {
-        error.AliasCycle => {
-            try i18n.err(messages.alias_cycle_nl, .{target});
-            process.exit(8);
-        },
+        error.AliasCycle => try cmdAbort(messages.alias_cycle_nl, .{target}, 8),
         else => return err,
     };
     if (hit) |resolved| {
         resolved.deinit(allocator);
         return;
     }
-    try i18n.err(messages.not_installed_run_nl, .{ target, program_name, target });
-    process.exit(1);
+    try cmdAbort(messages.not_installed_run_nl, .{ target, program_name, target }, 1);
 }
 
 fn ensureTree(allocator: mem.Allocator, path: []const u8) !void {

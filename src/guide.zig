@@ -374,8 +374,17 @@ fn readLine(allocator: mem.Allocator) !?[]u8 {
 }
 
 fn prompt(allocator: mem.Allocator) !?[]u8 {
-    try stderr("\n> ", .{});
-    return readLine(allocator);
+    try tty.enter();
+    defer tty.leave();
+    const line = guide_input.readLine(allocator, readByte, pollReady, true) catch |err| switch (err) {
+        error.GuideInterrupt => {
+            try stderr("{s}\n", .{i18n.t(messages.guide_cancelled)});
+            return null;
+        },
+        else => return err,
+    };
+    if (line == null) try stderr("{s}\n", .{i18n.t(messages.guide_cancelled)});
+    return line;
 }
 
 fn promptLine(allocator: mem.Allocator) !?[]u8 {
@@ -924,6 +933,8 @@ fn promptUse(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !void 
     defer allocator.free(line);
     const spec = mem.trim(u8, line, " \t");
     if (spec.len == 0) return;
+    var cmd: [128]u8 = undefined;
+    try running(ctx.zh, std.fmt.bufPrint(&cmd, "nvm use {s}", .{spec}) catch "nvm use");
     try runUseArgv(allocator, config, ctx, &.{spec});
 }
 
@@ -1026,20 +1037,72 @@ fn labelVersion(allocator: mem.Allocator, zh: bool, ver: []const u8, current: ?[
 
 fn installShortlist(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx) !Flow {
     const zh = ctx.zh;
-    const rows = [_][]const u8{
-        text(zh, "Search all versions...", "搜索全部版本..."),
-        text(zh, "Enter a version...", "输入版本号..."),
+    var dynamic: [12][]const u8 = undefined;
+    var specs: [12][]const u8 = undefined;
+    var spec_heap: [12]?[]u8 = undefined;
+    @memset(&spec_heap, null);
+    var n: usize = 0;
+    defer for (spec_heap) |heap| {
+        if (heap) |s| allocator.free(s);
     };
-    switch (try choose(zh, text(zh, "Install", "安装"), &rows, text(zh, "Back", "返回"), 0)) {
+    const index = version.loadRemoteIndex(allocator, config) catch null;
+    defer if (index) |*idx| idx.deinit();
+    if (index) |idx| {
+        var best: [32]std.SemanticVersion = undefined;
+        var has: [32]bool = undefined;
+        @memset(&has, false);
+        var lts_names: [32][24]u8 = undefined;
+        var lts_len: [32]u8 = undefined;
+        @memset(&lts_len, 0);
+        for (idx.value) |entry| {
+            if (!version.isInstallable(entry, config.os, config.arch)) continue;
+            const lts_name = version.entryLtsName(entry) orelse continue;
+            const ver = entry.version;
+            if (ver.len < 2 or ver[0] != 'v') continue;
+            const parsed = std.SemanticVersion.parse(ver[1..]) catch continue;
+            const major: usize = parsed.major;
+            if (major >= best.len) continue;
+            if (!has[major] or parsed.order(best[major]) == .gt) {
+                best[major] = parsed;
+                has[major] = true;
+                @memcpy(lts_names[major][0..lts_name.len], lts_name[0..lts_name.len]);
+                lts_len[major] = @intCast(lts_name.len);
+            }
+        }
+        for (has, 0..) |present, major| {
+            if (!present) continue;
+            const lts_c = lts_names[major][0..lts_len[major]];
+            var row: [96]u8 = undefined;
+            const label = if (zh)
+                std.fmt.bufPrint(&row, "v{d}.x 最新 ({s}, LTS)", .{ major, lts_c }) catch "LTS"
+            else
+                std.fmt.bufPrint(&row, "v{d}.x latest ({s}, LTS)", .{ major, lts_c }) catch "LTS";
+            dynamic[n] = label;
+            const major_s = try std.fmt.allocPrint(allocator, "{d}", .{major});
+            spec_heap[n] = major_s;
+            specs[n] = major_s;
+            n += 1;
+            if (n >= dynamic.len - 2) break;
+        }
+    }
+    dynamic[n] = text(zh, "Search all versions...", "搜索全部版本...");
+    specs[n] = "";
+    n += 1;
+    dynamic[n] = text(zh, "Enter a version...", "输入版本号...");
+    specs[n] = "";
+    n += 1;
+    switch (try choose(zh, text(zh, "Install", "安装"), dynamic[0..n], text(zh, "Back", "返回"), 0)) {
         .quit => return .leave_quit,
         .back => return .back,
-        .index => |n| switch (n) {
-            0 => return pickRemoteInstall(allocator, config, ctx),
-            1 => {
+        .index => |pick| {
+            if (pick == n - 2) return pickRemoteInstall(allocator, config, ctx);
+            if (pick == n - 1) {
                 try promptInstall(allocator, config, ctx);
                 return .leave_success;
-            },
-            else => return .back,
+            }
+            const major_spec = specs[pick];
+            try runInstall(allocator, config, ctx, &.{major_spec}, true);
+            return .leave_success;
         },
     }
 }
@@ -1170,7 +1233,10 @@ fn pickRemoteInstall(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx
         .quit => return .leave_quit,
         .back => return .back,
         .index => |index| {
-            try runInstall(allocator, config, ctx, &.{labels[index]}, true);
+            const picked = labels[index];
+            const raw = mem.indexOfScalar(u8, picked, ' ') orelse picked.len;
+            const version_token = picked[0..raw];
+            try runInstall(allocator, config, ctx, &.{version_token}, true);
             return .leave_success;
         },
     }
@@ -1184,16 +1250,59 @@ fn remoteLabels(allocator: mem.Allocator, config: ZnvmConfig) ![][]u8 {
         for (list.items) |item| allocator.free(item);
         list.deinit(allocator);
     }
+    const installed = version.getInstalledVersions(allocator, config) catch null;
+    defer if (installed) |vers| {
+        for (vers) |v| allocator.free(v);
+        allocator.free(vers);
+    };
     for (index.value) |entry| {
         if (!version.isInstallable(entry, config.os, config.arch)) continue;
         if (entry.version.len < 2 or entry.version[0] != 'v') continue;
         _ = std.SemanticVersion.parse(entry.version[1..]) catch continue;
-        try list.append(allocator, try allocator.dupe(u8, entry.version));
+        var tags: [4][]const u8 = undefined;
+        var tn: usize = 0;
+        if (version.entryLtsName(entry)) |lts| {
+            var tmp: [48]u8 = undefined;
+            tags[tn] = std.fmt.bufPrint(&tmp, "{s}, LTS", .{lts}) catch "LTS";
+            tn += 1;
+        }
+        var is_inst = false;
+        if (installed) |vers| {
+            for (vers) |v| {
+                if (mem.eql(u8, v, entry.version)) is_inst = true;
+            }
+        }
+        if (is_inst) {
+            tags[tn] = "(installed)";
+            tn += 1;
+        }
+        var buf: [160]u8 = undefined;
+        const label = if (tn == 0)
+            try allocator.dupe(u8, entry.version)
+        else blk: {
+            var w: std.Io.Writer = .fixed(&buf);
+            try w.writeAll(entry.version);
+            try w.writeAll("  (");
+            for (tags[0..tn], 0..) |tag, i| {
+                if (i > 0) try w.writeAll(", ");
+                try w.writeAll(tag);
+            }
+            try w.writeAll(")");
+            break :blk try allocator.dupe(u8, buf[0..w.end]);
+        };
+        try list.append(allocator, label);
     }
     const Sorter = struct {
+        fn verPrefix(label: []const u8) []const u8 {
+            const end = mem.indexOfScalar(u8, label, ' ') orelse label.len;
+            return label[0..end];
+        }
         fn newer(_: void, lhs: []u8, rhs: []u8) bool {
-            const left = std.SemanticVersion.parse(lhs[1..]) catch return false;
-            const right = std.SemanticVersion.parse(rhs[1..]) catch return true;
+            const l = verPrefix(lhs);
+            const r = verPrefix(rhs);
+            if (l.len < 2 or l[0] != 'v' or r.len < 2 or r[0] != 'v') return false;
+            const left = std.SemanticVersion.parse(l[1..]) catch return false;
+            const right = std.SemanticVersion.parse(r[1..]) catch return true;
             return left.order(right) == .gt;
         }
     };

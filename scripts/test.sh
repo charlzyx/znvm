@@ -996,7 +996,7 @@ use_env["NVM_DIR"] = nvm_dir
 code, text, _ = run_pty(
     [bin_path],
     use_env,
-    ["0\n", "0\n", "\r", "0\n"],
+    ["1\n", "1\n", "0\n"],
     [
         "Switch version",
         "Choose installed",

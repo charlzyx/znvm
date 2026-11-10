@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# Interactive guide pty smoke for CI or local runs (isolated NVM_DIR).
+# Capture key-by-key guide pty transcripts for PR evidence (isolated NVM_DIR).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${ROOT}/zig-out/bin/znvm"
+ART="${ARTIFACT_DIR:-/opt/cursor/artifacts}"
+mkdir -p "$ART"
+OUT="$ART/guide-pty-transcripts.txt"
+: >"$OUT"
+
 if [[ ! -x "$BIN" ]]; then
   (cd "$ROOT" && zig build)
   BIN="${ROOT}/zig-out/bin/znvm"
 fi
+
 export NVM_DIR="${NVM_DIR:-/tmp/znvm-pty-$$}"
 export HOME="${HOME:-/tmp/znvm-home-$$}"
 rm -rf "$NVM_DIR" "$HOME"
@@ -18,50 +24,67 @@ for v in v18.20.4 v20.18.0 v22.11.0; do
 done
 printf '22.11.0\n' >"$HOME/.nvmrc"
 export PATH="/usr/bin:/bin"
+export LC_ALL=C LANG=C NVM_LANG=en
 
-run_keys() {
-  local label="$1"
-  local keys="$2"
-  local out
-  out="$(mktemp)"
-  echo "=== $label ===" | tee -a "$out"
-  script -q -c "python3 - \"$BIN\" <<'PY'
-import sys, time, pty, os
-exe = sys.argv[1]
-keys = \"\"\"$keys\"\"\"
-os.environ['NVM_DIR'] = os.environ.get('NVM_DIR', '')
-os.environ['HOME'] = os.environ.get('HOME', '')
-master, slave = pty.openpty()
-pid = os.fork()
-if pid == 0:
-    os.setsid()
-    os.dup2(slave, 0)
-    os.dup2(slave, 1)
-    os.dup2(slave, 2)
-    os.execl(exe, exe, 'guide')
-    raise SystemExit(1)
-time.sleep(0.4)
-for ch in keys:
-    if ch == '\\n':
-        os.write(master, b'\\r')
-    else:
-        os.write(master, ch.encode())
-    time.sleep(0.08)
-time.sleep(0.6)
-try:
-    os.write(master, b'q')
-except OSError:
-    pass
-time.sleep(0.3)
-os.kill(pid, 15)
-PY
-" /dev/null 2>&1 | tee -a "$out" || true
-  cat "$out"
-  rm -f "$out"
+python3 - "$BIN" "$NVM_DIR" "$HOME" "$OUT" <<'PY'
+import os, pty, select, subprocess, sys, time
+
+bin_path, nvm_dir, home, out_path = sys.argv[1:5]
+
+def run_pty(label, args, env, sends, timeout=6):
+    master, slave = pty.openpty()
+    proc = subprocess.Popen(
+        args, stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True,
+    )
+    os.close(slave)
+    data = b""
+    for item in sends:
+        if isinstance(item, tuple):
+            time.sleep(item[1])
+            continue
+        os.write(master, item.encode("latin-1") if isinstance(item, str) else item)
+        time.sleep(0.08)
+    end = time.time() + timeout
+    while time.time() < end:
+        r, _, _ = select.select([master], [], [], 0.15)
+        if master in r:
+            try:
+                chunk = os.read(master, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            data += chunk
+        if proc.poll() is not None:
+            break
+    try:
+        os.write(master, b"q")
+    except OSError:
+        pass
+    time.sleep(0.3)
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    os.close(master)
+    text = data.decode("utf-8", "replace")
+    with open(out_path, "a", encoding="utf-8") as fh:
+        fh.write(f"\n=== {label} ===\n")
+        fh.write("keys: " + repr(sends) + "\n")
+        fh.write(text)
+        fh.write("\n")
+    print(f"wrote {label}")
+
+base = {
+    "LC_ALL": "C", "LANG": "C", "NVM_LANG": "en",
+    "HOME": home, "PATH": "/usr/bin:/bin", "NVM_DIR": nvm_dir,
 }
+run_pty("bare_switch", [bin_path], base, ["2", "\r", "\r", "0", "\r"])
+run_pty("esc_on_use_prompt", [bin_path], base, ["2", "\r", "3", "\r", "\x1b", "\r"])
+run_pty("manage_ls", [bin_path], base, ["4", "\r", "0", "\r", "0", "\r"])
+PY
 
-run_keys "bare_binary_switch" "2\\n\\n\\n"
-run_keys "bare_binary_esc_on_prompt" "2\\n3\\n\\x1b\\n"
-run_keys "bare_binary_uninstall_n" "5\\n2\\n\\n n"
-
-echo "guide-pty-audit: done"
+echo "Transcript: $OUT"
+cat "$OUT" | head -80
