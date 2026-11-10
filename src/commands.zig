@@ -301,8 +301,7 @@ fn emitExports(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u8, si
     const node_bin = try platform.nodePath(allocator, home);
     defer allocator.free(node_bin);
     std.Io.Dir.accessAbsolute(host.io(), node_bin, .{}) catch {
-        try i18n.err(messages.bin_missing, .{ver});
-        process.exit(1);
+        try failFmt(1, messages.bin_missing, .{ver});
     };
 
     const path = try currentPath(allocator);
@@ -715,13 +714,11 @@ fn findUp(allocator: mem.Allocator, filename: []const u8) !?[]u8 {
 
 fn readVersionFile(allocator: mem.Allocator, path: []const u8, silent: bool) !?[]u8 {
     const content = try readSmallFile(allocator, path) orelse {
-        try i18n.err(messages.invalid_version_file, .{path});
-        process.exit(1);
+        try failFmt(1, messages.invalid_version_file, .{path});
     };
     defer allocator.free(content);
     const spec = version.parseNvmrc(content) orelse {
-        try i18n.err(messages.invalid_version_file, .{path});
-        process.exit(1);
+        try failFmt(1, messages.invalid_version_file, .{path});
     };
     if (!silent) try i18n.err(messages.found_version, .{ path, spec });
     return try allocator.dupe(u8, spec);
@@ -907,6 +904,7 @@ pub fn cmdNrm(allocator: mem.Allocator, args: []const []const u8, config: ZnvmCo
     const reg = @import("registry.zig");
     nrm_cli.run(allocator, args, config) catch |err| {
         try reg.printError(err);
+        if (agent.guide_mode) return error.GuideFailed;
         process.exit(1);
     };
 }
@@ -1245,8 +1243,7 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
     const npm = try fs.path.join(allocator, if (platform.windows) &.{ home, "node_modules", "npm", "bin", "npm-cli.js" } else &.{ home, "bin", "npm" });
     defer allocator.free(npm);
     std.Io.Dir.accessAbsolute(host.io(), npm, .{}) catch {
-        try i18n.err(messages.npm_missing, .{ver});
-        process.exit(1);
+        try failFmt(1, messages.npm_missing, .{ver});
     };
     const bin_path = try platform.binDir(allocator, home);
     defer allocator.free(bin_path);
@@ -1279,8 +1276,7 @@ fn npmInstallGlobal(allocator: mem.Allocator, config: ZnvmConfig, ver: []const u
         else => false,
     };
     if (!ok) {
-        try i18n.err(messages.npm_install_failed, .{ver});
-        process.exit(1);
+        try failFmt(1, messages.npm_install_failed, .{ver});
     }
 }
 
@@ -1288,16 +1284,10 @@ fn reinstallPackages(allocator: mem.Allocator, config: ZnvmConfig, source_spec: 
     const source_hit = try resolveLocalOrExit(allocator, config, source_spec, null);
     defer source_hit.deinit(allocator);
     const source_ver = switch (source_hit) {
-        .system => {
-            try i18n.err(messages.reinstall_system, .{});
-            process.exit(1);
-        },
+        .system => try failFmt(1, messages.reinstall_system, .{}),
         .version => |ver| ver,
     };
-    if (mem.eql(u8, source_ver, dest_ver)) {
-        try i18n.err(messages.reinstall_current, .{});
-        process.exit(2);
-    }
+    if (mem.eql(u8, source_ver, dest_ver)) try failFmt(2, messages.reinstall_current, .{});
     const source_dir = try versionHome(allocator, config, source_ver);
     defer allocator.free(source_dir);
     const names = try listGlobalPackages(allocator, source_dir);
@@ -1333,8 +1323,7 @@ fn installDefaultPackages(allocator: mem.Allocator, config: ZnvmConfig, ver: []c
         const line = mem.trim(u8, raw, " \t\r");
         if (line.len == 0 or line[0] == '#') continue;
         if (mem.indexOfScalar(u8, line, ' ') != null or mem.indexOfScalar(u8, line, '\t') != null) {
-            try i18n.err(messages.one_package_per_line, .{path});
-            process.exit(1);
+            try failFmt(1, messages.one_package_per_line, .{path});
         }
         try specs.append(allocator, try allocator.dupe(u8, line));
     }
@@ -1706,13 +1695,11 @@ pub fn cmdDefault(allocator: mem.Allocator, args: []const []const u8, config: Zn
     var parsed = try parseArgs(allocator, args[2..], .strict);
     defer parsed.deinit(allocator);
     if (parsed.positionals.items.len > 1) {
-        try i18n.err(messages.usage_default, .{program_name});
-        process.exit(1);
+        try cmdAbort(messages.usage_default, .{program_name}, 1);
     }
     if (parsed.positionals.items.len == 0) {
         const target = try readAlias(allocator, config, "default") orelse {
-            try i18n.err(messages.no_default, .{});
-            process.exit(1);
+            try cmdAbort(messages.no_default, .{}, 1);
         };
         defer allocator.free(target);
         try stdout("{s}\n", .{target});

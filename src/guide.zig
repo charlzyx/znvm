@@ -796,6 +796,7 @@ fn submenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: u
 
 fn itemMenu(allocator: mem.Allocator, config: ZnvmConfig, ctx: *MenuCtx, which: usize, en_title: []const u8, zh_title: []const u8, items: []const [2][]const u8, after: Flow) !Outcome {
     ctx.menu = which;
+    if (ctx.last_index >= items.len) ctx.last_index = 0;
     while (true) {
         switch (try menuPairs(ctx.zh, en_title, zh_title, items, "Back", "返回", ctx.last_index)) {
             .quit => return .quit,

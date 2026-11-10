@@ -88,45 +88,42 @@ base = {
 }
 
 # Bare binary: switch picker (menu 1 -> item 1)
-run_pty("bare_switch_installed", [bin_path], base, ["1", "\r", "1", "\r", "\r"])
+run_pty("bare_switch_installed", [bin_path], base, ["1\r", "1\r", "\r", "0\r"])
 
 # Esc cancel on text input (Switch -> Enter version -> Esc)
-run_pty("bare_esc_text_cancel", [bin_path], base, ["1", "\r", "3", "\r", "\x1b"])
+run_pty("bare_esc_text_cancel", [bin_path], base, ["1\r", "3\r", "\x1b"])
 
 # Error stays in menu (bad version in use prompt)
-run_pty("bare_error_stays", [bin_path], base, ["1", "\r", "3", "\r", "not-a-version", "\r", "0", "\r"])
+run_pty("bare_error_stays", [bin_path], base, ["1\r", "3\r", "99.99.99\r", "0\r"])
 
 # Uninstall y/N default No (Enter declines)
-run_pty("bare_uninstall_no", [bin_path], base, ["4", "\r", "2", "\r", "\r", "\r"])
+run_pty("bare_uninstall_no", [bin_path], base, ["4\r", "2\r", "\r", "n\r"])
 
 # nrm switch / del (via binary nrm if linked)
 nrm = bin_path.replace("znvm", "nrm") if os.path.basename(bin_path) == "znvm" else bin_path
 if not os.path.isfile(nrm):
     nrm = bin_path
-run_pty("nrm_switch", [nrm, "guide"], {**base, "NVM_DIR": nvm_dir}, ["1", "\r", "\r"])
+run_pty("nrm_switch", [nrm], {**base, "NVM_DIR": nvm_dir}, ["1\r", "\r", "0\r"])
 
 shell_env = subprocess.check_output([bin_path, "env"], text=True, env=base)
-step_script = f'''
-set +e
-{shell_env}
-keys="$1"
-for k in $(echo "$keys"); do
-  printf '%s' "$k"
-  sleep 0.08
-done | {{ while IFS= read -r -n1 c; do printf "%s" "$c"; sleep 0.08; done; }} | while true; do
-  "$__nvm_exe" --guide-step 2>/dev/null
-  code=$?
-  test "$code" -eq 2 && break
-  test "$code" -eq 3 && break
-done
-'''
-# Step mode: one switch via shell loop (simplified)
+shell_launch = (
+    shell_env
+    + f'export NVM_DIR="{nvm_dir}"; export HOME="{home}"; '
+    + "stty sane 2>/dev/null; exec bash -i"
+)
 run_pty(
-    "shell_step_use",
-    ["bash", "-lc", shell_env + '; nvm 2>&1 | head -20 || true'],
+    "shell_eval_nvm_guide",
+    ["bash", "-lc", shell_launch],
     base,
-    [("sleep", 0.5)],
-    timeout=3,
+    ["nvm\r", "1\r", "1\r", "\r", "0\r", "0\r"],
+    timeout=18,
+)
+run_pty(
+    "bare_binary_guide",
+    [bin_path],
+    base,
+    ["0\r"],
+    timeout=4,
 )
 PY
 

@@ -4,8 +4,9 @@ Isolated `HOME` and `NVM_DIR` with fake installed v18/v20/v22.
 
 
 === bare_switch_installed ===
-keys: ['1', '\r', '1', '\r', '\r']
+keys: ['1\r', '1\r', '\r', '0\r']
 1
+
 znvm — current none
 
 [1;7m> 1  Switch version[0m
@@ -42,11 +43,13 @@ Now using node v18.20.4
 To apply PATH in your shell, run: znvm use v18.20.4
 [8A[Jnvm > Switch version
 
+0
 
 
 === bare_esc_text_cancel ===
-keys: ['1', '\r', '3', '\r', '\x1b']
+keys: ['1\r', '3\r', '\x1b']
 1
+
 znvm — current none
 
 [1;7m> 1  Switch version[0m
@@ -85,8 +88,9 @@ To apply PATH in your shell, run: znvm use v22.11.0
 ^[
 
 === bare_error_stays ===
-keys: ['1', '\r', '3', '\r', 'not-a-version', '\r', '0', '\r']
+keys: ['1\r', '3\r', '99.99.99\r', '0\r']
 1
+
 znvm — current none
 
 [1;7m> 1  Switch version[0m
@@ -122,13 +126,14 @@ hash -r 2>/dev/null || true
 Now using node v22.11.0
 To apply PATH in your shell, run: znvm use v22.11.0
 [8A[Jnvm > Switch version
-not-a-version
+99.99.99
 0
 
 
 === bare_uninstall_no ===
-keys: ['4', '\r', '2', '\r', '\r', '\r']
+keys: ['4\r', '2\r', '\r', 'n\r']
 4
+
 znvm — current none
 
 [1;7m> 1  Switch version[0m
@@ -165,7 +170,6 @@ Uninstall
   3  v22.11.0
   0  Back
 
-
 Uninstall v18.20.4? (y/N) y/N
 
 Manage versions
@@ -176,6 +180,15 @@ Manage versions
   4  Write .nvmrc (current)
   0  Back
 
+[9A[2K
+[2KManage versions
+[2K
+[2K  1  List installed (ls)
+[2K[1;7m> 2  Uninstall a version[0m
+[2K  3  Aliases
+[2K  4  Write .nvmrc (current)
+[2K  0  Back
+[2K
 
 Uninstall
 
@@ -187,8 +200,9 @@ Uninstall
 
 
 === nrm_switch ===
-keys: ['1', '\r', '\r']
+keys: ['1\r', '\r', '0\r']
 1
+
 znvm — current none
 
 [1;7m> 1  Switch version[0m
@@ -224,10 +238,41 @@ hash -r 2>/dev/null || true
 Now using node v18.20.4
 To apply PATH in your shell, run: znvm use v18.20.4
 [8A[Jnvm > Switch version
+0
 
 
-=== shell_step_use ===
-keys: [('sleep', 0.5)]
-bash: -c: line 119: syntax error near unexpected token `;'
-bash: -c: line 119: `; nvm 2>&1 | head -20 || true'
+=== shell_eval_nvm_guide ===
+keys: ['nvm\r', '1\r', '1\r', '\r', '0\r', '0\r']
+nvm
+bash: cannot set terminal process group (57083): Inappropriate ioctl for device
+bash: no job control in this shell
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+ubuntu@cursor:/workspace$ nvm
+bash: nvm: command not found
+ubuntu@cursor:/workspace$ 1
+bash: 1: command not found
+ubuntu@cursor:/workspace$ 1
+bash: 1: command not found
+ubuntu@cursor:/workspace$ 
+ubuntu@cursor:/workspace$ 0
+bash: 0: command not found
+ubuntu@cursor:/workspace$ 0
+bash: 0: command not found
+ubuntu@cursor:/workspace$ 
+
+=== bare_binary_guide ===
+keys: ['0\r']
+0
+
+znvm — current none
+
+[1;7m> 1  Switch version[0m
+  2  Install Node
+  3  Set default
+  4  Manage versions
+  5  Settings
+  0  Exit
+
 

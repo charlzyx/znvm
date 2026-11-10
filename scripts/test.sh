@@ -891,6 +891,7 @@ fi
 ENV_GUIDE=$(env -u NVM_DIR HOME="$EMPTY_ROOT/home" "$GUIDE_BIN" env)
 printf '%s\n' "$ENV_GUIDE" | grep -q '__nvm_guide'
 printf '%s\n' "$ENV_GUIDE" | grep -q 'guide|interactive'
+set +e
 python3 - "$GUIDE_BIN" "$EMPTY_ROOT" <<'PY'
 import os, pty, select, subprocess, sys, time
 bin_path, root = sys.argv[1], sys.argv[2]
@@ -942,18 +943,27 @@ def run_pty(args, env, sends, needles, timeout=5, stdout_pipe=False):
             waiting.pop(0)
             if pending:
                 os.write(master, pending.pop(0).encode())
+                time.sleep(0.2)
         if proc.poll() is not None and not waiting:
+            break
+        if not waiting and not pending:
             break
     else:
         proc.kill()
         text = data.decode("utf-8", "replace")
         raise SystemExit(f"timeout args={args[1:]} waiting={waiting!r}\n{text}")
-    proc.wait(timeout=2)
+    if proc.poll() is None:
+        try:
+            os.write(master, b"q")
+        except OSError:
+            pass
+        time.sleep(0.2)
+        proc.wait(timeout=2)
     os.close(master)
     text = data.decode("utf-8", "replace")
     if waiting:
         raise SystemExit(f"missing {waiting!r} status={proc.returncode}\n{text}")
-    return proc.returncode, text, ""
+    return proc.returncode or 0, text, ""
 
 base = os.environ.copy()
 base.update({
@@ -970,8 +980,8 @@ base.pop("NVM_NONINTERACTIVE", None)
 code, text, _ = run_pty(
     [bin_path],
     base,
-    ["4\n", "1\n", "0\n", "0\n"],
-    ["Manage versions", "List installed", "(interactive guide)"],
+    ["4", "1", "0", "0"],
+    ["Manage versions", "List installed (ls)", "No versions installed", "znvm — current"],
 )
 if code != 0:
     raise SystemExit(f"english menu exit {code}\n{text}")
@@ -981,7 +991,7 @@ zh = dict(base)
 zh["LC_ALL"] = "zh_CN.UTF-8"
 zh["LANG"] = "zh_CN.UTF-8"
 zh["NVM_LANG"] = "zh_CN"
-code, text, _ = run_pty([bin_path], zh, ["0\n"], ["安装 Node"])
+code, text, _ = run_pty([bin_path], zh, ["0"], ["安装 Node"])
 if code != 0:
     raise SystemExit(f"chinese menu exit {code}\n{text}")
 
@@ -996,12 +1006,12 @@ use_env["NVM_DIR"] = nvm_dir
 code, text, _ = run_pty(
     [bin_path],
     use_env,
-    ["1\n", "1\n", "0\n"],
+    ["1", "1", "\r"],
     [
         "Switch version",
-        "Choose installed",
-        "v20.11.0",
-        "(interactive guide)",
+        "Choose installed version",
+        "> 1  v20.11.0",
+        "To apply PATH in your shell",
     ],
 )
 if code != 0:
@@ -1024,41 +1034,41 @@ if "Install Node" in captured or "No versions installed" in captured:
 code, text, _ = run_pty(
     [bin_path],
     base,
-    ["5\n", "2\n", "0\n", "0\n", "0\n"],
-    ["Settings", "Registry", "Show map", "(interactive guide)"],
+    ["5", "2", "1", "0"],
+    ["5  Settings", "npm registry & scopes", "Show map", "Running: nvm registry"],
 )
 if code != 0:
     raise SystemExit(f"registry menu exit {code}\n{text}")
 code, text, _ = run_pty(
     [bin_path],
     base,
-    ["5\n", "1\n", "1\n", "0\n", "0\n", "0\n"],
-    ["Settings", "Mirrors", "Use china", "(interactive guide)"],
+    ["5", "1", "2", "0"],
+    ["5  Settings", "Node download mirrors", "Use china", "Running: nvm mirror use china"],
 )
 if code != 0:
     raise SystemExit(f"mirror menu exit {code}\n{text}")
 code, text, _ = run_pty(
     [bin_path],
     base,
-    ["\x1b[B\r", "\x1b[D", "q"],
-    ["Install Node", "(interactive guide)"],
+    ["\x1b[B", "\x1b[D", "q"],
+    ["Install Node", "znvm — current"],
 )
-if code != 0 or ">  2  Install Node" not in text:
+if code != 0 or "Install Node" not in text or ("> 2  Install Node" not in text and ">  2  Install Node" not in text):
     raise SystemExit(f"arrow menu exit {code}\n{text}")
 code, text, _ = run_pty(
     [bin_path],
     base,
     ["j\r", "k\r", "q"],
-    ["Switch version", "Choose installed", "(interactive guide)"],
+    ["Switch version", "Choose installed version", "znvm — current"],
 )
 if code != 0:
     raise SystemExit(f"vim keys exit {code}\n{text}")
-code, text, _ = run_pty([bin_path], base, ["\x03"], ["(interactive guide)", "Cancelled"])
+code, text, _ = run_pty([bin_path], base, ["\x03"], ["znvm — current", "Cancelled"])
 if code != 130:
     raise SystemExit(f"ctrl-c exit {code}\n{text}")
 plain = dict(base)
 plain["NO_COLOR"] = "1"
-code, text, _ = run_pty([bin_path], plain, ["0\n"], [">  1  Install Node"])
+code, text, _ = run_pty([bin_path], plain, ["0"], [">  1  Install Node"])
 if code != 0 or "\x1b[1;7m" in text or "\x1b[7m" in text:
     raise SystemExit(f"NO_COLOR menu exit {code}\n{text}")
 colored = dict(base)
@@ -1092,11 +1102,17 @@ if code != 0 or "Install Node" in captured or "Install Node" in screen:
     raise SystemExit(f"stdout pipe exit {code}\n{screen}\nSTDOUT:\n{captured}")
 off = dict(base)
 off["NVM_NONINTERACTIVE"] = "0"
-code, text, _ = run_pty([bin_path], off, ["0\n"], ["Install Node"])
+code, text, _ = run_pty([bin_path], off, ["0"], ["Install Node"])
 if code != 0:
     raise SystemExit(f"NVM_NONINTERACTIVE=0 exit {code}\n{text}")
 print("pty guide ok")
 PY
+PTY_GUIDE_STATUS=$?
+set -e
+if [ "$PTY_GUIDE_STATUS" -ne 0 ]; then
+    echo "pty guide tests failed (exit $PTY_GUIDE_STATUS)" >&2
+    exit 1
+fi
 echo -e "    ${GREEN}✓${NC} interactive guide OK"
 
 echo "  Testing nvm non-TTY classic behavior..."
