@@ -55,6 +55,7 @@ if command -v zsh >/dev/null 2>&1; then
 fi
 
 INSTALLED_VER="$(nvm current)"
+nvm deactivate 2>/dev/null || nvm use system 2>/dev/null || true
 nvm uninstall "$NODE_VERSION"
 if [ -d "$NVM_DIR/versions/node/$INSTALLED_VER" ]; then
     echo "linux-smoke: uninstall left $INSTALLED_VER on disk" >&2

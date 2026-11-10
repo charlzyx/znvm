@@ -10,6 +10,8 @@ pub var mirror_quiet: bool = false;
 pub var nrm_quiet_sync: bool = false;
 pub var nrm_verbose_sync: bool = false;
 pub var nrm_cli: bool = false;
+/// When true, command failures print to stderr and return `error.GuideFailed` instead of exiting.
+pub var guide_mode: bool = false;
 
 pub fn truthy(value: ?[]const u8) bool {
     const raw = mem.trim(u8, value orelse return false, " \t");
@@ -115,6 +117,11 @@ pub fn jsonSupported(invoked_as_nrm: bool, argv: []const []const u8) bool {
 }
 
 pub fn fail(code: u8, message: []const u8) noreturn {
+    if (guide_mode and !json_mode) {
+        util.stderr("{s}\n", .{message}) catch {};
+        // guide callers use try agent.failGuide(...)
+        unreachable;
+    }
     if (json_mode) {
         var buf: [2048]u8 = undefined;
         const body = formatError(&buf, code, message) catch "{\"error\":\"failed\",\"exit\":1}";
@@ -123,6 +130,16 @@ pub fn fail(code: u8, message: []const u8) noreturn {
         util.stderr("{s}\n", .{message}) catch {};
     }
     std.process.exit(code);
+}
+
+pub const GuideFailed = error{GuideFailed};
+
+pub fn failGuide(code: u8, message: []const u8) error{GuideFailed}!noreturn {
+    if (guide_mode and !json_mode) {
+        util.stderr("{s}\n", .{message}) catch {};
+        return error.GuideFailed;
+    }
+    fail(code, message);
 }
 
 pub fn explain(message: []const u8) error{Explained} {

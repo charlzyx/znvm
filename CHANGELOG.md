@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+## [v2.11.0] - 2026-11-09
+
+### Changed
+
+- Interactive menu interaction: regrouped nvm guide (switch, install, set default, manage, settings), menu-local errors, no “press Enter” pause, q/Ctrl-D exit and Esc/Backspace up one level, immediate digit pick, destructive confirms default No, direct-binary activation hints instead of raw exports, reworked nrm menu (switch picker, test, add/delete, scopes).
+- Key handling: Backspace, Ctrl-D, and unambiguous single-digit picks in `select.zig`.
+
 ## [v2.10.3] - 2026-11-09
 
 ### Fixed

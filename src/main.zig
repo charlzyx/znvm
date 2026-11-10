@@ -12,7 +12,7 @@ const i18n = @import("i18n.zig");
 const stdout = util.stdout;
 const stderr = util.stderr;
 
-const ZNVM_VERSION = "v2.10.3";
+const ZNVM_VERSION = "v2.11.0";
 const agent = @import("agent.zig");
 
 fn writeToolVersion(allocator: mem.Allocator) !void {
@@ -97,7 +97,11 @@ pub fn main(init: process.Init.Minimal) !void {
         try guide.run(allocator, config, .session);
         return;
     } else if (mem.eql(u8, cmd, "--guide-step")) {
-        try guide.run(allocator, config, .step);
+        if (args.len >= 3) {
+            try guide.runStep(allocator, config, args[2]);
+        } else {
+            try guide.run(allocator, config, .step);
+        }
         return;
     } else if (mem.eql(u8, cmd, "lang") and args.len == 2) {
         try stdout("{s}\n", .{i18n.code()});
